@@ -1,0 +1,18 @@
+{
+  "name": "whatsapp-broadcast-manager",
+  "version": "1.0.0",
+  "description": "WhatsApp Broadcast & Marketing Automation Engine for OpticalManager SaaS",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm --prefix apps/backend run start:dev",
+    "dev:frontend": "npm --prefix apps/frontend run dev",
+    "build:backend": "npm --prefix apps/backend run build",
+    "build:frontend": "npm --prefix apps/frontend run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

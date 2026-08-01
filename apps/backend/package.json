@@ -1,0 +1,41 @@
+{
+  "name": "@opticalmanager/broadcast-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "build": "nest build",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@nestjs/bullmq": "^10.2.3",
+    "@nestjs/common": "^10.4.15",
+    "@nestjs/core": "^10.4.15",
+    "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/platform-socket.io": "^10.4.15",
+    "@nestjs/websockets": "^10.4.15",
+    "@whiskeysockets/baileys": "^6.7.18",
+    "bullmq": "^5.34.8",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "drizzle-orm": "^0.40.1",
+    "ioredis": "^5.4.2",
+    "pino": "^9.6.0",
+    "postgres": "^3.4.5",
+    "qrcode": "^1.5.4",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^10.4.9",
+    "@nestjs/schematics": "^10.2.3",
+    "@types/express": "^5.0.0",
+    "@types/node": "^20.17.14",
+    "@types/qrcode": "^1.5.5",
+    "drizzle-kit": "^0.31.1",
+    "typescript": "^5.7.3"
+  }
+}

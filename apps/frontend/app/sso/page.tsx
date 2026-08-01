@@ -1,0 +1,78 @@
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { verifySsoToken } from "@/lib/sso-verification";
+import Link from "next/link";
+import { ShieldAlert, CheckCircle2, Glasses, ArrowRight } from "lucide-react";
+
+interface SSOPageProps {
+  searchParams: Promise<{ token?: string }>;
+}
+
+export default async function SSOPage({ searchParams }: SSOPageProps) {
+  const params = await searchParams;
+  const token = params.token;
+
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 select-none">
+        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-8 text-center shadow-2xl backdrop-blur-xl space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">Direct Access Restricted</h1>
+            <p className="text-sm text-slate-400">
+              OpticalManager Broadcast must be launched directly from your OpticalManager CRM Owner Dashboard.
+            </p>
+          </div>
+          <a
+            href="https://www.opticalmanager.in/owner"
+            className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/20"
+          >
+            <span>Return to CRM Dashboard</span>
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  const result = verifySsoToken(token);
+
+  if (!result.success) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6 select-none">
+        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-8 text-center shadow-2xl backdrop-blur-xl space-y-5">
+          <div className="w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold tracking-tight text-white">SSO Authentication Failed</h1>
+            <p className="text-sm text-slate-400">
+              {result.error}
+            </p>
+          </div>
+          <a
+            href="https://www.opticalmanager.in/owner"
+            className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm transition-all shadow-lg shadow-indigo-600/20"
+          >
+            <span>Return to CRM Dashboard</span>
+            <ArrowRight className="w-4 h-4" />
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Set httpOnly session cookie and redirect to Broadcast Owner Dashboard
+  const cookieStore = await cookies();
+  cookieStore.set("broadcasting_session", JSON.stringify(result.session), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24, // 24 hours
+  });
+
+  redirect("/");
+}

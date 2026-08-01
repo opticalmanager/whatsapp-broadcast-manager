@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+
+# Next.js Build Output
+apps/frontend/.next/
+apps/frontend/out/
+apps/frontend/build/
+
+# NestJS Backend Build Output
+apps/backend/dist/
+apps/backend/build/
+
+# WhatsApp Baileys Auth Session Key Directory (DO NOT COMMIT SESSIONS)
+apps/backend/baileys_auth_info/
+apps/backend/sessions/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary Files
+scratch/
+tmp/
+.temp/

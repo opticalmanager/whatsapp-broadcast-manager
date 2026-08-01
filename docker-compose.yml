@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  broadcast-api:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    container_name: broadcast-api-server
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=postgres://postgres:postgres_secure_pass@postgres-db:5432/opticalmanager_broadcast
+      - REDIS_HOST=redis-cache
+      - REDIS_PORT=6379
+      - BROADCAST_SSO_SECRET=${BROADCAST_SSO_SECRET}
+    depends_on:
+      - postgres-db
+      - redis-cache
+
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: broadcast-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_secure_pass
+      POSTGRES_DB: opticalmanager_broadcast
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis-cache:
+    image: redis:7-alpine
+    container_name: broadcast-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres_data:
+  redis_data:
