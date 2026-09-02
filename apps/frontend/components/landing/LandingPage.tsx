@@ -3,7 +3,9 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { 
-  Send, 
+  Send,
+  Menu,
+  X, 
   Sparkles, 
   ShieldCheck, 
   Users, 
@@ -32,6 +34,7 @@ import { useAuth } from "@/lib/auth-context";
 export function LandingPage() {
   const { isAuthenticated } = useAuth();
   const [activeFaq, setActiveFaq] = useState<number | null>(0);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
 
   const triggerConfetti = () => {
     try {
