@@ -251,53 +251,56 @@ export class ChatService {
       const hasMore = chatRows.length > queryLimit;
       const slicedChatRows = hasMore ? chatRows.slice(0, queryLimit) : chatRows;
 
-      // 2. Fetch campaign broadcasts sent to this phone so original broadcast appears in timeline
-      const campaignBroadcasts = await this.db.sql`
-        SELECT 
-          cr.id as recipient_id,
-          cr.campaign_id,
-          cr.message_id,
-          cr.phone,
-          cr.name as recipient_name,
-          cr.status as recipient_status,
-          cr.sent_at,
-          cr.created_at,
-          c.name as campaign_name,
-          c.message_text,
-          c.media_url,
-          c.content_type,
-          c.poll_question,
-          c.action_buttons
-        FROM campaign_recipients cr
-        JOIN campaigns c ON c.id = cr.campaign_id
-        WHERE RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
-        ${before ? this.db.sql`AND COALESCE(cr.sent_at, cr.created_at) < ${before}::timestamptz` : this.db.sql``}
-        ORDER BY COALESCE(cr.sent_at, cr.created_at) DESC
-        LIMIT 20
-      `;
-
       const existingMsgIds = new Set(slicedChatRows.map((m: any) => m.message_id).filter(Boolean));
       const merged: any[] = [...slicedChatRows];
 
-      for (const cb of campaignBroadcasts || []) {
-        if (!cb.message_id || !existingMsgIds.has(cb.message_id)) {
-          merged.push({
-            id: `cmp_msg_${cb.campaign_id}_${cleanPhone10}`,
-            conversation_id: conversationId,
-            organization_id: orgId || "org-demo",
-            phone: cb.phone,
-            message_id: cb.message_id,
-            direction: "OUTGOING",
-            sender_name: "Broadcast",
-            message_type: cb.content_type || (cb.media_url ? "MEDIA" : "TEXT"),
-            content: cb.message_text || cb.poll_question || "Campaign Broadcast",
-            media_url: cb.media_url,
-            status: cb.recipient_status || "DELIVERED",
-            campaign_name: cb.campaign_name,
-            is_campaign_broadcast: true,
-            created_at: cb.sent_at || cb.created_at || new Date(),
-          });
-          if (cb.message_id) existingMsgIds.add(cb.message_id);
+      // 2. ONLY fetch campaign broadcast if a specific campaignId is requested (e.g. Campaign Reply Wizard)
+      if (campaignId) {
+        const campaignBroadcasts = await this.db.sql`
+          SELECT 
+            cr.id as recipient_id,
+            cr.campaign_id,
+            cr.message_id,
+            cr.phone,
+            cr.name as recipient_name,
+            cr.status as recipient_status,
+            cr.sent_at,
+            cr.created_at,
+            c.name as campaign_name,
+            c.message_text,
+            c.media_url,
+            c.content_type,
+            c.poll_question,
+            c.action_buttons
+          FROM campaign_recipients cr
+          JOIN campaigns c ON c.id = cr.campaign_id
+          WHERE cr.campaign_id = ${campaignId}
+            AND RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
+            AND cr.sent_at IS NOT NULL
+          ORDER BY COALESCE(cr.sent_at, cr.created_at) DESC
+          LIMIT 1
+        `;
+
+        for (const cb of campaignBroadcasts || []) {
+          if (!cb.message_id || !existingMsgIds.has(cb.message_id)) {
+            merged.push({
+              id: `cmp_msg_${cb.campaign_id}_${cleanPhone10}`,
+              conversation_id: conversationId,
+              organization_id: orgId || "org-demo",
+              phone: cb.phone,
+              message_id: cb.message_id,
+              direction: "OUTGOING",
+              sender_name: "Broadcast",
+              message_type: cb.content_type || (cb.media_url ? "MEDIA" : "TEXT"),
+              content: cb.message_text || cb.poll_question || "Campaign Broadcast",
+              media_url: cb.media_url,
+              status: cb.recipient_status || "DELIVERED",
+              campaign_name: cb.campaign_name,
+              is_campaign_broadcast: true,
+              created_at: cb.sent_at || cb.created_at || new Date(),
+            });
+            if (cb.message_id) existingMsgIds.add(cb.message_id);
+          }
         }
       }
 
@@ -368,12 +371,11 @@ export class ChatService {
       messageType: payload.messageType || (payload.mediaUrl ? "MEDIA" : "TEXT"),
       content: textToSend,
       mediaUrl: payload.mediaUrl,
-      status: "DELIVERED",
+      status: "SENT",
       quotedMessageId: payload.quotedMessageId,
       quotedContent: payload.quotedContent,
       quotedSender: payload.quotedSender,
       sentAt: new Date(),
-      deliveredAt: new Date(),
       createdAt: new Date(),
     };
 

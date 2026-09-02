@@ -1083,6 +1083,15 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
         }
 
         if (msgId && status !== undefined) {
+          const statusStr = status === 4 ? 'READ' : (status === 3 ? 'DELIVERED' : 'SENT');
+          this.db.sql`
+            UPDATE chat_messages
+            SET status = ${statusStr},
+                read_at = CASE WHEN ${status === 4} THEN NOW() ELSE read_at END,
+                delivered_at = CASE WHEN ${status >= 3} THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END
+            WHERE message_id = ${msgId} OR id = ${msgId}
+          `.catch(() => {});
+
           this.messageReceiptCallbacks.forEach((cb) => {
             try {
               cb(msgId, remoteJid, status!);
@@ -1158,6 +1167,16 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
         if (msgId && receipt) {
           const isRead = Boolean(receipt.readTimestamp || receipt.playedTimestamp || (receipt as any).read);
           const status = isRead ? 4 : (receipt.deliveryTimestamp ? 3 : 2);
+          const statusStr = isRead ? 'READ' : (receipt.deliveryTimestamp ? 'DELIVERED' : 'SENT');
+
+          this.db.sql`
+            UPDATE chat_messages
+            SET status = ${statusStr},
+                read_at = CASE WHEN ${isRead} THEN NOW() ELSE read_at END,
+                delivered_at = CASE WHEN ${status >= 3} THEN COALESCE(delivered_at, NOW()) ELSE delivered_at END
+            WHERE message_id = ${msgId} OR id = ${msgId}
+          `.catch(() => {});
+
           this.messageReceiptCallbacks.forEach((cb) => {
             try {
               cb(msgId, remoteJid, status);

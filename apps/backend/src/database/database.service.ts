@@ -398,6 +398,11 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         DELETE FROM public.unsubscribers 
         WHERE LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) > 13;
       `.catch(() => {});
+
+      await this.sql`
+        DELETE FROM public.chat_messages 
+        WHERE id LIKE 'cmp_msg_%' OR sender_name = 'Broadcast';
+      `.catch(() => {});
       await this.sql`CREATE INDEX IF NOT EXISTS idx_welcome_settings_org_inst ON public.welcome_message_settings (organization_id, instance_id);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_welcome_logs_org_phone ON public.welcome_message_logs (organization_id, phone);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_templates_org ON public.broadcast_templates (organization_id);`;

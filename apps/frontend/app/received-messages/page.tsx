@@ -8,6 +8,7 @@ import {
   Search,
   Send,
   Paperclip,
+  Check,
   CheckCheck,
   Trash2,
   Zap,
@@ -925,11 +926,21 @@ export default function ReceivedMessagesPage() {
                                 </p>
                               )}
 
-                              {/* Timestamp & Double Ticks */}
+                              {/* Timestamp & Dynamic Status Checkmarks */}
                               <div className="flex items-center justify-end gap-1 pt-0.5 text-[10px] font-mono text-slate-500 dark:text-slate-300/80">
                                 <span>{formatTime(msg.createdAt || msg.sentAt)}</span>
                                 {isOutgoing && (
-                                  <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
+                                  <span>
+                                    {msg.status === "READ" ? (
+                                      <span title="Read"><CheckCheck className="w-3.5 h-3.5 text-[#53bdeb]" /></span>
+                                    ) : msg.status === "DELIVERED" ? (
+                                      <span title="Delivered"><CheckCheck className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" /></span>
+                                    ) : msg.status === "FAILED" ? (
+                                      <span className="text-rose-500 font-bold text-[10px]" title="Failed to deliver">!</span>
+                                    ) : (
+                                      <span title="Sent"><Check className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" /></span>
+                                    )}
+                                  </span>
                                 )}
                               </div>
                             </div>
