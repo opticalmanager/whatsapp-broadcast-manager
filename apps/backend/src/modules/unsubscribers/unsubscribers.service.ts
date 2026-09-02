@@ -105,17 +105,17 @@ export class UnsubscribersService {
         const pattern = `%${search.trim()}%`;
         rows = await this.db.sql`
           SELECT * FROM public.unsubscribers
-          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo')
+          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL)
             AND (phone ILIKE ${pattern} OR name ILIKE ${pattern} OR trigger_keyword ILIKE ${pattern})
           ORDER BY unsubscribed_at DESC
-          LIMIT 200
+          LIMIT 300
         `;
       } else {
         rows = await this.db.sql`
           SELECT * FROM public.unsubscribers
-          WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo'
+          WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL
           ORDER BY unsubscribed_at DESC
-          LIMIT 200
+          LIMIT 300
         `;
       }
 
@@ -235,7 +235,7 @@ export class UnsubscribersService {
     try {
       const rows = await this.db.sql`
         SELECT phone FROM public.unsubscribers
-        WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo'
+        WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL
       `;
       (rows || []).forEach((r) => {
         if (r.phone) {

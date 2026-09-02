@@ -1428,22 +1428,27 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                     .filter(Boolean);
 
                   const incomingUpper = (responseValue || '').trim().toUpperCase();
-                  const matchedKeyword = keywords.find((k: string) => incomingUpper === k || incomingUpper.startsWith(k + ' '));
+                  const matchedKeyword = keywords.find((k: string) => incomingUpper === k || incomingUpper.startsWith(k + ' ') || incomingUpper.includes(k));
 
                   if (matchedKeyword) {
                     this.logger.log(`Opt-out keyword '${matchedKeyword}' detected from ${cleanPhone} on instance ${numberId}`);
                     const unsubId = `unsub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                    
+                    const effectiveOrgId = orgId && orgId !== "org_default" ? orgId : "org-demo";
                     await this.db.sql`
                       INSERT INTO public.unsubscribers (
                         id, organization_id, phone, name, trigger_keyword, instance_id, source, unsubscribed_at, created_at, updated_at
                       ) VALUES (
-                        ${unsubId}, ${orgId}, ${cleanPhone}, ${resolvedContactName || null}, ${matchedKeyword}, ${numberId}, 'AUTO_KEYWORD', NOW(), NOW(), NOW()
+                        ${unsubId}, ${effectiveOrgId}, ${cleanPhone}, ${resolvedContactName || null}, ${matchedKeyword}, ${numberId}, 'AUTO_KEYWORD', NOW(), NOW(), NOW()
                       )
                       ON CONFLICT (organization_id, phone) DO UPDATE SET
                         trigger_keyword = EXCLUDED.trigger_keyword,
+                        instance_id = COALESCE(EXCLUDED.instance_id, unsubscribers.instance_id),
                         unsubscribed_at = NOW(),
                         updated_at = NOW()
-                    `;
+                    `.catch((err) => {
+                      this.logger.warn(`Failed to insert unsubscriber ${cleanPhone}: ${err.message}`);
+                    });
 
                     // Update contacts tag to UNSUBSCRIBED
                     await this.db.sql`
@@ -1453,8 +1458,8 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                         WHEN NOT tags ? 'UNSUBSCRIBED' THEN tags || '["UNSUBSCRIBED"]'::jsonb
                         ELSE tags
                       END
-                      WHERE (organization_id = ${orgId} OR organization_id = 'org-demo')
-                        AND (phone = ${cleanPhone} OR phone = ${cleanPhone.slice(-10)})
+                      WHERE (organization_id = ${effectiveOrgId} OR organization_id = 'org-demo' OR organization_id = ${orgId})
+                        AND (phone = ${cleanPhone} OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanPhone.slice(-10)})
                     `.catch(() => {});
 
                     // Optional confirmation reply

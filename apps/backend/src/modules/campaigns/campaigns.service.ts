@@ -742,6 +742,14 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         status = "INVALID_NUMBER";
         failureCategory = "INVALID_NUMBER";
         r.errorMessage = r.errorMessage || (cleanPhone.length < 10 ? "Invalid phone number format (less than 10 digits)" : "Invalid Indian mobile number (only 9 digits)");
+      } else if (
+        r.errorMessage?.toLowerCase().includes("unsubscribed") || 
+        r.errorMessage?.toLowerCase().includes("opted out") || 
+        r.status === "SKIPPED_UNSUBSCRIBED"
+      ) {
+        status = "FAILED";
+        failureCategory = "UNSUBSCRIBED";
+        r.errorMessage = "Recipient opted out (Unsubscribed)";
       } else if (r.errorMessage?.toLowerCase().includes("not registered") || r.errorMessage?.toLowerCase().includes("non whatsapp") || r.status === "NON_WHATSAPP" || status === "NON_WHATSAPP") {
         status = "NON_WHATSAPP";
         failureCategory = "NON_WHATSAPP";
@@ -1262,11 +1270,13 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         const cleanDigits = (rec.phone || "").replace(/\D/g, "");
         if (unsubscribedPhones.has(cleanDigits) || (cleanDigits.length > 10 && unsubscribedPhones.has(cleanDigits.slice(-10)))) {
           this.logger.log(`Skipping broadcast for ${rec.phone} (Recipient is in Unsubscribers opt-out list)`);
-          rec.status = "SKIPPED_UNSUBSCRIBED" as any;
-          rec.errorMessage = "Recipient previously opted out (Unsubscribed)";
+          rec.status = "FAILED";
+          rec.errorMessage = "Recipient opted out (Unsubscribed)";
+          (rec as any).failureCategory = "UNSUBSCRIBED";
+          campaign.failedCount = (campaign.recipients || []).filter(r => r.status === "FAILED").length;
           this.db.sql`
             UPDATE campaign_recipients 
-            SET status = 'SKIPPED_UNSUBSCRIBED', error_message = 'Recipient previously opted out (Unsubscribed)'
+            SET status = 'FAILED', error_message = 'Recipient opted out (Unsubscribed)'
             WHERE id = ${rec.id}
           `.catch(() => {});
           this.saveToDisk();

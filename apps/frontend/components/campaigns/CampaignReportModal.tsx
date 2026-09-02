@@ -141,6 +141,7 @@ export default function CampaignReportModal({ campaignId, campaignName, onClose 
   };
 
   useEffect(() => {
+    setData(null);
     fetchReport();
   }, [campaignId]);
 

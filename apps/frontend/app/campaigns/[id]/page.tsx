@@ -195,14 +195,14 @@ export default function CampaignReportFullPage() {
   const fetchReport = async (isInitial = false) => {
     if (!campaignId) return;
     try {
-      if (isInitial && !data) setLoading(true);
+      if (isInitial) setLoading(true);
       const headers = getAuthHeaders();
       const res = await fetch(`${backendUrl}/api/v1/campaigns/${campaignId}/report`, { headers });
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {
           setData((prev) => {
-            if (!prev) return json.data;
+            if (!prev || prev.campaign?.id !== json.data?.campaign?.id) return json.data;
             if (
               prev.kpis.sentCount === json.data.kpis.sentCount &&
               prev.kpis.deliveredCount === json.data.kpis.deliveredCount &&
@@ -228,17 +228,16 @@ export default function CampaignReportFullPage() {
   };
 
   useEffect(() => {
+    setData(null);
+    setLoading(true);
     fetchReport(true);
 
-    // Only poll periodically if campaign is active/processing
+    // Poll periodically for live status updates
     const interval = setInterval(() => {
-      if (data?.campaign?.status === "PROCESSING" || data?.campaign?.status === "SCHEDULED") {
-        fetchReport(false);
-      }
-    }, 10000);
-
+      fetchReport(false);
+    }, 2500);
     return () => clearInterval(interval);
-  }, [campaignId, isAuthenticated, data?.campaign?.status]);
+  }, [campaignId]);
 
   // Actions
   const handleAddToSenderList = async (filterType: "ALL" | "FAILED" = "ALL") => {
