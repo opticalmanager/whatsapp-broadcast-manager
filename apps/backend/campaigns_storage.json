@@ -1,5 +1,39 @@
 [
   {
+    "id": "cmp-1788336939747",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/02, 01:45 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T08:15:39.747Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788336939730",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB06F95AB92A919EA6482",
+        "status": "READ",
+        "sentAt": "2026-09-02T08:15:43.046Z",
+        "deliveredAt": "2026-09-02T08:15:59.412Z",
+        "readAt": "2026-09-02T08:16:57.228Z",
+        "replyText": "Ding ding",
+        "repliedAt": "2026-09-02T09:12:47.625Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T08:15:39.996Z",
+    "contentType": "text",
+    "messageType": "Text"
+  },
+  {
     "id": "cmp-1788335362632",
     "organizationId": "org-68ff663e674769f3",
     "shopId": "shop-main",
@@ -1906,49 +1940,5 @@
     ],
     "messageText": "Hello {{customer_name}},\n\nExclusive Festival Offer from {{shop_name}}! Upgrade your eyewear this season with 20% OFF on premium prescription lenses & frames.\n\nUse code {{voucher_code}} at checkout!",
     "createdAt": "2026-08-29T14:36:36.661Z"
-  },
-  {
-    "id": "cmp-1788336939747",
-    "organizationId": "org-68ff663e674769f3",
-    "shopId": "shop-main",
-    "whatsappNumberId": "inst_mth6ammj_jwnd",
-    "templateId": "tpl-custom",
-    "name": "Campaign 09/02, 01:45 PM",
-    "targetAudienceType": "Paste",
-    "audienceNames": [
-      "Selected Audiences"
-    ],
-    "scheduledAt": "2026-09-02T08:15:39.747Z",
-    "status": "COMPLETED",
-    "totalRecipients": 1,
-    "sentCount": 1,
-    "deliveredCount": 1,
-    "readCount": 1,
-    "failedCount": 0,
-    "recipients": [
-      {
-        "id": "pst_0_1788336939730",
-        "phone": "918178962366",
-        "name": "Recipient 1",
-        "status": "READ",
-        "messageId": "3EB06F95AB92A919EA6482",
-        "sentAt": "2026-09-02T08:15:42.787Z",
-        "deliveredAt": "2026-09-02T08:15:42.787Z",
-        "readAt": "2026-09-02T08:16:00.369Z",
-        "replyText": "Chup",
-        "repliedAt": "2026-09-02T08:16:58.181Z"
-      }
-    ],
-    "messageText": "{Hello|Hi|Hey|Dear} ",
-    "createdAt": "2026-09-02T08:15:39.747Z",
-    "warmupRamp": true,
-    "batchSize": 5,
-    "batchPause": 60,
-    "sendFromInstances": [
-      "inst_mth6ammj_jwnd"
-    ],
-    "textWithMediaMode": "caption",
-    "contentType": "text",
-    "messageType": "Text"
   }
 ]
