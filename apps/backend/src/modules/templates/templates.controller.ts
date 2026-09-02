@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException } from "@nestjs/common";
 import { TemplatesService } from "./templates.service";
 import { AuthService } from "../auth/auth.service";
 import { IsNotEmpty, IsString, IsEnum, IsOptional } from "class-validator";
@@ -49,7 +49,7 @@ export class TemplatesController {
 
   private extractSession(authHeader?: string) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { organizationId: "org-demo", role: "OWNER" };
+      throw new UnauthorizedException("Missing authentication token.");
     }
     const token = authHeader.replace("Bearer ", "");
     return this.authService.validateSsoToken(token);

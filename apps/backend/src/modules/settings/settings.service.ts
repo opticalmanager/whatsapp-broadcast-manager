@@ -70,7 +70,7 @@ export class SettingsService {
           delivery_window_start,
           delivery_window_end
         FROM public.broadcast_settings
-        WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo'
+        WHERE organization_id = ${effectiveOrg}
         ORDER BY updated_at DESC
         LIMIT 1
       `;

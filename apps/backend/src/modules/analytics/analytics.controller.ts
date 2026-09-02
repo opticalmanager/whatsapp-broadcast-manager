@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Headers } from "@nestjs/common";
+import { Controller, Get, Param, Headers, UnauthorizedException } from "@nestjs/common";
 import { AnalyticsService } from "./analytics.service";
 import { AuthService } from "../auth/auth.service";
 
@@ -11,7 +11,7 @@ export class AnalyticsController {
 
   private extractSession(authHeader?: string) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { organizationId: "org-demo", role: "OWNER" };
+      throw new UnauthorizedException("Missing authentication token.");
     }
     const token = authHeader.replace("Bearer ", "");
     return this.authService.validateSsoToken(token);

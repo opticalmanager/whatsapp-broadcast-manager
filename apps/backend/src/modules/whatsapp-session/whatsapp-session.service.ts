@@ -478,7 +478,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
         SET min_delay_seconds = ${minDelay},
             max_delay_seconds = ${maxDelay},
             updated_at = NOW()
-        WHERE id = ${instanceId} AND (organization_id = ${orgId || 'org-demo'} OR organization_id = 'org-demo')
+        WHERE id = ${instanceId} AND organization_id = ${orgId}
       `;
       this.logger.log(`Updated anti-ban delay settings for ${instanceId}: ${minDelay}s - ${maxDelay}s`);
     } catch (err: any) {

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Headers, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Delete, Body, Param, Headers, HttpCode, HttpStatus, UnauthorizedException } from "@nestjs/common";
 import { CampaignsService } from "./campaigns.service";
 import { AuthService } from "../auth/auth.service";
 import { IsNotEmpty, IsString, IsArray, IsOptional, IsBoolean, IsNumber } from "class-validator";
@@ -149,14 +149,10 @@ export class CampaignsController {
 
   private extractSession(authHeader?: string) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { organizationId: "org-demo", role: "OWNER" };
+      throw new UnauthorizedException("Missing authentication token.");
     }
     const token = authHeader.replace("Bearer ", "");
-    try {
-      return this.authService.validateSsoToken(token);
-    } catch {
-      return { organizationId: "org-demo", role: "OWNER" };
-    }
+    return this.authService.validateSsoToken(token);
   }
 
   @Get()

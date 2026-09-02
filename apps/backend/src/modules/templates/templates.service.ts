@@ -169,7 +169,7 @@ export class TemplatesService implements OnModuleInit {
     const rows = await this.db.sql`
       SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
       FROM broadcast_templates
-      WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE organization_id = ${effectiveOrg}
       ORDER BY updated_at DESC
     `;
 
@@ -208,7 +208,7 @@ export class TemplatesService implements OnModuleInit {
     const rows = await this.db.sql`
       SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
       FROM broadcast_templates
-      WHERE id = ${id} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ${id} AND organization_id = ${effectiveOrg}
       LIMIT 1
     `;
     if (!rows || rows.length === 0) {
@@ -312,7 +312,7 @@ export class TemplatesService implements OnModuleInit {
         icon = COALESCE(${data.icon || null}, icon),
         variables = COALESCE(${varsJson ? varsJson : null}::jsonb, variables),
         updated_at = NOW()
-      WHERE id = ${id} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ${id} AND organization_id = ${effectiveOrg}
     `;
 
     return this.findOne(effectiveOrg, id);
@@ -339,7 +339,7 @@ export class TemplatesService implements OnModuleInit {
     const effectiveOrg = orgId || "org-demo";
     await this.db.sql`
       DELETE FROM broadcast_templates
-      WHERE id = ${id} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ${id} AND organization_id = ${effectiveOrg}
     `;
     return { success: true, message: "Template deleted successfully." };
   }

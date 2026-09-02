@@ -556,11 +556,12 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   }
 
   findAll(orgId: string): CampaignItem[] {
+    const effectiveOrg = orgId || "org-demo";
     const list = Array.from(this.campaignsStore.values()).filter(
       (c) =>
         c.createdAt &&
         new Date(c.createdAt).getFullYear() >= 2026 &&
-        (!orgId || orgId === "" || orgId === "org-demo" || !c.organizationId || c.organizationId === "org-demo" || c.organizationId === orgId)
+        c.organizationId === effectiveOrg
     );
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, UnauthorizedException } from "@nestjs/common";
 import { ContactsService } from "./contacts.service";
 import { AuthService } from "../auth/auth.service";
 import { IsNotEmpty, IsString, IsOptional, IsArray } from "class-validator";
@@ -116,14 +116,12 @@ export class ContactsController {
   ) {}
 
   private getOrgId(authHeader?: string): { orgId: string; shopId: string } {
-    if (!authHeader) return { orgId: "org-demo", shopId: "main-outlet" };
-    try {
-      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      const session = this.authService.validateSsoToken(token);
-      return { orgId: session.organizationId, shopId: session.shopId || "main-outlet" };
-    } catch {
-      return { orgId: "org-demo", shopId: "main-outlet" };
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new UnauthorizedException("Missing authentication token.");
     }
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const session = this.authService.validateSsoToken(token);
+    return { orgId: session.organizationId, shopId: session.shopId || "main-outlet" };
   }
 
   @Post("upload-csv")

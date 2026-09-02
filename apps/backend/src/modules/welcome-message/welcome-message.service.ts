@@ -236,7 +236,7 @@ export class WelcomeMessageService implements OnModuleInit {
     try {
       const priorLogs = await this.db.sql`
         SELECT id FROM public.welcome_message_logs
-        WHERE (organization_id = ${orgId} OR organization_id = 'org-demo')
+        WHERE organization_id = ${orgId}
           AND (phone = ${cleanPhone} OR phone = ${cleanPhone.slice(-10)} OR phone = ${'+' + cleanPhone})
         LIMIT 1
       `;
@@ -248,7 +248,7 @@ export class WelcomeMessageService implements OnModuleInit {
       // 3. Check chat conversation history (If more than 1 incoming message, this is a returning contact)
       const chatHistory = await this.db.sql`
         SELECT COUNT(*) as count FROM public.chat_messages
-        WHERE (organization_id = ${orgId} OR organization_id = 'org-demo')
+        WHERE organization_id = ${orgId}
           AND (phone = ${cleanPhone} OR phone = ${cleanPhone.slice(-10)})
       `;
       if (chatHistory && Number(chatHistory[0]?.count) > 1) {
@@ -259,7 +259,7 @@ export class WelcomeMessageService implements OnModuleInit {
       // 4. Check unsubscribers list
       const unsubCheck = await this.db.sql`
         SELECT id FROM public.unsubscribers
-        WHERE (organization_id = ${orgId} OR organization_id = 'org-demo')
+        WHERE organization_id = ${orgId}
           AND (phone = ${cleanPhone} OR phone = ${cleanPhone.slice(-10)})
         LIMIT 1
       `;
@@ -390,7 +390,7 @@ export class WelcomeMessageService implements OnModuleInit {
         rows = await this.db.sql`
           SELECT id, phone, name, instance_id, sent_at, status
           FROM public.welcome_message_logs
-          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo')
+          WHERE organization_id = ${effectiveOrg}
             AND instance_id = ${instanceId}
           ORDER BY sent_at DESC
           LIMIT 100
@@ -399,7 +399,7 @@ export class WelcomeMessageService implements OnModuleInit {
         rows = await this.db.sql`
           SELECT id, phone, name, instance_id, sent_at, status
           FROM public.welcome_message_logs
-          WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo'
+          WHERE organization_id = ${effectiveOrg}
           ORDER BY sent_at DESC
           LIMIT 100
         `;

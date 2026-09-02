@@ -181,7 +181,7 @@ export class ContactsService {
       rows = await this.db.sql`
         SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
         FROM contacts
-        WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+        WHERE organization_id = ${effectiveOrg}
           AND (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
           AND tags @> ${JSON.stringify([tag])}::jsonb
         ORDER BY updated_at DESC
@@ -191,7 +191,7 @@ export class ContactsService {
       rows = await this.db.sql`
         SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
         FROM contacts
-        WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+        WHERE organization_id = ${effectiveOrg}
           AND (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
         ORDER BY updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -200,7 +200,7 @@ export class ContactsService {
       rows = await this.db.sql`
         SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
         FROM contacts
-        WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+        WHERE organization_id = ${effectiveOrg}
           AND tags @> ${JSON.stringify([tag])}::jsonb
         ORDER BY updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
@@ -209,14 +209,14 @@ export class ContactsService {
       rows = await this.db.sql`
         SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
         FROM contacts
-        WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+        WHERE organization_id = ${effectiveOrg}
         ORDER BY updated_at DESC
         LIMIT ${limit} OFFSET ${offset}
       `;
     }
 
     const countRes = await this.db.sql`
-      SELECT COUNT(*)::int as total FROM contacts WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      SELECT COUNT(*)::int as total FROM contacts WHERE organization_id = ${effectiveOrg}
     `;
     const total = countRes[0]?.total || 0;
 
@@ -307,7 +307,7 @@ export class ContactsService {
         dob = COALESCE(${data.dob || null}, dob),
         tags = COALESCE(${tagsJson}::jsonb, tags),
         updated_at = NOW()
-      WHERE id = ${id} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ${id} AND organization_id = ${effectiveOrg}
     `;
 
     return { success: true, message: "Contact updated successfully." };
@@ -316,7 +316,7 @@ export class ContactsService {
   async delete(orgId: string, contactId: string) {
     const effectiveOrg = orgId || "org-demo";
     await this.db.sql`
-      DELETE FROM contacts WHERE id = ${contactId} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      DELETE FROM contacts WHERE id = ${contactId} AND organization_id = ${effectiveOrg}
     `;
     return { success: true, message: "Contact deleted successfully." };
   }
@@ -328,7 +328,7 @@ export class ContactsService {
     const effectiveOrg = orgId || "org-demo";
     await this.db.sql`
       DELETE FROM contacts 
-      WHERE id = ANY(${contactIds}) AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ANY(${contactIds}) AND organization_id = ${effectiveOrg}
     `;
     return { success: true, message: `Deleted ${contactIds.length} contact(s).`, count: contactIds.length };
   }
@@ -348,7 +348,7 @@ export class ContactsService {
           FROM jsonb_array_elements_text(COALESCE(tags, '[]'::jsonb) || ${JSON.stringify([cleanTag])}::jsonb) AS elem
         ),
         updated_at = NOW()
-      WHERE id = ANY(${contactIds}) AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ANY(${contactIds}) AND organization_id = ${effectiveOrg}
     `;
 
     return { success: true, message: `Applied tag "${cleanTag}" to ${contactIds.length} contact(s).`, count: contactIds.length };
@@ -370,7 +370,7 @@ export class ContactsService {
           WHERE elem <> ${cleanTag}
         ), '[]'::jsonb),
         updated_at = NOW()
-      WHERE id = ANY(${contactIds}) AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ANY(${contactIds}) AND organization_id = ${effectiveOrg}
     `;
 
     return { success: true, message: `Removed tag "${cleanTag}" from ${contactIds.length} contact(s).`, count: contactIds.length };
@@ -380,7 +380,7 @@ export class ContactsService {
     const effectiveOrg = orgId || "org-demo";
     
     const rows = await this.db.sql`
-      SELECT tags FROM contacts WHERE id = ${contactId} LIMIT 1
+      SELECT tags FROM contacts WHERE id = ${contactId} AND organization_id = ${effectiveOrg} LIMIT 1
     `;
     if (!rows || rows.length === 0) {
       throw new NotFoundException("Contact not found.");
@@ -399,7 +399,7 @@ export class ContactsService {
     await this.db.sql`
       UPDATE contacts
       SET tags = ${JSON.stringify(tagsList)}::jsonb, updated_at = NOW()
-      WHERE id = ${contactId}
+      WHERE id = ${contactId} AND organization_id = ${effectiveOrg}
     `;
 
     return { success: true, tags: tagsList };
@@ -410,7 +410,7 @@ export class ContactsService {
     const rows = await this.db.sql`
       SELECT DISTINCT jsonb_array_elements_text(tags) as tag
       FROM contacts
-      WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE organization_id = ${effectiveOrg}
     `;
     const defaultPipeline = ["Lead", "Interested", "Customer", "Lost"];
     const dbTags = rows.map((r) => r.tag).filter(Boolean);

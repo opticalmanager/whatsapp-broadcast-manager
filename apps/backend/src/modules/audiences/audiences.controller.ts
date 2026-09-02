@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers } from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, UnauthorizedException } from "@nestjs/common";
 import { AudiencesService, AudienceFilterCriteria } from "./audiences.service";
 import { AuthService } from "../auth/auth.service";
 import { IsNotEmpty, IsString, IsOptional, IsArray, IsObject } from "class-validator";
@@ -61,14 +61,11 @@ export class AudiencesController {
   ) {}
 
   private getOrgId(authHeader?: string): string {
-    if (!authHeader) return "org-demo";
-    try {
-      const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-      const session = this.authService.validateSsoToken(token);
-      return session.organizationId;
-    } catch {
-      return "org-demo";
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new UnauthorizedException("Missing authentication token.");
     }
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    return this.authService.validateSsoToken(token).organizationId;
   }
 
   @Post("preview")

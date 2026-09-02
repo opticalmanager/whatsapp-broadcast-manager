@@ -187,7 +187,7 @@ export class ChatService {
               ORDER BY cr2.created_at DESC NULLS LAST LIMIT 1
             ) as campaign_name
           FROM chat_conversations cc
-          WHERE (cc.organization_id = ${effectiveOrg} OR cc.organization_id = 'org-demo' OR cc.organization_id IS NOT NULL)
+          WHERE cc.organization_id = ${effectiveOrg}
           ${instanceId && instanceId !== "ALL" ? this.db.sql`AND cc.instance_id = ${instanceId}` : this.db.sql``}
           ${filter === "unread" ? this.db.sql`AND cc.unread_count > 0` : this.db.sql``}
           ${filter === "awaiting_reply" ? this.db.sql`AND (cc.status = 'AWAITING_REPLY' OR cc.last_message_direction = 'INCOMING')` : this.db.sql``}
@@ -227,6 +227,7 @@ export class ChatService {
     try {
       const cleanPhone10 = (conversationId || "").replace(/\D/g, "").slice(-10);
       const queryLimit = Math.min(Math.max(limit, 10), 100);
+      const effectiveOrg = orgId || "org-demo";
 
       // 1. Fetch direct chat messages for this contact (reverse order for pagination)
       const chatRows = await this.db.sql`
@@ -240,7 +241,8 @@ export class ChatService {
             ORDER BY cr.created_at DESC NULLS LAST LIMIT 1
           ) as campaign_name
         FROM chat_messages cm
-        WHERE (cm.conversation_id = ${conversationId}
+        WHERE cm.organization_id = ${effectiveOrg}
+          AND (cm.conversation_id = ${conversationId}
            OR RIGHT(REGEXP_REPLACE(cm.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
            OR cm.conversation_id LIKE ${'%' + cleanPhone10})
         ${before ? this.db.sql`AND cm.created_at < ${before}::timestamptz` : this.db.sql``}
@@ -275,6 +277,7 @@ export class ChatService {
           FROM campaign_recipients cr
           JOIN campaigns c ON c.id = cr.campaign_id
           WHERE cr.campaign_id = ${campaignId}
+            AND cr.organization_id = ${effectiveOrg}
             AND RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
             AND cr.sent_at IS NOT NULL
           ORDER BY COALESCE(cr.sent_at, cr.created_at) DESC
@@ -440,6 +443,7 @@ export class ChatService {
         UPDATE chat_conversations
         SET unread_count = 0, updated_at = NOW()
         WHERE (id = ${conversationId} OR RIGHT(phone, 10) = ${conversationId.slice(-10)})
+          AND organization_id = ${effectiveOrg}
       `;
       this.gateway.emitConversationUpdated(effectiveOrg, {
         conversationId,
@@ -456,12 +460,14 @@ export class ChatService {
     try {
       await this.db.sql`
         DELETE FROM chat_messages 
-        WHERE conversation_id = ${conversationId} OR RIGHT(phone, 10) = ${conversationId.slice(-10)}
+        WHERE (conversation_id = ${conversationId} OR RIGHT(phone, 10) = ${conversationId.slice(-10)})
+          AND organization_id = ${effectiveOrg}
       `;
       await this.db.sql`
         UPDATE chat_conversations
         SET last_message = '', unread_count = 0, updated_at = NOW()
-        WHERE id = ${conversationId} OR RIGHT(phone, 10) = ${conversationId.slice(-10)}
+        WHERE (id = ${conversationId} OR RIGHT(phone, 10) = ${conversationId.slice(-10)})
+          AND organization_id = ${effectiveOrg}
       `;
       return true;
     } catch {
@@ -474,14 +480,14 @@ export class ChatService {
     try {
       if (instanceId && instanceId !== "ALL") {
         await this.db.sql`
-          DELETE FROM chat_messages WHERE instance_id = ${instanceId}
+          DELETE FROM chat_messages WHERE instance_id = ${instanceId} AND organization_id = ${effectiveOrg}
         `;
         await this.db.sql`
-          DELETE FROM chat_conversations WHERE instance_id = ${instanceId}
+          DELETE FROM chat_conversations WHERE instance_id = ${instanceId} AND organization_id = ${effectiveOrg}
         `;
       } else {
-        await this.db.sql`DELETE FROM chat_messages`;
-        await this.db.sql`DELETE FROM chat_conversations`;
+        await this.db.sql`DELETE FROM chat_messages WHERE organization_id = ${effectiveOrg}`;
+        await this.db.sql`DELETE FROM chat_conversations WHERE organization_id = ${effectiveOrg}`;
       }
       return true;
     } catch {

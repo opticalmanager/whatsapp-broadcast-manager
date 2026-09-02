@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   Headers,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
 import { AuthService } from "../auth/auth.service";
@@ -20,7 +21,7 @@ export class ChatController {
 
   private extractSession(authHeader?: string) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { organizationId: "org-demo", role: "OWNER", email: "owner@opticalmanager.in" };
+      throw new UnauthorizedException("Missing authentication token.");
     }
     const token = authHeader.replace("Bearer ", "");
     return this.authService.validateSsoToken(token);

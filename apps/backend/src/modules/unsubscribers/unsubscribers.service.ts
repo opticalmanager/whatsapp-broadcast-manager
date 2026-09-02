@@ -105,7 +105,7 @@ export class UnsubscribersService {
         const pattern = `%${search.trim()}%`;
         rows = await this.db.sql`
           SELECT * FROM public.unsubscribers
-          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL)
+          WHERE organization_id = ${effectiveOrg}
             AND LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) BETWEEN 10 AND 13
             AND (phone ILIKE ${pattern} OR name ILIKE ${pattern} OR trigger_keyword ILIKE ${pattern})
           ORDER BY unsubscribed_at DESC
@@ -114,7 +114,7 @@ export class UnsubscribersService {
       } else {
         rows = await this.db.sql`
           SELECT * FROM public.unsubscribers
-          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL)
+          WHERE organization_id = ${effectiveOrg}
             AND LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) BETWEEN 10 AND 13
           ORDER BY unsubscribed_at DESC
           LIMIT 300
@@ -176,7 +176,7 @@ export class UnsubscribersService {
             WHEN NOT tags ? 'UNSUBSCRIBED' THEN tags || '["UNSUBSCRIBED"]'::jsonb
             ELSE tags
           END
-          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo')
+          WHERE organization_id = ${effectiveOrg}
             AND (phone = ${cleanPhone} OR phone = ${cleanPhone.slice(-10)})
         `;
       } catch {}
@@ -205,12 +205,12 @@ export class UnsubscribersService {
     try {
       // Find phone before deletion to remove tag from contacts
       const rows = await this.db.sql`
-        SELECT phone FROM public.unsubscribers WHERE id = ${id} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo') LIMIT 1
+        SELECT phone FROM public.unsubscribers WHERE id = ${id} AND organization_id = ${effectiveOrg} LIMIT 1
       `;
 
       await this.db.sql`
         DELETE FROM public.unsubscribers
-        WHERE id = ${id} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo')
+        WHERE id = ${id} AND organization_id = ${effectiveOrg}
       `;
 
       if (rows && rows.length > 0 && rows[0].phone) {
@@ -218,7 +218,7 @@ export class UnsubscribersService {
         await this.db.sql`
           UPDATE public.contacts
           SET tags = tags - 'UNSUBSCRIBED'
-          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo')
+          WHERE organization_id = ${effectiveOrg}
             AND (phone = ${phone} OR phone = ${phone.slice(-10)})
         `.catch(() => {});
       }
@@ -237,7 +237,7 @@ export class UnsubscribersService {
     try {
       const rows = await this.db.sql`
         SELECT phone FROM public.unsubscribers
-        WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL
+        WHERE organization_id = ${effectiveOrg}
       `;
       (rows || []).forEach((r) => {
         if (r.phone) {

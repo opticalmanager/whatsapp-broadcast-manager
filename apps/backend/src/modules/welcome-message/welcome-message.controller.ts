@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, Headers } from "@nestjs/common";
+import { Controller, Get, Post, Body, Query, Headers, UnauthorizedException } from "@nestjs/common";
 import { WelcomeMessageService, WelcomeMessageSettings } from "./welcome-message.service";
 import { AuthService } from "../auth/auth.service";
 
@@ -10,14 +10,11 @@ export class WelcomeMessageController {
   ) {}
 
   private getOrgId(authHeader?: string): string {
-    if (!authHeader) return "org-demo";
-    try {
-      const token = authHeader.replace(/^Bearer\\s+/i, "").trim();
-      const session = this.authService.validateSsoToken(token);
-      return session.organizationId;
-    } catch {
-      return "org-demo";
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      throw new UnauthorizedException("Missing authentication token.");
     }
+    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+    return this.authService.validateSsoToken(token).organizationId;
   }
 
   @Get("settings")

@@ -72,7 +72,7 @@ export class AudiencesService {
     const rows = await this.db.sql`
       SELECT id, phone, name, email, city, dob, tags
       FROM contacts
-      WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE organization_id = ${effectiveOrg}
     `;
 
     return rows.filter((c: any) => {
@@ -162,7 +162,7 @@ export class AudiencesService {
     const recent = await this.db.sql`
       SELECT id, name, contact_count as "contactCount", filter_criteria as "filterCriteria"
       FROM audience_segments
-      WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE organization_id = ${effectiveOrg}
         AND name = ${segmentName}
         AND created_at > NOW() - INTERVAL '10 seconds'
       LIMIT 1
@@ -281,7 +281,7 @@ export class AudiencesService {
         s.created_at as "createdAt",
         s.updated_at as "updatedAt"
       FROM audience_segments s
-      WHERE (s.organization_id = ${effectiveOrg} OR s.organization_id = 'org-demo' OR s.organization_id IS NOT NULL)
+      WHERE s.organization_id = ${effectiveOrg}
       ORDER BY s.created_at DESC
     `;
 
@@ -302,7 +302,7 @@ export class AudiencesService {
         s.created_at as "createdAt",
         s.updated_at as "updatedAt"
       FROM audience_segments s
-      WHERE s.id = ${audienceId} AND (s.organization_id = ${effectiveOrg} OR s.organization_id = 'org-demo' OR s.organization_id IS NOT NULL)
+      WHERE s.id = ${audienceId} AND s.organization_id = ${effectiveOrg}
       LIMIT 1
     `;
     if (!rows || rows.length === 0) {
@@ -332,7 +332,7 @@ export class AudiencesService {
       FROM audience_members m
       JOIN contacts c ON m.contact_id = c.id
       WHERE m.audience_id = ${audienceId}
-        AND (c.organization_id = ${effectiveOrg} OR c.organization_id = 'org-demo' OR c.organization_id IS NOT NULL)
+        AND c.organization_id = ${effectiveOrg}
       ORDER BY m.created_at DESC
       LIMIT ${limit} OFFSET ${offset}
     `;
@@ -342,7 +342,7 @@ export class AudiencesService {
       const segRows = await this.db.sql`
         SELECT id, name, filter_criteria as "filterCriteria", contact_count as "contactCount"
         FROM audience_segments
-        WHERE id = ${audienceId}
+        WHERE id = ${audienceId} AND organization_id = ${effectiveOrg}
         LIMIT 1
       `;
 
@@ -364,7 +364,7 @@ export class AudiencesService {
           matching = await this.db.sql`
             SELECT id, phone, name, email, city, dob, tags, created_at as "addedAt"
             FROM contacts
-            WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+            WHERE organization_id = ${effectiveOrg}
             LIMIT ${seg.contactCount || 100}
           `;
         }
@@ -383,7 +383,7 @@ export class AudiencesService {
 
         // Update contact count
         await this.db.sql`
-          UPDATE audience_segments SET contact_count = ${matching.length} WHERE id = ${audienceId}
+          UPDATE audience_segments SET contact_count = ${matching.length} WHERE id = ${audienceId} AND organization_id = ${effectiveOrg}
         `;
 
         rows = matching.slice(offset, offset + limit);
@@ -427,7 +427,7 @@ export class AudiencesService {
         description = COALESCE(${data.description || null}, description),
         filter_criteria = COALESCE(${data.filterCriteria ? JSON.stringify(data.filterCriteria) : null}::jsonb, filter_criteria),
         updated_at = NOW()
-      WHERE id = ${audienceId} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)
+      WHERE id = ${audienceId} AND organization_id = ${effectiveOrg}
     `;
 
     // If filterCriteria updated, refresh members
@@ -445,7 +445,7 @@ export class AudiencesService {
         } catch {}
       }
       await this.db.sql`
-        UPDATE audience_segments SET contact_count = ${matching.length} WHERE id = ${audienceId}
+        UPDATE audience_segments SET contact_count = ${matching.length} WHERE id = ${audienceId} AND organization_id = ${effectiveOrg}
       `;
     }
 
@@ -456,7 +456,7 @@ export class AudiencesService {
   async delete(orgId: string, audienceId: string) {
     const effectiveOrg = orgId || "org-demo";
     await this.db.sql`DELETE FROM audience_members WHERE audience_id = ${audienceId}`;
-    await this.db.sql`DELETE FROM audience_segments WHERE id = ${audienceId} AND (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id IS NOT NULL)`;
+    await this.db.sql`DELETE FROM audience_segments WHERE id = ${audienceId} AND organization_id = ${effectiveOrg}`;
     return { success: true, message: "Segment deleted successfully." };
   }
 }

@@ -70,7 +70,7 @@ export class WhatsAppNumbersController {
 
   private extractSession(authHeader?: string) {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { organizationId: "org-demo", role: "OWNER", email: "owner@opticalmanager.in" };
+      throw new UnauthorizedException("Missing authentication token.");
     }
     const token = authHeader.replace("Bearer ", "");
     return this.authService.validateSsoToken(token);
