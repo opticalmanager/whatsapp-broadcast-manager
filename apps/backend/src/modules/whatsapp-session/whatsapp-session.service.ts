@@ -94,6 +94,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   public incomingResponseCallbacks: Array<(event: IncomingResponseEvent) => void> = [];
   public pollTrackers: Map<string, TrackedPoll> = new Map();
   public lidToPhoneMap: Map<string, string> = new Map();
+  public phoneToPushNameMap: Map<string, string> = new Map();
 
   public onIncomingMessage(cb: (instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void) {
     this.incomingMessageCallbacks.push(cb);
@@ -973,6 +974,63 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
         return id;
       }
     }
+    return null;
+  }
+
+  /**
+   * Resolves recipient's authentic WhatsApp push name from memory, chats, or contacts
+   */
+  async getResolvedPushName(phone: string, orgId?: string): Promise<string | null> {
+    const cleanDigits = (phone || "").replace(/\D/g, "");
+    if (!cleanDigits) return null;
+    const phone10 = cleanDigits.slice(-10);
+
+    // 1. Check memory cache
+    if (this.phoneToPushNameMap.has(phone10)) {
+      const cached = this.phoneToPushNameMap.get(phone10);
+      if (cached && !cached.startsWith("Recipient") && cached !== "Customer" && cached !== "Valued Customer") {
+        return cached;
+      }
+    }
+
+    // 2. Check chat_messages push_name
+    try {
+      const rows = await this.db.sql`
+        SELECT sender_name, metadata->>'push_name' as push_name
+        FROM chat_messages
+        WHERE (organization_id = ${orgId || 'org-demo'} OR organization_id = 'org-demo')
+          AND (phone = ${cleanDigits} OR phone LIKE ${'%' + phone10})
+          AND (sender_name IS NOT NULL OR metadata->>'push_name' IS NOT NULL)
+        ORDER BY created_at DESC
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0) {
+        const found = rows[0].push_name || rows[0].sender_name;
+        if (found && !found.startsWith("Recipient") && found !== "Customer" && found !== "Valued Customer") {
+          this.phoneToPushNameMap.set(phone10, found);
+          return found;
+        }
+      }
+    } catch {}
+
+    // 3. Check contacts table
+    try {
+      const cRows = await this.db.sql`
+        SELECT name, metadata->>'push_name' as push_name, metadata->>'whatsapp_name' as whatsapp_name
+        FROM contacts
+        WHERE (organization_id = ${orgId || 'org-demo'} OR organization_id = 'org-demo')
+          AND (phone = ${cleanDigits} OR phone LIKE ${'%' + phone10})
+        LIMIT 1
+      `;
+      if (cRows && cRows.length > 0) {
+        const found = cRows[0].whatsapp_name || cRows[0].push_name || cRows[0].name;
+        if (found && !found.startsWith("Recipient") && found !== "Customer" && found !== "Valued Customer") {
+          this.phoneToPushNameMap.set(phone10, found);
+          return found;
+        }
+      }
+    } catch {}
+
     return null;
   }
 

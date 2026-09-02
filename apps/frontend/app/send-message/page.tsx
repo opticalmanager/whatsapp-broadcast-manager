@@ -656,16 +656,22 @@ function CampaignsStudioInner() {
     resolved = resolved.replace(/\{([^{}]+)\}/g, (_, opts) => opts.split("|")[0]);
     
     // 2. Real dynamic variable substitutions
+    const previewName = sampleRecipientData.name && !sampleRecipientData.name.startsWith("Recipient") && sampleRecipientData.name !== "Customer" && sampleRecipientData.name !== "Valued Customer" ? sampleRecipientData.name : "";
     resolved = resolved
-      .replace(/\{\{(name|customer_name|whatsapp_name)\}\}/gi, sampleRecipientData.name)
-      .replace(/\{\{(phone|number|whatsapp_number|mobile)\}\}/gi, sampleRecipientData.phone)
+      .replace(/\{\{whatsapp[-_]?name\}\}/gi, previewName)
+      .replace(/\{\{push[-_]?name\}\}/gi, previewName)
+      .replace(/\{\{customer[-_]?name\}\}/gi, previewName)
+      .replace(/\{\{name\}\}/gi, previewName)
+      .replace(/\{\{(phone|number|whatsapp[-_]?number|mobile)\}\}/gi, sampleRecipientData.phone)
       .replace(/\{\{(city|location)\}\}/gi, sampleRecipientData.city)
       .replace(/\{\{(date|today)\}\}/gi, new Date().toLocaleDateString("en-GB"))
       .replace(/\{\{var1\}\}/gi, sampleRecipientData.var1)
       .replace(/\{\{var2\}\}/gi, sampleRecipientData.var2)
-      .replace(/\{\{(shop_name|business_name)\}\}/gi, "Dhaba Opticals")
-      .replace(/\{\{(coupon_code|voucher_code)\}\}/gi, "FESTIVAL20")
-      .replace(/\{\{discount\}\}/gi, "20%");
+      .replace(/\{\{(shop[-_]?name|business[-_]?name)\}\}/gi, "Dhaba Opticals")
+      .replace(/\{\{(coupon[-_]?code|voucher[-_]?code)\}\}/gi, "FESTIVAL20")
+      .replace(/\{\{discount\}\}/gi, "20%")
+      .replace(/ +([,!.?:;])/g, "$1")
+      .replace(/  +/g, " ");
 
     // 3. Opt-out compliance footer (rendered in italic)
     if (unsubSettings.enabled && unsubSettings.optoutText) {
@@ -1609,7 +1615,8 @@ function CampaignsStudioInner() {
                     </button>
 
                     {isVariableDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-1.5 z-30 animate-in fade-in">
+                      <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-1.5 z-30 animate-in fade-in">
+                        <button type="button" onClick={() => insertVariable("whatsapp-name")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-emerald-600 dark:text-emerald-400 font-bold">{"{{whatsapp-name}} (WhatsApp Name)"}</button>
                         <button type="button" onClick={() => insertVariable("name")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{name}} (Full Name)"}</button>
                         <button type="button" onClick={() => insertVariable("phone")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{phone}} (Number)"}</button>
                         <button type="button" onClick={() => insertVariable("city")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{city}} (City/Location)"}</button>

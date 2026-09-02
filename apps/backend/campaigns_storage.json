@@ -1,5 +1,39 @@
 [
   {
+    "id": "cmp-1788348242707",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjwgio4_s81a",
+    "name": "Campaign 09/02, 04:53 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T11:24:02.707Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788348242696",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0D2C6E55430DF5C6586",
+        "status": "READ",
+        "sentAt": "2026-09-02T11:24:31.599Z",
+        "deliveredAt": "2026-09-02T11:24:39.072Z",
+        "readAt": "2026-09-02T11:24:53.086Z",
+        "replyText": "Demo",
+        "repliedAt": "2026-09-02T11:29:56.242Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}\nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
+    "mediaUrl": "http://localhost:4000/uploads/org-f7c924751158c061/1788348146416_ge84lr.jpg",
+    "createdAt": "2026-09-02T11:24:04.154Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
     "id": "cmp-1788342436079",
     "organizationId": "org-f7c924751158c061",
     "shopId": "shop-main",
@@ -22,7 +56,7 @@
         "status": "READ",
         "sentAt": "2026-09-02T10:43:13.202Z",
         "deliveredAt": "2026-09-02T10:55:09.091Z",
-        "readAt": "2026-09-02T11:09:53.889Z"
+        "readAt": "2026-09-02T11:09:56.542Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} ",
@@ -146,7 +180,7 @@
         "status": "READ",
         "sentAt": "2026-09-02T10:43:12.064Z",
         "deliveredAt": "2026-09-02T10:55:09.148Z",
-        "readAt": "2026-09-02T11:09:53.892Z"
+        "readAt": "2026-09-02T11:09:58.496Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} \nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",

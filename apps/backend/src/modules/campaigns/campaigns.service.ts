@@ -1358,30 +1358,58 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           rec.phone = formattedPhone;
         }
 
-        // 1. Personalized variables substitution with comprehensive real data mapping
+        // 1. Personalized variables substitution with authentic WhatsApp Name and dynamic tokens
+        const rawRecName = (rec.name || "").trim();
+        const isGenericName = !rawRecName || rawRecName.startsWith("Recipient") || rawRecName === "Customer" || rawRecName === "Valued Customer";
+
+        let explicitWhatsappName: string | null | undefined = 
+          (rec as any).whatsappName || 
+          (rec as any).whatsapp_name || 
+          (rec as any).pushName || 
+          (rec as any).push_name || 
+          (rec as any).variables?.whatsapp_name || 
+          (rec as any).variables?.['whatsapp-name'] ||
+          (rec as any).variables?.whatsappname ||
+          (rec as any).variables?.push_name ||
+          (rec as any).variables?.pushName;
+
+        if (!explicitWhatsappName && formattedPhone) {
+          explicitWhatsappName = await this.baileysService.getResolvedPushName(formattedPhone, campaign.organizationId);
+        }
+
+        const validWhatsappName = (explicitWhatsappName && !explicitWhatsappName.startsWith("Recipient") && explicitWhatsappName !== "Customer" && explicitWhatsappName !== "Valued Customer") ? explicitWhatsappName.trim() : "";
+        const validDisplayName = !isGenericName ? rawRecName : validWhatsappName;
+
         const formattedPhoneDisplay = rec.phone ? (rec.phone.startsWith("+") ? rec.phone : "+" + rec.phone) : "+91 98765 43210";
-        let textToSend = (templateText || campaign.messageText || "")
-          .replace(/\{\{name\}\}/gi, rec.name || "Valued Customer")
-          .replace(/\{\{customer_name\}\}/gi, rec.name || "Valued Customer")
-          .replace(/\{\{whatsapp_name\}\}/gi, rec.name || "Valued Customer")
+        let textToSend = (templateText || campaign.messageText || "");
+
+        // A. WhatsApp Name tokens (Must leave blank if not available)
+        textToSend = textToSend
+          .replace(/\{\{whatsapp[-_]?name\}\}/gi, validWhatsappName)
+          .replace(/\{\{push[-_]?name\}\}/gi, validWhatsappName);
+
+        // B. Name / Customer Name tokens (Leaves blank if no real name exists)
+        textToSend = textToSend
+          .replace(/\{\{customer[-_]?name\}\}/gi, validDisplayName)
+          .replace(/\{\{name\}\}/gi, validDisplayName)
+          .replace(/\{\{whatsapp[-_]?number\}\}/gi, formattedPhoneDisplay)
           .replace(/\{\{phone\}\}/gi, formattedPhoneDisplay)
-          .replace(/\{\{whatsapp_number\}\}/gi, formattedPhoneDisplay)
           .replace(/\{\{mobile\}\}/gi, formattedPhoneDisplay)
           .replace(/\{\{number\}\}/gi, formattedPhoneDisplay)
-          .replace(/\{\{shop_name\}\}/gi, "Dhaba Opticals")
-          .replace(/\{\{business_name\}\}/gi, "Dhaba Opticals")
+          .replace(/\{\{shop[-_]?name\}\}/gi, "Dhaba Opticals")
+          .replace(/\{\{business[-_]?name\}\}/gi, "Dhaba Opticals")
           .replace(/\{\{city\}\}/gi, (rec as any).city || "Main City")
           .replace(/\{\{location\}\}/gi, (rec as any).city || "Main City")
           .replace(/\{\{date\}\}/gi, new Date().toLocaleDateString("en-GB"))
           .replace(/\{\{today\}\}/gi, new Date().toLocaleDateString("en-GB"))
-          .replace(/\{\{voucher_code\}\}/gi, "FESTIVAL20")
-          .replace(/\{\{coupon_code\}\}/gi, "FESTIVAL20")
+          .replace(/\{\{voucher[-_]?code\}\}/gi, "FESTIVAL20")
+          .replace(/\{\{coupon[-_]?code\}\}/gi, "FESTIVAL20")
           .replace(/\{\{discount\}\}/gi, "20%");
 
         if ((rec as any).variables) {
           const vObj = (rec as any).variables;
           Object.keys(vObj).forEach((vKey) => {
-            const regex = new RegExp(`\\{\\{${vKey}\\}\\}`, "gi");
+            const regex = new RegExp(`\\{\\{${vKey.replace(/-/g, "[-_]?")}\\}\\}`, "gi");
             textToSend = textToSend.replace(regex, vObj[vKey] || "");
           });
         }
@@ -1392,6 +1420,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             textToSend = textToSend.replace(new RegExp(`\\{\\{var${vIdx}\\}\\}`, "gi"), String(vVal));
           }
         }
+
+        // Clean up accidental double spaces created when a name token is blank
+        textToSend = textToSend
+          .replace(/ +([,!.?:;])/g, "$1")
+          .replace(/  +/g, " ");
 
         // 2. Anti-Ban Spintax Resolution
         textToSend = this.resolveSpintax(textToSend);
