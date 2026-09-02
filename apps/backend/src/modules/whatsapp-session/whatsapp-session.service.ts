@@ -132,106 +132,108 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   }
 
   async onModuleInit() {
-    this.logger.log("Checking for persistent WhatsApp sessions in Supabase database...");
+    setImmediate(async () => {
+      this.logger.log("Checking for persistent WhatsApp sessions in Supabase database...");
 
-    try {
-      const dbSessions = await this.db.sql`
-        SELECT id, organization_id, phone_number, display_name, status, auth_dir_key, instance_name, auth_creds_json 
-        FROM whatsapp_sessions 
-        WHERE status != 'LOGGED_OUT'
-      `;
-
-      for (const sess of dbSessions || []) {
-        const authFolder = sess.auth_dir_key || this.getAuthFolderPath(sess.id, sess.organization_id);
-        const credsPath = path.join(authFolder, "creds.json");
-
-        // If creds.json is missing or corrupted on disk, restore from Supabase PostgreSQL backup
-        if (sess.auth_creds_json) {
-          try {
-            let needsRestore = true;
-            if (fs.existsSync(credsPath)) {
-              try {
-                const existing = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-                if (existing && existing.me?.id) needsRestore = false;
-              } catch {
-                needsRestore = true;
-              }
-            }
-            if (needsRestore) {
-              if (!fs.existsSync(authFolder)) fs.mkdirSync(authFolder, { recursive: true });
-              fs.writeFileSync(credsPath, sess.auth_creds_json, "utf-8");
-              this.logger.log(`Restored creds.json for session ${sess.id} from Supabase PostgreSQL cloud backup.`);
-            }
-          } catch (restoreErr: any) {
-            this.logger.warn(`Failed to restore creds from DB for ${sess.id}: ${restoreErr.message}`);
-          }
-        }
-
-        if (fs.existsSync(credsPath)) {
-          try {
-            const fileContent = fs.readFileSync(credsPath, "utf-8");
-            const creds = JSON.parse(fileContent);
-            // ONLY auto-connect instances that were previously paired with WhatsApp!
-            if (creds && (creds.registered || creds.me?.id)) {
-              this.logger.log(`Auto-restoring paired persistent instance ${sess.id} (${sess.instance_name || 'Main'}) for Org: ${sess.organization_id}...`);
-              this.initSession(sess.id, sess.organization_id, "shop-main", false).catch((err) => {
-                this.logger.error(`Failed to auto-restore session ${sess.id}: ${err.message}`);
-              });
-            } else {
-              this.logger.log(`Instance ${sess.id} is unlinked. Awaiting on-demand pairing.`);
-            }
-          } catch {
-            this.logger.warn(`Skipping unreadable creds.json for ${sess.id}`);
-          }
-        }
-      }
-    } catch (err: any) {
-      this.logger.warn(`Database session scan warning: ${err.message}. Checking local directory...`);
-    }
-
-    // Fallback scan local auth directory for paired instances only
-    const baseDir = this.getAuthBaseDir();
-    if (fs.existsSync(baseDir)) {
       try {
-        const scanDir = (dir: string) => {
-          const entries = fs.readdirSync(dir, { withFileTypes: true });
-          for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-              const credsPath = path.join(fullPath, "creds.json");
+        const dbSessions = await this.db.sql`
+          SELECT id, organization_id, phone_number, display_name, status, auth_dir_key, instance_name, auth_creds_json 
+          FROM whatsapp_sessions 
+          WHERE status != 'LOGGED_OUT'
+        `;
+
+        for (const sess of dbSessions || []) {
+          const authFolder = sess.auth_dir_key || this.getAuthFolderPath(sess.id, sess.organization_id);
+          const credsPath = path.join(authFolder, "creds.json");
+
+          // If creds.json is missing or corrupted on disk, restore from Supabase PostgreSQL backup
+          if (sess.auth_creds_json) {
+            try {
+              let needsRestore = true;
               if (fs.existsSync(credsPath)) {
                 try {
-                  const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
-                  if (creds && (creds.registered || creds.me?.id)) {
-                    const rel = path.relative(baseDir, fullPath).replace(/\\/g, "/");
-                    const parts = rel.split("/");
-                    let orgId = "org-demo";
-                    let instanceId = entry.name;
-                    if (parts.length >= 2) {
-                      orgId = parts[0];
-                      instanceId = parts[1];
-                    }
-                    if (!this.sessions.has(instanceId)) {
-                      this.logger.log(`Auto-restoring paired session from disk: ${instanceId} (Org: ${orgId})...`);
-                      this.initSession(instanceId, orgId, "shop-main", false).catch((err) => {
-                        this.logger.warn(`Failed to auto-restore ${instanceId}: ${err.message}`);
-                      });
-                    }
-                  }
+                  const existing = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+                  if (existing && existing.me?.id) needsRestore = false;
                 } catch {
-                  // Corrupted creds file, skip
+                  needsRestore = true;
                 }
-              } else {
-                scanDir(fullPath);
               }
+              if (needsRestore) {
+                if (!fs.existsSync(authFolder)) fs.mkdirSync(authFolder, { recursive: true });
+                fs.writeFileSync(credsPath, sess.auth_creds_json, "utf-8");
+                this.logger.log(`Restored creds.json for session ${sess.id} from Supabase PostgreSQL cloud backup.`);
+              }
+            } catch (restoreErr: any) {
+              this.logger.warn(`Failed to restore creds from DB for ${sess.id}: ${restoreErr.message}`);
             }
           }
-        };
-        scanDir(baseDir);
-      } catch (scanErr: any) {
-        this.logger.warn(`Auth dir scan error: ${scanErr.message}`);
+
+          if (fs.existsSync(credsPath)) {
+            try {
+              const fileContent = fs.readFileSync(credsPath, "utf-8");
+              const creds = JSON.parse(fileContent);
+              // ONLY auto-connect instances that were previously paired with WhatsApp!
+              if (creds && (creds.registered || creds.me?.id)) {
+                this.logger.log(`Auto-restoring paired persistent instance ${sess.id} (${sess.instance_name || 'Main'}) for Org: ${sess.organization_id}...`);
+                this.initSession(sess.id, sess.organization_id, "shop-main", false).catch((err) => {
+                  this.logger.error(`Failed to auto-restore session ${sess.id}: ${err.message}`);
+                });
+              } else {
+                this.logger.log(`Instance ${sess.id} is unlinked. Awaiting on-demand pairing.`);
+              }
+            } catch {
+              this.logger.warn(`Skipping unreadable creds.json for ${sess.id}`);
+            }
+          }
+        }
+      } catch (err: any) {
+        this.logger.warn(`Database session scan warning: ${err.message}. Checking local directory...`);
       }
-    }
+
+      // Fallback scan local auth directory for paired instances only
+      const baseDir = this.getAuthBaseDir();
+      if (fs.existsSync(baseDir)) {
+        try {
+          const scanDir = (dir: string) => {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const fullPath = path.join(dir, entry.name);
+              if (entry.isDirectory()) {
+                const credsPath = path.join(fullPath, "creds.json");
+                if (fs.existsSync(credsPath)) {
+                  try {
+                    const creds = JSON.parse(fs.readFileSync(credsPath, "utf-8"));
+                    if (creds && (creds.registered || creds.me?.id)) {
+                      const rel = path.relative(baseDir, fullPath).replace(/\\/g, "/");
+                      const parts = rel.split("/");
+                      let orgId = "org-demo";
+                      let instanceId = entry.name;
+                      if (parts.length >= 2) {
+                        orgId = parts[0];
+                        instanceId = parts[1];
+                      }
+                      if (!this.sessions.has(instanceId)) {
+                        this.logger.log(`Auto-restoring paired session from disk: ${instanceId} (Org: ${orgId})...`);
+                        this.initSession(instanceId, orgId, "shop-main", false).catch((err) => {
+                          this.logger.warn(`Failed to auto-restore ${instanceId}: ${err.message}`);
+                        });
+                      }
+                    }
+                  } catch {
+                    // Corrupted creds file, skip
+                  }
+                } else {
+                  scanDir(fullPath);
+                }
+              }
+            }
+          };
+          scanDir(baseDir);
+        } catch (scanErr: any) {
+          this.logger.warn(`Auth dir scan error: ${scanErr.message}`);
+        }
+      }
+    });
   }
 
   onModuleDestroy() {
@@ -251,27 +253,38 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
   public getAuthBaseDir(): string {
     if (process.env.AUTH_STORAGE_DIR) {
-      const customDir = path.resolve(process.env.AUTH_STORAGE_DIR);
-      if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
-      return customDir;
+      try {
+        const customDir = path.resolve(process.env.AUTH_STORAGE_DIR);
+        if (!fs.existsSync(customDir)) fs.mkdirSync(customDir, { recursive: true });
+        return customDir;
+      } catch (err: any) {
+        this.logger.warn(`Could not use AUTH_STORAGE_DIR (${process.env.AUTH_STORAGE_DIR}): ${err.message}. Falling back to local data directory.`);
+      }
     }
     const legacyDir = path.join(process.cwd(), "baileys_auth_sessions");
     if (fs.existsSync(legacyDir)) {
       return legacyDir;
     }
     const standardDir = path.join(process.cwd(), ".data", "sessions");
-    if (!fs.existsSync(standardDir)) fs.mkdirSync(standardDir, { recursive: true });
+    try {
+      if (!fs.existsSync(standardDir)) fs.mkdirSync(standardDir, { recursive: true });
+    } catch {}
     return standardDir;
   }
 
   private getAuthFolderPath(numberId: string, orgId?: string): string {
     const baseDir = this.getAuthBaseDir();
     const folder = orgId && orgId !== "org-demo" ? path.join(baseDir, orgId, numberId) : path.join(baseDir, numberId);
-    if (!fs.existsSync(folder)) {
-      fs.mkdirSync(folder, { recursive: true });
+    try {
+      if (!fs.existsSync(folder)) {
+        fs.mkdirSync(folder, { recursive: true });
+      }
+    } catch (err: any) {
+      this.logger.warn(`Could not create session folder ${folder}: ${err.message}`);
     }
     return folder;
   }
+
 
 
   async getInstances(orgId: string): Promise<InstanceRecord[]> {

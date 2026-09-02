@@ -59,16 +59,19 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit() {
     this.init();
-    try {
-      const ping = await this.sql`SELECT 1 as connected`;
-      if (ping && ping.length > 0) {
-        this.logger.log("Connected to PostgreSQL database with pooler resilience.");
-        await this.initDatabaseSchema();
+    setImmediate(async () => {
+      try {
+        const ping = await this.sql`SELECT 1 as connected`;
+        if (ping && ping.length > 0) {
+          this.logger.log("Connected to PostgreSQL database with pooler resilience.");
+          await this.initDatabaseSchema();
+        }
+      } catch (err: any) {
+        this.logger.warn(`Database connection initialized with warning: ${err.message}`);
       }
-    } catch (err: any) {
-      this.logger.warn(`Database connection initialized with warning: ${err.message}`);
-    }
+    });
   }
+
 
   /**
    * Automatically ensures all required tables and indexes exist on boot.

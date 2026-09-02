@@ -188,8 +188,10 @@ export function AuthProvider({ children, ssoSession }: { children: React.ReactNo
 
   const login = useCallback(async (email: string, password: string) => {
     const backendUrl = getBackendUrl();
+    const loginEndpoint = `${backendUrl}/api/v1/auth/login`;
+
     const tryFetch = async () => {
-      return await fetch(`${backendUrl}/api/v1/auth/login`, {
+      return await fetch(loginEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -206,7 +208,18 @@ export function AuthProvider({ children, ssoSession }: { children: React.ReactNo
         res = await tryFetch();
       }
 
-      const json = await res.json();
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        if (res.status === 502) {
+          return { success: false, error: "Backend server offline (502 Bad Gateway). Please run 'pm2 restart broadcast-backend' on your server." };
+        }
+        if (res.status === 404) {
+          return { success: false, error: "API route not found (404). Please verify Nginx proxy_pass configuration." };
+        }
+        return { success: false, error: `Server error (${res.status} ${res.statusText}).` };
+      }
 
       if (!res.ok) {
         return { success: false, error: json.message || "Invalid email or password." };
@@ -235,7 +248,7 @@ export function AuthProvider({ children, ssoSession }: { children: React.ReactNo
     } catch (err: any) {
       return { 
         success: false, 
-        error: "Backend server unreachable (port 4000). Please ensure the backend server is running." 
+        error: err.message || "Backend server unreachable. Please verify that PM2 backend is online." 
       };
     }
   }, [setAuthCookie]);
@@ -249,8 +262,15 @@ export function AuthProvider({ children, ssoSession }: { children: React.ReactNo
         body: JSON.stringify({ email, password, fullName }),
       });
 
-
-      const json = await res.json();
+      let json: any = {};
+      try {
+        json = await res.json();
+      } catch {
+        if (res.status === 502) {
+          return { success: false, error: "Backend server offline (502 Bad Gateway). Please run 'pm2 restart broadcast-backend' on your server." };
+        }
+        return { success: false, error: `Server error (${res.status} ${res.statusText}).` };
+      }
 
       if (!res.ok) {
         return { success: false, error: json.message || "Registration failed." };
@@ -280,6 +300,7 @@ export function AuthProvider({ children, ssoSession }: { children: React.ReactNo
       return { success: false, error: err.message || "Network error. Please try again." };
     }
   }, [setAuthCookie]);
+
 
   const logout = useCallback(() => {
     clearAllCookies();

@@ -1,29 +1,43 @@
 import * as fs from "fs";
 import * as path from "path";
 
-// Load .env file natively without external dependencies
+// Multi-path resilient .env loader
 try {
-  const envPath = path.resolve(process.cwd(), ".env");
-  if (fs.existsSync(envPath)) {
-    const content = fs.readFileSync(envPath, "utf-8");
-    content.split("\n").forEach((line) => {
-      const trimmed = line.trim();
-      if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
-        const [key, ...valParts] = trimmed.split("=");
-        let val = valParts.join("=").trim();
-        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-          val = val.substring(1, val.length - 1);
+  const candidateEnvPaths = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(process.cwd(), "apps/backend/.env"),
+    path.resolve(__dirname, "../../../.env"),
+    path.resolve(__dirname, "../../.env"),
+    path.resolve(__dirname, "../.env"),
+    "/var/www/whatsapp-broadcast/apps/backend/.env",
+    "/var/www/whatsapp-broadcast/.env",
+  ];
+
+  for (const envPath of candidateEnvPaths) {
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, "utf-8");
+      content.split("\n").forEach((line) => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
+          const [key, ...valParts] = trimmed.split("=");
+          let val = valParts.join("=").trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.substring(1, val.length - 1);
+          }
+          const cleanKey = key.trim();
+          if (!process.env[cleanKey]) {
+            process.env[cleanKey] = val;
+          }
         }
-        const cleanKey = key.trim();
-        if (!process.env[cleanKey]) {
-          process.env[cleanKey] = val;
-        }
-      }
-    });
+      });
+      console.log(`[Env Loader] Loaded environment variables from: ${envPath}`);
+      break;
+    }
   }
 } catch (e) {
   console.error("Failed to read .env file:", e);
 }
+
 
 process.on("unhandledRejection", (reason: any) => {
   console.warn("[Process Guard] Intercepted unhandled rejection:", reason?.message || reason);
