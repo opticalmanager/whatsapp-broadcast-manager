@@ -457,7 +457,7 @@
         "messageId": "3EB0CCA592CC9C08EA2B77",
         "status": "DELIVERED",
         "sentAt": "2026-09-02T07:29:12.520Z",
-        "deliveredAt": "2026-09-02T07:29:13.752Z"
+        "deliveredAt": "2026-09-02T07:36:29.561Z"
       },
       {
         "id": "cnt_e61038e5179437d7",
@@ -467,7 +467,7 @@
         "status": "READ",
         "sentAt": "2026-09-02T07:29:43.581Z",
         "deliveredAt": "2026-09-02T07:29:43.581Z",
-        "readAt": "2026-09-02T07:39:46.359Z",
+        "readAt": "2026-09-02T07:40:40.531Z",
         "replyText": "Okay",
         "repliedAt": "2026-09-02T07:40:40.178Z"
       }
@@ -1871,5 +1871,49 @@
     ],
     "messageText": "Hello {{customer_name}},\n\nExclusive Festival Offer from {{shop_name}}! Upgrade your eyewear this season with 20% OFF on premium prescription lenses & frames.\n\nUse code {{voucher_code}} at checkout!",
     "createdAt": "2026-08-29T14:36:36.661Z"
+  },
+  {
+    "id": "cmp-1788335362632",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "templateId": "tpl-custom",
+    "name": "Campaign 09/02, 01:19 PMyttf",
+    "targetAudienceType": "Paste",
+    "audienceNames": [
+      "Selected Audiences"
+    ],
+    "scheduledAt": "2026-09-02T07:49:22.632Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788335362599",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "status": "READ",
+        "messageId": "3EB08112AE8F68019784CA",
+        "sentAt": "2026-09-02T07:49:26.511Z",
+        "deliveredAt": "2026-09-02T07:49:26.511Z",
+        "readAt": "2026-09-02T07:49:42.148Z",
+        "replyText": "Okay",
+        "repliedAt": "2026-09-02T07:50:14.900Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "createdAt": "2026-09-02T07:49:22.632Z",
+    "warmupRamp": true,
+    "batchSize": 5,
+    "batchPause": 60,
+    "sendFromInstances": [
+      "inst_mth6ammj_jwnd"
+    ],
+    "textWithMediaMode": "caption",
+    "contentType": "text",
+    "messageType": "Text"
   }
 ]

@@ -91,6 +91,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   public incomingMessageCallbacks: Array<(instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void> = [];
   public incomingResponseCallbacks: Array<(event: IncomingResponseEvent) => void> = [];
   public pollTrackers: Map<string, TrackedPoll> = new Map();
+  public lidToPhoneMap: Map<string, string> = new Map();
 
   public onIncomingMessage(cb: (instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void) {
     this.incomingMessageCallbacks.push(cb);
@@ -1166,7 +1167,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       }
     });
 
-    socket.ev.on("messages.upsert", ({ messages }: any) => {
+    socket.ev.on("messages.upsert", async ({ messages }: any) => {
       for (const msg of messages || []) {
         if (!msg.key?.fromMe && msg.key?.remoteJid && !msg.key.remoteJid.includes("@g.us") && !msg.key.remoteJid.includes("@broadcast")) {
           const remoteJid = msg.key.remoteJid;
@@ -1298,206 +1299,237 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
           }
 
           if (responseValue) {
-            let cleanPhone = remoteJid.split('@')[0].split(':')[0];
+            let rawClean = remoteJid.split('@')[0].split(':')[0].replace(/\D/g, "");
+            let cleanPhone = rawClean;
             let resolvedContactName = pushName || 'Customer';
 
-            // Check if Baileys participant or alt JID has the actual phone number
-            const altJid = (msg.key as any).participant || (msg.key as any).remoteJidAlt || (msg.key as any).participantPn || (msg as any).participant;
-            if (altJid && typeof altJid === 'string' && !altJid.includes('@lid')) {
-              const altClean = altJid.split('@')[0].split(':')[0].replace(/\D/g, "");
-              if (altClean.length >= 10 && altClean.length <= 13) {
-                cleanPhone = altClean;
+            // 1. Direct phone if @s.whatsapp.net (10-13 digits)
+            if (remoteJid.includes('@s.whatsapp.net') && rawClean.length >= 10 && rawClean.length <= 13) {
+              cleanPhone = rawClean;
+            } 
+            // 2. Check in-memory LID cache
+            else if (this.lidToPhoneMap.has(rawClean)) {
+              cleanPhone = this.lidToPhoneMap.get(rawClean)!;
+            } 
+            // 3. Check alternate Baileys keys
+            else {
+              const altJid = (msg.key as any).participant || (msg.key as any).remoteJidAlt || (msg.key as any).participantPn || (msg as any).participant;
+              if (altJid && typeof altJid === 'string' && !altJid.includes('@lid')) {
+                const altClean = altJid.split('@')[0].split(':')[0].replace(/\D/g, "");
+                if (altClean.length >= 10 && altClean.length <= 13) {
+                  cleanPhone = altClean;
+                  this.lidToPhoneMap.set(rawClean, cleanPhone);
+                }
+              }
+            }
+
+            // 4. Resolve real phone number from DB if remoteJid is still an LID or > 13 digits
+            if (remoteJid.includes('@lid') || cleanPhone.length > 13) {
+              let resolvedRealPhone: string | null = null;
+
+              // A. Match by quoted message ID
+              if (quotedMsgId) {
+                try {
+                  const matched = await this.db.sql`
+                    SELECT phone, name FROM campaign_recipients WHERE message_id = ${quotedMsgId} LIMIT 1
+                  `;
+                  if (matched && matched.length > 0 && matched[0].phone) {
+                    resolvedRealPhone = matched[0].phone.replace(/\D/g, "");
+                    if (matched[0].name && !matched[0].name.startsWith('Recipient') && matched[0].name !== 'Customer') {
+                      resolvedContactName = matched[0].name;
+                    }
+                  }
+                } catch {}
+
+                if (!resolvedRealPhone) {
+                  try {
+                    const matchedMsg = await this.db.sql`
+                      SELECT phone, sender_name FROM chat_messages WHERE message_id = ${quotedMsgId} LIMIT 1
+                    `;
+                    if (matchedMsg && matchedMsg.length > 0 && matchedMsg[0].phone) {
+                      resolvedRealPhone = matchedMsg[0].phone.replace(/\D/g, "");
+                    }
+                  } catch {}
+                }
+              }
+
+              // B. Match by pushName in recent campaign recipients
+              if (!resolvedRealPhone && pushName && pushName !== 'Customer' && pushName.length >= 3) {
+                try {
+                  const nameMatches = await this.db.sql`
+                    SELECT phone, name FROM campaign_recipients 
+                    WHERE name ILIKE ${pushName}
+                      AND status IN ('SENT', 'DELIVERED', 'READ')
+                    ORDER BY COALESCE(sent_at, created_at) DESC
+                    LIMIT 1
+                  `;
+                  if (nameMatches && nameMatches.length > 0 && nameMatches[0].phone) {
+                    resolvedRealPhone = nameMatches[0].phone.replace(/\D/g, "");
+                  }
+                } catch {}
+              }
+
+              // C. Match by recent broadcast sent from this instance (within last 48 hours)
+              if (!resolvedRealPhone) {
+                try {
+                  const latestSent = await this.db.sql`
+                    SELECT cr.phone, cr.name 
+                    FROM campaign_recipients cr
+                    JOIN campaigns c ON c.id = cr.campaign_id
+                    WHERE (c.whatsapp_session_id = ${numberId} OR cr.organization_id = ${orgId} OR cr.organization_id = 'org-demo')
+                      AND cr.status IN ('SENT', 'DELIVERED', 'READ')
+                      AND (cr.sent_at >= NOW() - INTERVAL '48 hours' OR cr.created_at >= NOW() - INTERVAL '48 hours')
+                    ORDER BY COALESCE(cr.sent_at, cr.created_at) DESC 
+                    LIMIT 1
+                  `;
+                  if (latestSent && latestSent.length > 0 && latestSent[0].phone) {
+                    resolvedRealPhone = latestSent[0].phone.replace(/\D/g, "");
+                    if (latestSent[0].name && !latestSent[0].name.startsWith('Recipient')) {
+                      resolvedContactName = latestSent[0].name;
+                    }
+                  }
+                } catch {}
+              }
+
+              if (resolvedRealPhone && resolvedRealPhone.length >= 10 && resolvedRealPhone.length <= 13) {
+                cleanPhone = resolvedRealPhone;
+                this.lidToPhoneMap.set(rawClean, cleanPhone);
+              } else if (cleanPhone.length > 13) {
+                this.logger.warn(`Could not resolve WhatsApp LID message from ${remoteJid} to a phone number`);
               }
             }
 
             // Persist to Supabase Database
-            (async () => {
-              try {
-                // Resolve real phone number if remoteJid is a WhatsApp LID
-                if (remoteJid.includes('@lid') || cleanPhone.length > 13) {
-                  let resolvedRealPhone: string | null = null;
+            try {
+              const conversationId = `conv_${orgId}_${cleanPhone.slice(-10)}`;
+              const messageId = `msg_in_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
-                  // 1. Strictly resolve by quoted message ID
-                  if (quotedMsgId) {
-                    try {
-                      const matched = await this.db.sql`
-                        SELECT phone, name FROM campaign_recipients WHERE message_id = ${quotedMsgId} LIMIT 1
-                      `;
-                      if (matched && matched.length > 0 && matched[0].phone) {
-                        resolvedRealPhone = matched[0].phone.replace(/\D/g, "");
-                        if (matched[0].name && !matched[0].name.startsWith('Recipient') && matched[0].name !== 'Customer') {
-                          resolvedContactName = matched[0].name;
-                        }
-                      }
-                    } catch {}
+              // Insert message
+              await this.db.sql`
+                INSERT INTO chat_messages (
+                  id, conversation_id, organization_id, instance_id, phone, message_id,
+                  direction, sender_name, message_type, content, status,
+                  sent_at, delivered_at, created_at
+                ) VALUES (
+                  ${messageId}, ${conversationId}, ${orgId}, ${numberId}, ${cleanPhone}, ${msg.key?.id || null},
+                  'INCOMING', ${resolvedContactName}, ${responseType}, ${responseValue}, 'DELIVERED',
+                  NOW(), NOW(), NOW()
+                )
+              `;
 
-                    if (!resolvedRealPhone) {
-                      try {
-                        const matchedMsg = await this.db.sql`
-                          SELECT phone, sender_name FROM chat_messages WHERE message_id = ${quotedMsgId} LIMIT 1
-                        `;
-                        if (matchedMsg && matchedMsg.length > 0 && matchedMsg[0].phone) {
-                          resolvedRealPhone = matchedMsg[0].phone.replace(/\D/g, "");
-                        }
-                      } catch {}
-                    }
-                  }
+              // Upsert conversation
+              await this.db.sql`
+                INSERT INTO chat_conversations (
+                  id, organization_id, instance_id, phone, contact_name,
+                  last_message, last_message_at, last_message_type, last_message_direction,
+                  unread_count, status, created_at, updated_at
+                ) VALUES (
+                  ${conversationId}, ${orgId}, ${numberId}, ${cleanPhone}, ${resolvedContactName},
+                  ${responseValue}, NOW(), ${responseType}, 'INCOMING',
+                  1, 'AWAITING_REPLY', NOW(), NOW()
+                )
+                ON CONFLICT (id) DO UPDATE SET
+                  last_message = EXCLUDED.last_message,
+                  last_message_at = NOW(),
+                  last_message_type = EXCLUDED.last_message_type,
+                  last_message_direction = 'INCOMING',
+                  unread_count = chat_conversations.unread_count + 1,
+                  status = 'AWAITING_REPLY',
+                  contact_name = COALESCE(EXCLUDED.contact_name, chat_conversations.contact_name),
+                  updated_at = NOW()
+              `;
 
-                  // 2. If not resolved by quote, find latest broadcast recipient sent from this instance
-                  if (!resolvedRealPhone) {
-                    try {
-                      const latestSent = await this.db.sql`
-                        SELECT phone, name FROM campaign_recipients 
-                        WHERE status IN ('SENT', 'DELIVERED') 
-                        ORDER BY sent_at DESC NULLS LAST 
-                        LIMIT 1
-                      `;
-                      if (latestSent && latestSent.length > 0 && latestSent[0].phone) {
-                        resolvedRealPhone = latestSent[0].phone.replace(/\D/g, "");
-                      }
-                    } catch {}
-                  }
+              // Broadcast live via WebSocket
+              this.gateway.emitChatMessage(orgId, {
+                id: messageId,
+                conversationId,
+                organizationId: orgId,
+                instanceId: numberId,
+                phone: cleanPhone,
+                messageId: msg.key?.id,
+                direction: "INCOMING",
+                senderName: resolvedContactName,
+                messageType: responseType,
+                content: responseValue,
+                status: "DELIVERED",
+                sentAt: new Date(),
+                deliveredAt: new Date(),
+                createdAt: new Date(),
+              });
 
-                  if (resolvedRealPhone && resolvedRealPhone.length >= 10 && resolvedRealPhone.length <= 13) {
-                    cleanPhone = resolvedRealPhone;
-                  } else if (cleanPhone.length > 13) {
-                    this.logger.warn(`Ignoring unmapped WhatsApp LID message from ${remoteJid}`);
-                    return;
-                  }
-                }
+              this.gateway.emitConversationUpdated(orgId, {
+                conversationId,
+                lastMessage: responseValue,
+                lastMessageAt: new Date(),
+                lastMessageDirection: "INCOMING",
+                status: "AWAITING_REPLY",
+              });
+            } catch (chatDbErr: any) {
+              this.logger.warn(`Failed to persist incoming chat message to DB: ${chatDbErr.message}`);
+            }
 
-                const conversationId = `conv_${orgId}_${cleanPhone.slice(-10)}`;
-                const messageId = `msg_in_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+            // Inbound Auto-Unsubscribe / Opt-Out Engine Listener
+            try {
+              const unsubSettingsRows = await this.db.sql`
+                SELECT enabled, trigger_keywords, auto_reply_confirmation, confirmation_message
+                FROM public.unsubscriber_settings
+                WHERE organization_id = ${orgId} OR organization_id = 'org-demo'
+                ORDER BY updated_at DESC LIMIT 1
+              `;
+              const unsubSettings = unsubSettingsRows?.[0] || { enabled: true, trigger_keywords: 'STOP,UNSUBSCRIBE,OPTOUT' };
 
-                // Insert message
-                await this.db.sql`
-                  INSERT INTO chat_messages (
-                    id, conversation_id, organization_id, instance_id, phone, message_id,
-                    direction, sender_name, message_type, content, status,
-                    sent_at, delivered_at, created_at
-                  ) VALUES (
-                    ${messageId}, ${conversationId}, ${orgId}, ${numberId}, ${cleanPhone}, ${msg.key?.id || null},
-                    'INCOMING', ${resolvedContactName}, ${responseType}, ${responseValue}, 'DELIVERED',
-                    NOW(), NOW(), NOW()
-                  )
-                `;
+              if (unsubSettings.enabled !== false) {
+                const keywords = (unsubSettings.trigger_keywords || 'STOP')
+                  .split(',')
+                  .map((k: string) => k.trim().toUpperCase())
+                  .filter(Boolean);
 
-                // Upsert conversation
-                await this.db.sql`
-                  INSERT INTO chat_conversations (
-                    id, organization_id, instance_id, phone, contact_name,
-                    last_message, last_message_at, last_message_type, last_message_direction,
-                    unread_count, status, created_at, updated_at
-                  ) VALUES (
-                    ${conversationId}, ${orgId}, ${numberId}, ${cleanPhone}, ${resolvedContactName},
-                    ${responseValue}, NOW(), ${responseType}, 'INCOMING',
-                    1, 'AWAITING_REPLY', NOW(), NOW()
-                  )
-                  ON CONFLICT (id) DO UPDATE SET
-                    last_message = EXCLUDED.last_message,
-                    last_message_at = NOW(),
-                    last_message_type = EXCLUDED.last_message_type,
-                    last_message_direction = 'INCOMING',
-                    unread_count = chat_conversations.unread_count + 1,
-                    status = 'AWAITING_REPLY',
-                    contact_name = COALESCE(EXCLUDED.contact_name, chat_conversations.contact_name),
-                    updated_at = NOW()
-                `;
+                const incomingUpper = (responseValue || '').trim().toUpperCase();
+                const matchedKeyword = keywords.find((k: string) => incomingUpper === k || incomingUpper.startsWith(k + ' ') || incomingUpper.includes(k));
 
-                // Broadcast live via WebSocket
-                this.gateway.emitChatMessage(orgId, {
-                  id: messageId,
-                  conversationId,
-                  organizationId: orgId,
-                  instanceId: numberId,
-                  phone: cleanPhone,
-                  messageId: msg.key?.id,
-                  direction: "INCOMING",
-                  senderName: resolvedContactName,
-                  messageType: responseType,
-                  content: responseValue,
-                  status: "DELIVERED",
-                  sentAt: new Date(),
-                  deliveredAt: new Date(),
-                  createdAt: new Date(),
-                });
+                const cleanDigits = cleanPhone.replace(/\D/g, "");
+                if (matchedKeyword && cleanDigits.length >= 10 && cleanDigits.length <= 13) {
+                  this.logger.log(`Opt-out keyword '${matchedKeyword}' detected from ${cleanDigits} on instance ${numberId}`);
+                  const unsubId = `unsub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+                  
+                  const effectiveOrgId = orgId && orgId !== "org_default" ? orgId : "org-demo";
+                  await this.db.sql`
+                    INSERT INTO public.unsubscribers (
+                      id, organization_id, phone, name, trigger_keyword, instance_id, source, unsubscribed_at, created_at, updated_at
+                    ) VALUES (
+                      ${unsubId}, ${effectiveOrgId}, ${cleanDigits}, ${resolvedContactName || null}, ${matchedKeyword}, ${numberId}, 'AUTO_KEYWORD', NOW(), NOW(), NOW()
+                    )
+                    ON CONFLICT (organization_id, phone) DO UPDATE SET
+                      trigger_keyword = EXCLUDED.trigger_keyword,
+                      instance_id = COALESCE(EXCLUDED.instance_id, unsubscribers.instance_id),
+                      unsubscribed_at = NOW(),
+                      updated_at = NOW()
+                  `.catch((err) => {
+                    this.logger.warn(`Failed to insert unsubscriber ${cleanDigits}: ${err.message}`);
+                  });
 
-                this.gateway.emitConversationUpdated(orgId, {
-                  conversationId,
-                  lastMessage: responseValue,
-                  lastMessageAt: new Date(),
-                  lastMessageDirection: "INCOMING",
-                  status: "AWAITING_REPLY",
-                });
-              } catch (chatDbErr: any) {
-                this.logger.warn(`Failed to persist incoming chat message to DB: ${chatDbErr.message}`);
-              }
-            })();
+                  // Update contacts tag to UNSUBSCRIBED
+                  await this.db.sql`
+                    UPDATE public.contacts
+                    SET tags = CASE 
+                      WHEN tags IS NULL OR tags = '[]'::jsonb THEN '["UNSUBSCRIBED"]'::jsonb
+                      WHEN NOT tags ? 'UNSUBSCRIBED' THEN tags || '["UNSUBSCRIBED"]'::jsonb
+                      ELSE tags
+                    END
+                    WHERE (organization_id = ${effectiveOrgId} OR organization_id = 'org-demo' OR organization_id = ${orgId})
+                      AND (phone = ${cleanDigits} OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanDigits.slice(-10)})
+                  `.catch(() => {});
 
-            // 5. Inbound Auto-Unsubscribe / Opt-Out Engine Listener
-            (async () => {
-              try {
-                const unsubSettingsRows = await this.db.sql`
-                  SELECT enabled, trigger_keywords, auto_reply_confirmation, confirmation_message
-                  FROM public.unsubscriber_settings
-                  WHERE organization_id = ${orgId} OR organization_id = 'org-demo'
-                  ORDER BY updated_at DESC LIMIT 1
-                `;
-                const unsubSettings = unsubSettingsRows?.[0] || { enabled: true, trigger_keywords: 'STOP,UNSUBSCRIBE,OPTOUT' };
-
-                if (unsubSettings.enabled !== false) {
-                  const keywords = (unsubSettings.trigger_keywords || 'STOP')
-                    .split(',')
-                    .map((k: string) => k.trim().toUpperCase())
-                    .filter(Boolean);
-
-                  const incomingUpper = (responseValue || '').trim().toUpperCase();
-                  const matchedKeyword = keywords.find((k: string) => incomingUpper === k || incomingUpper.startsWith(k + ' ') || incomingUpper.includes(k));
-
-                  const cleanDigits = cleanPhone.replace(/\D/g, "");
-                  if (matchedKeyword && cleanDigits.length >= 10 && cleanDigits.length <= 13) {
-                    this.logger.log(`Opt-out keyword '${matchedKeyword}' detected from ${cleanDigits} on instance ${numberId}`);
-                    const unsubId = `unsub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
-                    
-                    const effectiveOrgId = orgId && orgId !== "org_default" ? orgId : "org-demo";
-                    await this.db.sql`
-                      INSERT INTO public.unsubscribers (
-                        id, organization_id, phone, name, trigger_keyword, instance_id, source, unsubscribed_at, created_at, updated_at
-                      ) VALUES (
-                        ${unsubId}, ${effectiveOrgId}, ${cleanDigits}, ${resolvedContactName || null}, ${matchedKeyword}, ${numberId}, 'AUTO_KEYWORD', NOW(), NOW(), NOW()
-                      )
-                      ON CONFLICT (organization_id, phone) DO UPDATE SET
-                        trigger_keyword = EXCLUDED.trigger_keyword,
-                        instance_id = COALESCE(EXCLUDED.instance_id, unsubscribers.instance_id),
-                        unsubscribed_at = NOW(),
-                        updated_at = NOW()
-                    `.catch((err) => {
-                      this.logger.warn(`Failed to insert unsubscriber ${cleanDigits}: ${err.message}`);
-                    });
-
-                    // Update contacts tag to UNSUBSCRIBED
-                    await this.db.sql`
-                      UPDATE public.contacts
-                      SET tags = CASE 
-                        WHEN tags IS NULL OR tags = '[]'::jsonb THEN '["UNSUBSCRIBED"]'::jsonb
-                        WHEN NOT tags ? 'UNSUBSCRIBED' THEN tags || '["UNSUBSCRIBED"]'::jsonb
-                        ELSE tags
-                      END
-                      WHERE (organization_id = ${effectiveOrgId} OR organization_id = 'org-demo' OR organization_id = ${orgId})
-                        AND (phone = ${cleanDigits} OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanDigits.slice(-10)})
-                    `.catch(() => {});
-
-                    // Optional confirmation reply
-                    if (unsubSettings.auto_reply_confirmation !== false) {
-                      const confMsg = unsubSettings.confirmation_message || 'You have been successfully unsubscribed. You will no longer receive promotional broadcasts from us.';
-                      await socket.sendMessage(remoteJid, { text: confMsg }).catch(() => {});
-                    }
+                  // Optional confirmation reply
+                  if (unsubSettings.auto_reply_confirmation !== false) {
+                    const confMsg = unsubSettings.confirmation_message || 'You have been successfully unsubscribed. You will no longer receive promotional broadcasts from us.';
+                    await socket.sendMessage(remoteJid, { text: confMsg }).catch(() => {});
                   }
                 }
-              } catch (unsubErr: any) {
-                this.logger.warn(`Error in auto-unsubscriber listener: ${unsubErr.message}`);
               }
-            })();
+            } catch (unsubErr: any) {
+              this.logger.warn(`Error in auto-unsubscriber listener: ${unsubErr.message}`);
+            }
 
             const event: IncomingResponseEvent = {
               instanceId: numberId,
