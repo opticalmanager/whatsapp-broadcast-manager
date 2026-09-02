@@ -178,12 +178,6 @@ export default function ReceivedMessagesPage() {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setInstances(json.data);
-          if (json.data.length > 0 && selectedInstanceId === "ALL") {
-            const connected = json.data.find((d: WhatsAppInstance) => d.status === "CONNECTED");
-            if (connected) {
-              setSelectedInstanceId(connected.id);
-            }
-          }
         }
       }
     } catch {}

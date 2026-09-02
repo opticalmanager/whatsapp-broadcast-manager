@@ -78,7 +78,6 @@ export class ChatService {
           return [];
         }
         const camp = campaignRows[0];
-        const campStartTime = new Date(new Date(camp.scheduled_at || camp.created_at).getTime() - 2 * 60 * 1000);
 
         const campaignRecipients = await this.db.sql`
           SELECT cr.id, cr.phone, cr.name, cr.button_clicked, cr.poll_vote, cr.reply_text, cr.created_at, cr.sent_at, c.name as campaign_name
@@ -86,7 +85,7 @@ export class ChatService {
           LEFT JOIN campaigns c ON c.id = cr.campaign_id
           WHERE cr.campaign_id = ${campaignId}
           ORDER BY cr.created_at DESC NULLS LAST
-          LIMIT 200
+          LIMIT 500
         `;
 
         if (!campaignRecipients || campaignRecipients.length === 0) {
@@ -100,15 +99,14 @@ export class ChatService {
           return [];
         }
 
-        // Query incoming messages received ON OR AFTER this campaign was dispatched
+        // Query incoming messages received from these recipients
         let incomingMsgs: any[] = [];
         try {
           incomingMsgs = await this.db.sql`
             SELECT cm.id, cm.phone, cm.content, cm.created_at, cm.message_type
             FROM chat_messages cm
             WHERE cm.direction = 'INCOMING'
-              AND RIGHT(cm.phone, 10) = ANY(${phoneListClean10})
-              AND cm.created_at >= ${campStartTime}
+              AND RIGHT(REGEXP_REPLACE(cm.phone, '\\D', '', 'g'), 10) = ANY(${phoneListClean10})
             ORDER BY cm.created_at DESC
           `;
         } catch {}

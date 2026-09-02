@@ -1753,5 +1753,59 @@
     ],
     "messageText": "Hello {{customer_name}},\n\nExclusive Festival Offer from {{shop_name}}! Upgrade your eyewear this season with 20% OFF on premium prescription lenses & frames.\n\nUse code {{voucher_code}} at checkout!",
     "createdAt": "2026-08-29T14:36:36.661Z"
+  },
+  {
+    "id": "cmp-1788332235300",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "templateId": "tpl-custom",
+    "name": "Campaign 09/02, 12:26 PM",
+    "targetAudienceType": "Groups",
+    "audienceNames": [
+      "treail segment"
+    ],
+    "scheduledAt": "2026-09-02T06:57:15.300Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "cnt_dbe782f44f68e5a8",
+        "phone": "917678106554",
+        "name": "Customer",
+        "status": "DELIVERED",
+        "messageId": "3EB03FD86B3965C48741C3",
+        "sentAt": "2026-09-02T06:57:21.312Z",
+        "deliveredAt": "2026-09-02T06:57:21.312Z"
+      },
+      {
+        "id": "cnt_e61038e5179437d7",
+        "phone": "918178962366",
+        "name": "Customer",
+        "status": "READ",
+        "messageId": "3EB078FFAC1282B6459437",
+        "sentAt": "2026-09-02T06:57:53.099Z",
+        "deliveredAt": "2026-09-02T06:57:53.099Z",
+        "readAt": "2026-09-02T06:58:00.105Z",
+        "replyText": "Sure",
+        "repliedAt": "2026-09-02T06:58:40.636Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-02T06:57:15.300Z",
+    "warmupRamp": true,
+    "batchSize": 5,
+    "batchPause": 60,
+    "sendFromInstances": [
+      "inst_mtjqfoey_amrc"
+    ],
+    "textWithMediaMode": "caption",
+    "contentType": "media",
+    "messageType": "Text With Media"
   }
 ]

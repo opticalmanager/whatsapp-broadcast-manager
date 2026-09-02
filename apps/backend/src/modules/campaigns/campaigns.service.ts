@@ -295,8 +295,14 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
               replied_at = COALESCE(${rec.repliedAt ? rec.repliedAt.toISOString() : null}::timestamptz, replied_at),
               button_clicked = COALESCE(${rec.buttonClicked || null}, button_clicked),
               button_clicked_at = COALESCE(${rec.buttonClickedAt ? rec.buttonClickedAt.toISOString() : null}::timestamptz, button_clicked_at)
-            WHERE id = ${rec.id} OR (campaign_id = ${cmp.id} AND message_id = ${rec.messageId || ''})
-          `.catch(() => {});
+            WHERE id = ${rec.id} 
+               OR (campaign_id = ${cmp.id} AND (
+                 (message_id IS NOT NULL AND message_id = ${rec.messageId || ''}) 
+                 OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanJidPhone10}
+               ))
+          `.catch((err) => {
+            this.logger.debug(`Failed to update campaign_recipients in DB: ${err.message}`);
+          });
         }
       }
 
@@ -602,21 +608,21 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         }))
       : (cmp.recipients || []);
 
-    // Also query chat_messages for all incoming customer replies received strictly ON OR AFTER this campaign was sent!
+    // Also query chat_messages for all incoming customer replies
     const phoneClean10List = Array.from(new Set(rawRecipients.map((r) => (r.phone || "").replace(/\D/g, "").slice(-10)).filter(Boolean)));
     let incomingChatMsgs: any[] = [];
-    if (phoneClean10List.length > 0 && cmp.createdAt) {
+    if (phoneClean10List.length > 0) {
       try {
-        const campStartTime = new Date(new Date(cmp.scheduledAt || cmp.createdAt).getTime() - 2 * 60 * 1000);
         incomingChatMsgs = await this.db.sql`
           SELECT id, phone, sender_name, content, message_type, created_at
           FROM chat_messages
           WHERE direction = 'INCOMING'
-            AND RIGHT(phone, 10) = ANY(${phoneClean10List})
-            AND created_at >= ${campStartTime}
+            AND RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ANY(${phoneClean10List})
           ORDER BY created_at DESC
         `;
-      } catch {}
+      } catch (err: any) {
+        this.logger.debug(`Could not query incoming chat messages: ${err.message}`);
+      }
     }
 
     // Merge incoming messages into recipients if not already present
