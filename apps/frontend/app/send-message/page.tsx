@@ -114,6 +114,73 @@ const PRESET_TEMPLATES: Record<string, { text: string; type: WhatsAppMessageType
   }
 };
 
+// High-Performance Client-Side Smart Image Compression (Max 1280px HD, Quality 0.82)
+async function compressImageFile(
+  file: File,
+  maxDimension = 1280,
+  quality = 0.82
+): Promise<{ file: File; base64: string; originalKB: number; compressedKB: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
+            const reader2 = new FileReader();
+            reader2.onload = () => {
+              const originalKB = Math.round(file.size / 1024);
+              const compressedKB = Math.round(compressedFile.size / 1024);
+              resolve({
+                file: compressedFile,
+                base64: reader2.result as string,
+                originalKB,
+                compressedKB,
+              });
+            };
+            reader2.readAsDataURL(compressedFile);
+          } else {
+            resolve({
+              file,
+              base64: img.src,
+              originalKB: Math.round(file.size / 1024),
+              compressedKB: Math.round(file.size / 1024),
+            });
+          }
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function CampaignsStudioPage() {
   return (
     <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500 font-medium">Loading Campaign Studio...</div>}>
@@ -171,6 +238,7 @@ function CampaignsStudioInner() {
   
   // Attachments State (Starts CLEAN)
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
+  const [compressionStats, setCompressionStats] = useState<string | null>(null);
   const [textWithMediaMode, setTextWithMediaMode] = useState<"caption" | "separate">("caption");
   const [publicMediaUrl, setPublicMediaUrl] = useState<string>("");
   const [templateMediaUrl, setTemplateMediaUrl] = useState<string>("");
@@ -232,11 +300,11 @@ function CampaignsStudioInner() {
     sleepAfterMessages: number;
     sleepForSeconds: number;
   }>({
-    minDelaySec: 15,
-    maxDelaySec: 20,
+    minDelaySec: 50,
+    maxDelaySec: 60,
     sleepEnabled: true,
-    sleepAfterMessages: 25,
-    sleepForSeconds: 10,
+    sleepAfterMessages: 10,
+    sleepForSeconds: 60,
   });
 
   const [unsubSettings, setUnsubSettings] = useState<{ enabled: boolean; optoutText: string }>({
@@ -686,7 +754,7 @@ function CampaignsStudioInner() {
     return resolved;
   }, [messageText, unsubSettings, sampleRecipientData]);
 
-  // File Upload Handling (Base64 + Direct Cloud/Server Storage)
+  // Smart File Upload Handling with High-Speed Compression & Instant Preview
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -696,53 +764,71 @@ function CampaignsStudioInner() {
     }
 
     const file = files[0];
-    const previewUrl = URL.createObjectURL(file);
+    setCompressionStats(null);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = reader.result as string;
-        let finalMediaUrl = base64Data;
+      let finalBase64 = "";
+      let mimeType = file.type || "image/jpeg";
+      let filename = file.name;
+      let displaySize = (file.size / 1024).toFixed(1) + " KB";
 
-        // Try direct backend upload for CDN URL
-        try {
-          const res = await fetch(`${backendUrl}/api/v1/media/upload-direct`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...getAuthHeaders(),
-            },
-            body: JSON.stringify({
-              filename: file.name,
-              mimeType: file.type || "image/jpeg",
-              base64Data,
-            }),
-          });
-          if (res.ok) {
-            const json = await res.json();
-            if (json.success && json.data?.fileUrl) {
-              finalMediaUrl = json.data.fileUrl;
-            }
+      if (file.type.startsWith("image/")) {
+        setMediaFormat("IMAGE");
+        const compressed = await compressImageFile(file);
+        finalBase64 = compressed.base64;
+        mimeType = "image/jpeg";
+        filename = file.name.replace(/\.[^/.]+$/, ".jpg");
+        displaySize = compressed.compressedKB + " KB";
+        const savedPct = Math.max(0, Math.round((1 - compressed.compressedKB / Math.max(compressed.originalKB, 1)) * 100));
+        setCompressionStats(`⚡ Smart Compressed: ${compressed.originalKB} KB → ${compressed.compressedKB} KB (${savedPct}% saved)`);
+      } else {
+        finalBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      let finalMediaUrl = finalBase64;
+
+      // Try uploading to backend endpoint for permanent URL
+      try {
+        const res = await fetch(`${backendUrl}/api/v1/media/upload-direct`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            filename,
+            mimeType,
+            base64Data: finalBase64,
+          }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.fileUrl) {
+            finalMediaUrl = json.data.fileUrl;
           }
-        } catch {}
+        }
+      } catch {}
 
-        const newAttach: AttachedFile = {
-          id: "f-" + Date.now(),
-          name: file.name,
-          size: (file.size / 1024).toFixed(1) + " KB",
-          type: file.type,
-          url: finalMediaUrl,
-        };
-
-        setAttachedFiles((prev) => [...prev, newAttach].slice(0, 5));
-        setTemplateMediaUrl("");
-        setMediaFormat(file.type.startsWith("image/") ? "IMAGE" : file.type.includes("pdf") ? "DOCUMENT" : file.type.startsWith("video/") ? "VIDEO" : "IMAGE");
-        setMessageType("Text With Media");
-        toast.success(`Attached ${file.name}`);
+      const newAttach: AttachedFile = {
+        id: "f-" + Date.now(),
+        name: filename,
+        size: displaySize,
+        type: mimeType,
+        url: finalMediaUrl,
       };
-      reader.readAsDataURL(file);
+
+      setAttachedFiles((prev) => [...prev, newAttach].slice(0, 5));
+      setTemplateMediaUrl("");
+      setMediaFormat(mimeType.startsWith("image/") ? "IMAGE" : mimeType.includes("pdf") ? "DOCUMENT" : mimeType.startsWith("video/") ? "VIDEO" : "IMAGE");
+      setMessageType("Text With Media");
+      toast.success(`Attached ${filename} (${displaySize})`);
     } catch {
-      toast.error("Failed to process attached file.");
+      toast.error("Failed to process and compress attached file.");
     }
   };
 
@@ -1483,6 +1569,12 @@ function CampaignsStudioInner() {
                   />
                 </div>
 
+                {compressionStats && (
+                  <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
+                    {compressionStats}
+                  </div>
+                )}
+
                 {/* TEXT WITH MEDIA Radio Options */}
                 <div className="pt-1.5 space-y-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -1699,81 +1791,148 @@ function CampaignsStudioInner() {
             ========================================================================= */}
         <div className="lg:col-span-5 space-y-5">
           
-          {/* 1. Live WhatsApp Message Preview Bubble */}
-          <div className="p-4 bg-slate-100/80 dark:bg-[#0c1f17] border border-slate-200 dark:border-emerald-900/60 rounded-2xl shadow-2xs min-h-[140px] flex flex-col justify-center">
-            {!previewResolvedText && attachedFiles.length === 0 && !pollQuestion ? (
-              <p className="text-xs text-center text-slate-400 italic">
-                Your message preview will appear here
-              </p>
-            ) : (
-              <div className="max-w-xs ml-auto bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-3.5 rounded-2xl rounded-tr-xs shadow-xs space-y-2.5">
-                
-                {/* Media Attachment in WhatsApp Preview Bubble */}
-                {(() => {
-                  const mediaPreview = publicMediaUrl.trim() || attachedFiles[0]?.url || templateMediaUrl;
-                  if (!mediaPreview) return null;
+          {/* 1. Live WhatsApp Message Preview Bubble (Real-Time Media + Text) */}
+          <div className="p-4 bg-[#efeae2] dark:bg-[#0b141a] border border-slate-300/80 dark:border-emerald-950 rounded-2xl shadow-inner min-h-[160px] flex flex-col justify-center select-none">
+            {(() => {
+              const mediaPreview = publicMediaUrl.trim() || attachedFiles[0]?.url || templateMediaUrl;
+              const hasText = Boolean(previewResolvedText && previewResolvedText.trim().length > 0);
+              const hasMedia = Boolean(mediaPreview);
+              const hasPoll = Boolean(isPollMode && pollQuestion);
 
-                  const isImage = 
-                    mediaPreview.startsWith("data:image") ||
-                    mediaPreview.includes("blob:") ||
-                    /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaPreview) ||
-                    mediaPreview.includes("unsplash.com") ||
-                    mediaPreview.includes("r2.dev") ||
-                    mediaPreview.includes("/uploads/") ||
-                    mediaFormat === "IMAGE";
+              if (!hasText && !hasMedia && !hasPoll) {
+                return (
+                  <p className="text-xs text-center text-slate-400 italic">
+                    Your live WhatsApp message preview will appear here
+                  </p>
+                );
+              }
 
-                  if (isImage) {
-                    return (
-                      <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 shadow-2xs">
-                        <img
-                          src={mediaPreview}
-                          alt="Message Media Banner"
-                          className="w-full max-h-48 object-cover"
-                          onError={(e) => {
-                            // If direct render fails, fallback to document badge
-                            (e.target as HTMLElement).style.display = "none";
-                          }}
-                        />
-                      </div>
-                    );
-                  }
+              const isImage = 
+                mediaFormat === "IMAGE" ||
+                (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.startsWith("image/")) ||
+                (mediaPreview && (
+                  mediaPreview.startsWith("data:image") ||
+                  mediaPreview.includes("blob:") ||
+                  /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaPreview) ||
+                  mediaPreview.includes("unsplash.com") ||
+                  mediaPreview.includes("r2.dev") ||
+                  mediaPreview.includes("/uploads/")
+                ));
 
-                  return (
-                    <div className="p-2.5 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2.5 text-xs font-medium border border-emerald-900/10">
-                      <FileText className="w-5 h-5 text-emerald-700 dark:text-emerald-300 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-bold text-[11px]">{attachedFiles[0]?.name || "Document Attachment"}</p>
-                        <p className="text-[9px] text-slate-500 dark:text-slate-300 uppercase">{attachedFiles[0]?.size || "PDF / Media"}</p>
+              const isVideo = 
+                mediaFormat === "VIDEO" ||
+                (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.startsWith("video/")) ||
+                (mediaPreview && /\.(mp4|mov|webm)(\?|$)/i.test(mediaPreview));
+
+              const isDoc = 
+                mediaFormat === "DOCUMENT" ||
+                (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.includes("pdf")) ||
+                (mediaPreview && /\.pdf(\?|$)/i.test(mediaPreview));
+
+              // If user selected "As a separate message" with an attached image
+              if (textWithMediaMode === "separate" && hasMedia && hasText) {
+                return (
+                  <div className="space-y-2 max-w-xs ml-auto w-full">
+                    {/* Bubble 1: Media Item */}
+                    <div className="bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-2 rounded-2xl rounded-tr-xs shadow-xs space-y-1 ml-auto">
+                      {isImage ? (
+                        <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 max-h-56 shadow-2xs">
+                          <img
+                            src={mediaPreview}
+                            alt="Message Media"
+                            className="w-full h-auto object-cover max-h-56 rounded-lg"
+                          />
+                        </div>
+                      ) : isDoc ? (
+                        <div className="p-2.5 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2.5 text-xs font-medium border border-emerald-900/10">
+                          <FileText className="w-5 h-5 text-red-500 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-bold text-[11px]">{attachedFiles[0]?.name || "Document.pdf"}</p>
+                            <p className="text-[9px] text-slate-500 dark:text-slate-300 uppercase">{attachedFiles[0]?.size || "PDF Document"}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2 text-xs font-medium">
+                          <Video className="w-5 h-5 text-purple-600" />
+                          <span>Video Attachment</span>
+                        </div>
+                      )}
+                      <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300 pr-1">
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
                       </div>
                     </div>
-                  );
-                })()}
 
-                {/* Message Text Preview */}
-                {previewResolvedText && (
-                  <p className="text-xs whitespace-pre-line leading-relaxed font-normal">
-                    {previewResolvedText}
-                  </p>
-                )}
-
-                {/* Poll Preview */}
-                {isPollMode && pollQuestion && (
-                  <div className="p-2.5 bg-white/70 dark:bg-black/30 rounded-xl space-y-1.5 text-xs">
-                    <p className="font-bold">{pollQuestion}</p>
-                    {pollOptions.map((opt, i) => (
-                      <div key={i} className="px-2 py-1 bg-white/90 dark:bg-black/50 rounded text-[11px] flex items-center gap-1.5">
-                        {pollMultipleAnswers ? <CheckSquare className="w-3 h-3 text-emerald-600" /> : <span>○</span>}
-                        <span>{opt}</span>
+                    {/* Bubble 2: Separate Text Message */}
+                    <div className="bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-3 rounded-2xl rounded-tr-xs shadow-xs space-y-1.5 ml-auto">
+                      <p className="text-xs whitespace-pre-line leading-relaxed font-normal">
+                        {previewResolvedText}
+                      </p>
+                      <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300">
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
                       </div>
-                    ))}
+                    </div>
                   </div>
-                )}
+                );
+              }
 
-                <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300 pt-0.5">
-                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
+              // Single Unified Bubble (Caption Mode or Media Only / Text Only)
+              return (
+                <div className="max-w-xs ml-auto w-full bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-2.5 rounded-2xl rounded-tr-xs shadow-xs space-y-2">
+                  
+                  {/* Media Header */}
+                  {hasMedia && (
+                    <>
+                      {isImage ? (
+                        <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 max-h-56 shadow-2xs">
+                          <img
+                            src={mediaPreview}
+                            alt="Message Banner"
+                            className="w-full h-auto object-cover max-h-56 rounded-lg"
+                          />
+                        </div>
+                      ) : isDoc ? (
+                        <div className="p-2.5 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2.5 text-xs font-medium border border-emerald-900/10">
+                          <FileText className="w-5 h-5 text-red-500 shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-bold text-[11px]">{attachedFiles[0]?.name || "Document.pdf"}</p>
+                            <p className="text-[9px] text-slate-500 dark:text-slate-300 uppercase">{attachedFiles[0]?.size || "PDF Document"}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2 text-xs font-medium">
+                          <Video className="w-5 h-5 text-purple-600" />
+                          <span>Video Attachment</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Caption / Text */}
+                  {hasText && (
+                    <p className="text-xs whitespace-pre-line leading-relaxed font-normal px-1">
+                      {previewResolvedText}
+                    </p>
+                  )}
+
+                  {/* Poll */}
+                  {hasPoll && (
+                    <div className="p-2.5 bg-white/70 dark:bg-black/30 rounded-xl space-y-1.5 text-xs">
+                      <p className="font-bold">{pollQuestion}</p>
+                      {pollOptions.map((opt, i) => (
+                        <div key={i} className="px-2 py-1 bg-white/90 dark:bg-black/50 rounded text-[11px] flex items-center gap-1.5">
+                          {pollMultipleAnswers ? <CheckSquare className="w-3 h-3 text-emerald-600" /> : <span>○</span>}
+                          <span>{opt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300 pr-1">
+                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
 
           {/* 2. Summary Card */}

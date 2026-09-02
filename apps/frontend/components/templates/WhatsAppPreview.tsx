@@ -43,15 +43,15 @@ export function WhatsAppPreview({
         {/* WhatsApp Chat Message Bubble */}
         <div className="bg-[#0b141a] p-3 rounded-xl space-y-2 border border-slate-800/60 shadow-inner">
           {/* Media Header Preview */}
-          {mediaType === "IMAGE" && (
-            <div className="rounded-lg overflow-hidden border border-slate-700/50 bg-slate-800 aspect-video relative flex items-center justify-center">
+          {(mediaType === "IMAGE" || (mediaUrl && (mediaUrl.startsWith("data:image") || mediaUrl.includes("blob:") || /\.(jpg|jpeg|png|webp|gif)/i.test(mediaUrl)))) && (
+            <div className="rounded-lg overflow-hidden border border-slate-700/50 bg-slate-800 max-h-48 relative flex items-center justify-center shadow-xs">
               {mediaUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={mediaUrl} alt="Template Flyer Header" className="w-full h-full object-cover" />
+                <img src={mediaUrl} alt="Template Flyer Header" className="w-full h-auto object-cover max-h-48" />
               ) : (
-                <div className="flex items-center gap-1.5 text-slate-400 text-xs font-semibold">
+                <div className="p-4 flex items-center gap-1.5 text-slate-400 text-xs font-semibold">
                   <ImageIcon className="w-4 h-4 text-emerald-400" />
-                  <span>Image Flyer Header Attached</span>
+                  <span>Image Flyer Attached</span>
                 </div>
               )}
             </div>

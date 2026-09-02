@@ -367,19 +367,20 @@ export default function CampaignsDashboardPage() {
           </div>
         ) : (
           
-          /* Campaigns Table matching Image 2 */
+          /* Campaigns Table with Responsive Horizontal Scroll & Sticky Actions */
           <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                <tr>
-                  <th className="py-3 px-5">NAME</th>
-                  <th className="py-3 px-4">STATUS</th>
-                  <th className="py-3 px-4">PROGRESS</th>
-                  <th className="py-3 px-4">CREATED</th>
-                  <th className="py-3 px-5 text-right">ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            <div className="overflow-x-auto w-full scrollbar-thin">
+              <table className="w-full text-left text-xs min-w-[620px] whitespace-nowrap">
+                <thead className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10px] uppercase font-bold text-slate-400 tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4 sm:px-5">NAME</th>
+                    <th className="py-3 px-3 sm:px-4">STATUS</th>
+                    <th className="py-3 px-3 sm:px-4">PROGRESS</th>
+                    <th className="py-3 px-3 sm:px-4">CREATED</th>
+                    <th className="py-3 px-4 sm:px-5 text-right sticky right-0 bg-slate-50/90 dark:bg-slate-900/90 backdrop-blur-xs">ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                 {filteredCampaigns.map((camp) => {
                   const progressRatio = `${(camp.sentCount || 0) + (camp.failedCount || 0)} / ${camp.totalRecipients}`;
                   const progressPct = Math.min(
@@ -455,12 +456,12 @@ export default function CampaignsDashboardPage() {
                         })}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-3.5 px-5 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      {/* Actions with Sticky Right Column */}
+                      <td className="py-3.5 px-4 sm:px-5 text-right sticky right-0 bg-white/95 dark:bg-[#111726]/95 backdrop-blur-xs shadow-[-6px_0_12px_rgba(0,0,0,0.04)] dark:shadow-[-6px_0_12px_rgba(0,0,0,0.4)]">
+                        <div className="flex items-center justify-end gap-1.5 sm:gap-2">
                           <button
                             onClick={() => router.push(`/campaigns/${camp.id}`)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/40 text-slate-600 dark:text-slate-300 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
                             title="View Campaign Report"
                           >
                             <BarChart2 className="w-3.5 h-3.5" />
@@ -470,8 +471,8 @@ export default function CampaignsDashboardPage() {
                           {camp.status === "PROCESSING" && (
                             <button
                               onClick={() => handlePause(camp.id)}
-                              className="p-1 text-slate-400 hover:text-amber-600 cursor-pointer"
-                              title="Pause"
+                              className="p-1.5 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 cursor-pointer transition-colors"
+                              title="Pause Campaign"
                             >
                               <Pause className="w-3.5 h-3.5" />
                             </button>
@@ -480,8 +481,8 @@ export default function CampaignsDashboardPage() {
                           {camp.status === "PAUSED" && (
                             <button
                               onClick={() => handleResume(camp.id)}
-                              className="p-1 text-slate-400 hover:text-emerald-600 cursor-pointer"
-                              title="Resume"
+                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 cursor-pointer transition-colors"
+                              title="Resume Campaign"
                             >
                               <Play className="w-3.5 h-3.5" />
                             </button>
@@ -490,7 +491,7 @@ export default function CampaignsDashboardPage() {
                           <button
                             onClick={() => handleDelete(camp.id)}
                             disabled={actionLoadingId === camp.id}
-                            className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer transition-colors"
+                            className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 cursor-pointer transition-colors disabled:opacity-50"
                             title="Delete Campaign"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -503,6 +504,7 @@ export default function CampaignsDashboardPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
 
         )}

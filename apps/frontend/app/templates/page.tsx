@@ -1111,7 +1111,6 @@ function TemplateEditorModal({
                             <img
                               src={mediaUrl}
                               alt="URL Preview"
-                              crossOrigin="anonymous"
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 (e.target as HTMLElement).style.display = "none";
@@ -1470,7 +1469,6 @@ function WhatsAppTemplateLivePreview({
                   <img
                     src={mediaUrl}
                     alt="Template Media"
-                    crossOrigin="anonymous"
                     className="w-full h-auto object-cover max-h-36"
                     onError={(e) => {
                       (e.target as HTMLElement).style.opacity = "0.8";

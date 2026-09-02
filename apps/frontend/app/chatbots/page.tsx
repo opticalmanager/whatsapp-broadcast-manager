@@ -415,11 +415,11 @@ export default function AutoReplyKeyMarkerPage() {
             </div>
           </div>
 
-          {/* Master Bot Engine Switch Card (Matching Image 1 & 2) */}
-          <div className="bg-white dark:bg-[#111726] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex items-center justify-between">
+          {/* Master Bot Engine Switch Card */}
+          <div className="bg-white dark:bg-[#111726] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3.5">
               <div className={
-                "w-10 h-10 rounded-xl flex items-center justify-center " +
+                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 " +
                 (settings.botEngineEnabled
                   ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
                   : "bg-slate-100 text-slate-400 dark:bg-slate-800")
@@ -430,7 +430,7 @@ export default function AutoReplyKeyMarkerPage() {
                 <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                   Bot Engine
                 </h3>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                   {settings.botEngineEnabled
                     ? "On — enabled rules will run on this account."
                     : "Off — no rules reply until you turn the engine on."}
@@ -442,7 +442,7 @@ export default function AutoReplyKeyMarkerPage() {
             <button
               onClick={handleToggleBotEngine}
               className={
-                "w-12 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer " +
+                "w-12 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 self-end sm:self-auto " +
                 (settings.botEngineEnabled ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-700")
               }
             >
@@ -455,18 +455,18 @@ export default function AutoReplyKeyMarkerPage() {
             </button>
           </div>
 
-          {/* Chatbot Reply Pacing Card (Matching Image 1 & 2) */}
-          <div className="bg-white dark:bg-[#111726] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-3.5 max-w-lg">
+          {/* Chatbot Reply Pacing Card */}
+          <div className="bg-white dark:bg-[#111726] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3.5 w-full max-w-xl">
             <div>
               <h3 className="text-xs font-bold text-slate-900 dark:text-white">
                 Chatbot reply pacing
               </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
                 Delay before and between multi-step bot replies (seconds). Makes auto-replies feel more human.
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                   Min delay (sec)
@@ -497,10 +497,10 @@ export default function AutoReplyKeyMarkerPage() {
             <button
               onClick={handleSavePacing}
               disabled={savingSettings}
-              className="px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
             >
               {savingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-              <span>Save</span>
+              <span>Save Pacing</span>
             </button>
           </div>
 
@@ -557,28 +557,28 @@ export default function AutoReplyKeyMarkerPage() {
 
             ) : (
 
-              /* Active Rules List (Matching Image 2) */
-              <div className="space-y-2.5">
+              /* Active Rules List with Full Mobile Responsiveness */
+              <div className="space-y-3">
                 {rules.map((rule) => (
                   <div
                     key={rule.id}
                     onClick={() => handleOpenEditRule(rule)}
-                    className="bg-white dark:bg-[#111726] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex items-center justify-between cursor-pointer"
+                    className="bg-white dark:bg-[#111726] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 cursor-pointer"
                   >
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center justify-center">
-                        <Bot className="w-4 h-4" />
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                        <Bot className="w-5 h-5" />
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-extrabold text-slate-900 dark:text-white">
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-extrabold text-slate-900 dark:text-white break-all">
                             {rule.keyword}
                           </span>
-                          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-semibold border border-slate-200/80 dark:border-slate-700">
+                          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[10px] font-semibold border border-slate-200/80 dark:border-slate-700 shrink-0">
                             {rule.matchType}
                           </span>
                           <span className={
-                            "px-2 py-0.5 rounded-md text-[10px] font-semibold " +
+                            "px-2 py-0.5 rounded-md text-[10px] font-semibold shrink-0 " +
                             (rule.enabled
                               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                               : "bg-slate-100 text-slate-500 dark:bg-slate-800")
@@ -586,26 +586,26 @@ export default function AutoReplyKeyMarkerPage() {
                             {rule.enabled ? "Enabled" : "Disabled"}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 max-w-lg">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 sm:line-clamp-1 break-words">
                           {rule.responses?.[0]?.text || "Media / Interactive reply"}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/80 w-full sm:w-auto justify-end">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleOpenEditRule(rule);
                         }}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
                       >
-                        <Edit3 className="w-3.5 h-3.5" />
+                        <Edit3 className="w-3.5 h-3.5 text-slate-500" />
                         <span>Edit</span>
                       </button>
                       <button
                         onClick={(e) => handleDeleteRule(rule.id, e)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Remove</span>
@@ -629,21 +629,21 @@ export default function AutoReplyKeyMarkerPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 max-w-md">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full max-w-md">
               <input
                 type="text"
                 value={friendlyInput}
                 onChange={(e) => setFriendlyInput(e.target.value)}
                 placeholder="Phone number or JID"
-                className="w-full bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2 text-xs font-medium text-slate-800 dark:text-slate-100 outline-hidden focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                className="w-full bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-xs font-medium text-slate-800 dark:text-slate-100 outline-hidden focus:ring-2 focus:ring-emerald-500 shadow-2xs"
               />
               <button
                 onClick={handleAddFriendlyNumber}
                 disabled={addingFriendly || !friendlyInput.trim()}
-                className="flex items-center gap-1 px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-2xs"
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold transition-colors cursor-pointer shrink-0 shadow-2xs"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Add</span>
+                <span>Add Number</span>
               </button>
             </div>
 

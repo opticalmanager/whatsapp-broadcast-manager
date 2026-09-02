@@ -1,3 +1,70 @@
+import { Upload } from "lucide-react";
+
+async function compressImageFile(
+  file: File,
+  maxDimension = 1280,
+  quality = 0.82
+): Promise<{ file: File; base64: string; originalKB: number; compressedKB: number }> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.src = e.target?.result as string;
+    };
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, 0, 0, width, height);
+      }
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            const compressedFile = new File([blob], file.name.replace(/\.[^/.]+$/, ".jpg"), { type: "image/jpeg" });
+            const reader2 = new FileReader();
+            reader2.onload = () => {
+              const originalKB = Math.round(file.size / 1024);
+              const compressedKB = Math.round(compressedFile.size / 1024);
+              resolve({
+                file: compressedFile,
+                base64: reader2.result as string,
+                originalKB,
+                compressedKB,
+              });
+            };
+            reader2.readAsDataURL(compressedFile);
+          } else {
+            resolve({
+              file,
+              base64: img.src,
+              originalKB: Math.round(file.size / 1024),
+              compressedKB: Math.round(file.size / 1024),
+            });
+          }
+        },
+        "image/jpeg",
+        quality
+      );
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 "use client";
 
 import React, { useState } from "react";
@@ -18,6 +85,61 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
   const [mediaType, setMediaType] = useState<"NONE" | "IMAGE" | "DOCUMENT" | "VIDEO">("NONE");
   const [mediaUrl, setMediaUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [compressStat, setCompressStat] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleLocalFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setCompressStat(null);
+    try {
+      let finalBase64 = "";
+      let filename = file.name;
+      let mimeType = file.type || "image/jpeg";
+
+      if (file.type.startsWith("image/")) {
+        setMediaType("IMAGE");
+        const comp = await compressImageFile(file);
+        finalBase64 = comp.base64;
+        mimeType = "image/jpeg";
+        filename = file.name.replace(/\.[^/.]+$/, ".jpg");
+        setCompressStat(`⚡ ${comp.originalKB}KB → ${comp.compressedKB}KB`);
+      } else {
+        finalBase64 = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      setMediaUrl(finalBase64);
+      toast.success("Image compressed and loaded!");
+
+      // Try uploading to backend
+      const backendUrl = getBackendUrl();
+      const res = await fetch(`${backendUrl}/api/v1/media/upload-direct`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer demo-token",
+        },
+        body: JSON.stringify({ filename, mimeType, base64Data: finalBase64 }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.fileUrl) {
+          setMediaUrl(json.data.fileUrl);
+        }
+      }
+    } catch {
+      toast.error("Failed to upload image");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -148,17 +270,40 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
             </div>
 
             {mediaType !== "NONE" && (
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                  Media Asset URL
+              <div className="space-y-2">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Media Asset Attachment (Upload or URL)
                 </label>
-                <input
-                  type="url"
-                  placeholder="https://assets.opticalmanager.in/media/flyer.jpg"
-                  value={mediaUrl}
-                  onChange={(e) => setMediaUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors font-mono"
-                />
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Upload Image</span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf,video/*"
+                    onChange={handleLocalFileUpload}
+                    className="hidden"
+                  />
+
+                  <input
+                    type="text"
+                    placeholder="Or paste public URL (https://...)"
+                    value={mediaUrl}
+                    onChange={(e) => setMediaUrl(e.target.value)}
+                    className="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors font-mono"
+                  />
+                </div>
+
+                {compressStat && (
+                  <p className="text-[11px] text-emerald-400 font-mono">{compressStat}</p>
+                )}
               </div>
             )}
 

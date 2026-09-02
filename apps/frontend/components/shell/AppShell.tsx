@@ -144,7 +144,7 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-full shadow-xs object-cover group-hover:scale-105 transition-transform shrink-0" 
             />
             <div className="flex items-center gap-1.5 min-w-0">
-              <h1 className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white truncate max-w-[150px] xs:max-w-[210px] sm:max-w-none">
+              <h1 className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white truncate max-w-[150px] sm:max-w-none">
                 WhatsApp Broadcast Manager
               </h1>
             </div>
@@ -165,15 +165,15 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
             title="WhatsApp Connected Devices"
           >
             <span className={`w-2 h-2 rounded-full shrink-0 ${connectedDevicesCount > 0 ? "bg-emerald-500 shadow-xs" : "bg-amber-500 animate-ping"}`} />
-            <span className="hidden xs:inline">
+            <span className="hidden sm:inline whitespace-nowrap">
               {connectedDevicesCount === 0
-                ? "Pair Device"
+                ? "Pair Device (QR)"
                 : connectedDevicesCount === 1
-                ? "1 Device"
-                : `${connectedDevicesCount} Devices`}
+                ? "1 Device Connected"
+                : `${connectedDevicesCount} Devices Connected`}
             </span>
-            <span className="xs:hidden font-mono text-[11px]">
-              {connectedDevicesCount}
+            <span className="sm:hidden whitespace-nowrap">
+              {connectedDevicesCount === 0 ? "Pair Device" : `${connectedDevicesCount} Connected`}
             </span>
           </Link>
 
