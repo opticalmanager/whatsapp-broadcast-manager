@@ -6,23 +6,55 @@ import Redis from "ioredis";
 export class BaileysAuthStoreService {
   private readonly logger = new Logger(BaileysAuthStoreService.name);
   private redisClient: Redis;
+  private isConnected = false;
 
   constructor() {
-    const host = process.env.REDIS_HOST || "localhost";
-    const port = parseInt(process.env.REDIS_PORT || "6379", 10);
-    const password = process.env.REDIS_PASSWORD || undefined;
+    const redisUrl = process.env.REDIS_URL;
 
-    this.redisClient = new Redis({
-      host,
-      port,
-      password,
-      lazyConnect: true,
-      retryStrategy: (times) => Math.min(times * 100, 3000),
+    if (redisUrl) {
+      this.redisClient = new Redis(redisUrl, {
+        tls: { rejectUnauthorized: false },
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        connectTimeout: 2000,
+      });
+    } else {
+      const host = process.env.REDIS_HOST || "localhost";
+      const port = parseInt(process.env.REDIS_PORT || "6379", 10);
+      const password = process.env.REDIS_PASSWORD || undefined;
+      const isUpstash = host.includes("upstash.io") || process.env.REDIS_TLS === "true";
+
+      this.redisClient = new Redis({
+        host,
+        port,
+        password,
+        tls: isUpstash ? { rejectUnauthorized: false } : undefined,
+        lazyConnect: true,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        connectTimeout: 2000,
+      });
+    }
+
+    this.redisClient.on("ready", () => {
+      this.isConnected = true;
+      this.logger.log("Redis auth store connected successfully.");
     });
 
-    this.redisClient.connect().catch((err) => {
-      this.logger.warn(`Redis connection deferred: ${err.message}. Operating with fallback in-memory auth cache.`);
+    this.redisClient.on("error", () => {
+      this.isConnected = false;
     });
+
+    this.redisClient.connect().catch(() => {
+      this.isConnected = false;
+      this.logger.log("Operating with high-speed in-memory auth store fallback.");
+    });
+  }
+
+
+  private isRedisActive(): boolean {
+    return this.isConnected && this.redisClient.status === "ready";
   }
 
   private getKey(numberId: string, type: string, id: string): string {
@@ -35,31 +67,34 @@ export class BaileysAuthStoreService {
 
   /**
    * Constructs an AuthenticationState object compatible with Baileys.
-   * Leverages Redis for persistence with fallback memory store.
+   * Instant performance bypass when Redis is offline to prevent socket timeouts.
    */
   async useRedisAuthState(numberId: string): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> {
     const memoryCache: Record<string, string> = {};
 
-    // 1. Fetch credentials from Redis
-    let creds: AuthenticationCreds;
-    try {
-      const rawCreds = await this.redisClient.get(this.getCredsKey(numberId));
-      if (rawCreds) {
-        creds = JSON.parse(rawCreds, BufferJSON.reviver);
-      } else {
+    // 1. Fetch credentials (instant memory fallback if Redis offline)
+    let creds: AuthenticationCreds = initAuthCreds();
+
+    if (this.isRedisActive()) {
+      try {
+        const rawCreds = await this.redisClient.get(this.getCredsKey(numberId));
+        if (rawCreds) {
+          creds = JSON.parse(rawCreds, BufferJSON.reviver);
+        }
+      } catch {
         creds = initAuthCreds();
       }
-    } catch {
-      creds = initAuthCreds();
     }
 
     const writeData = async (data: any, key: string) => {
       const value = JSON.stringify(data, BufferJSON.replacer);
       memoryCache[key] = value;
-      try {
-        await this.redisClient.set(key, value);
-      } catch (err) {
-        this.logger.verbose(`Redis write fallback for key ${key}`);
+      if (this.isRedisActive()) {
+        try {
+          await this.redisClient.set(key, value);
+        } catch {
+          // Ignored
+        }
       }
     };
 
@@ -67,24 +102,28 @@ export class BaileysAuthStoreService {
       if (memoryCache[key]) {
         return JSON.parse(memoryCache[key], BufferJSON.reviver);
       }
-      try {
-        const raw = await this.redisClient.get(key);
-        if (raw) {
-          memoryCache[key] = raw;
-          return JSON.parse(raw, BufferJSON.reviver);
+      if (this.isRedisActive()) {
+        try {
+          const raw = await this.redisClient.get(key);
+          if (raw) {
+            memoryCache[key] = raw;
+            return JSON.parse(raw, BufferJSON.reviver);
+          }
+        } catch {
+          return null;
         }
-      } catch {
-        return null;
       }
       return null;
     };
 
     const removeData = async (key: string) => {
       delete memoryCache[key];
-      try {
-        await this.redisClient.del(key);
-      } catch {
-        // Ignored
+      if (this.isRedisActive()) {
+        try {
+          await this.redisClient.del(key);
+        } catch {
+          // Ignored
+        }
       }
     };
 
@@ -128,19 +167,17 @@ export class BaileysAuthStoreService {
     };
   }
 
-  /**
-   * Clears all session keys from Redis when user logs out.
-   */
   async purgeSessionKeys(numberId: string): Promise<void> {
-    try {
-      const pattern = `wa:session:${numberId}:*`;
-      const keys = await this.redisClient.keys(pattern);
-      if (keys.length > 0) {
-        await this.redisClient.del(...keys);
-        this.logger.log(`Purged ${keys.length} session keys for number ${numberId}`);
+    if (this.isRedisActive()) {
+      try {
+        const pattern = `wa:session:${numberId}:*`;
+        const keys = await this.redisClient.keys(pattern);
+        if (keys.length > 0) {
+          await this.redisClient.del(...keys);
+        }
+      } catch (error: any) {
+        this.logger.error(`Error purging session keys for ${numberId}: ${error.message}`);
       }
-    } catch (error: any) {
-      this.logger.error(`Error purging session keys for ${numberId}: ${error.message}`);
     }
   }
 }

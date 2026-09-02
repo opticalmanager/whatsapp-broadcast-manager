@@ -22,7 +22,11 @@ apps/backend/build/
 
 # WhatsApp Baileys Auth Session Key Directory (DO NOT COMMIT SESSIONS)
 apps/backend/baileys_auth_info/
+apps/backend/baileys_auth_sessions/
 apps/backend/sessions/
+apps/backend/.data/
+.data/
+
 
 # Logs
 logs

@@ -1,0 +1,81 @@
+{
+  "rules": [
+    {
+      "id": "rule_1788085209013_moz8",
+      "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+      "instanceId": "ALL",
+      "matchType": "Contains",
+      "keyword": "hello",
+      "responses": [
+        {
+          "type": "Text",
+          "text": "how are you"
+        }
+      ],
+      "enabled": true,
+      "createdAt": "2026-08-30T10:20:09.013Z",
+      "updatedAt": "2026-08-30T10:20:09.013Z"
+    },
+    {
+      "id": "rule_1788085698689_3imr",
+      "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+      "instanceId": "ALL",
+      "matchType": "Contains",
+      "keyword": "help",
+      "responses": [
+        {
+          "type": "Text",
+          "text": "sure our team will conaatc you soon..............."
+        }
+      ],
+      "enabled": true,
+      "createdAt": "2026-08-30T10:28:18.689Z",
+      "updatedAt": "2026-08-30T10:28:18.689Z"
+    },
+    {
+      "id": "rule_1788174214255_vf3w",
+      "organizationId": "org-68ff663e674769f3",
+      "instanceId": "ALL",
+      "matchType": "Contains",
+      "keyword": "price",
+      "responses": [
+        {
+          "type": "Text",
+          "text": "Our frames start at 499 INR with free anti-glare lenses!"
+        }
+      ],
+      "enabled": true,
+      "createdAt": "2026-08-31T11:03:34.255Z",
+      "updatedAt": "2026-08-31T11:03:34.255Z"
+    }
+  ],
+  "settings": [
+    {
+      "organizationId": "org-demo",
+      "instanceId": "ALL",
+      "botEngineEnabled": true,
+      "minDelaySec": 0.8,
+      "maxDelaySec": 2.2,
+      "friendlyNumbers": [],
+      "updatedAt": "2026-08-30T10:16:38.884Z"
+    },
+    {
+      "organizationId": "org-68ff663e674769f3",
+      "instanceId": "inst_mth3mzxr_6a30",
+      "botEngineEnabled": true,
+      "minDelaySec": 0.8,
+      "maxDelaySec": 2.2,
+      "friendlyNumbers": [],
+      "updatedAt": "2026-08-31T10:47:32.105Z"
+    },
+    {
+      "organizationId": "org-68ff663e674769f3",
+      "instanceId": "ALL",
+      "botEngineEnabled": true,
+      "minDelaySec": 0.8,
+      "maxDelaySec": 2.2,
+      "friendlyNumbers": [],
+      "updatedAt": "2026-08-31T10:47:03.796Z"
+    }
+  ]
+}

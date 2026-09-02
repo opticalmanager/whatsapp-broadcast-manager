@@ -1,0 +1,114 @@
+{
+  "settings": [
+    {
+      "organizationId": "org-demo",
+      "instanceId": "ALL",
+      "enabled": true,
+      "frequency": "FIRST_TIME_EVER",
+      "minDelaySec": 1,
+      "maxDelaySec": 2.5,
+      "excludeFriendlyNumbers": true,
+      "responses": [
+        {
+          "type": "Text",
+          "text": "👋 {Hello|Hi|Greetings} {{name}}! Welcome to Dhaba Opticals. How can we help you today with frame choices or eye test bookings?"
+        }
+      ],
+      "updatedAt": "2026-08-30T11:13:40.549Z"
+    }
+  ],
+  "history": {
+    "120363165099714371": 1788176284207,
+    "244843318087781": 1788172893405,
+    "191027562422525": 1788135346395,
+    "919773879841": 1788135346050,
+    "149447782703165": 1788135238499,
+    "919871648941": 1788135238689,
+    "236700630524083": 1788091803191,
+    "120363370850731784": 1788266470098,
+    "93218288988379": 1788266470100,
+    "154336059494482": 1788267278015
+  },
+  "logs": [
+    {
+      "id": "wlog_1788267279946_35ov",
+      "phone": "+154336059494482",
+      "name": "Optical Manager",
+      "instanceId": "inst_mth6ammj_jwnd",
+      "sentAt": "2026-09-01T12:54:39.946Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788266472422_e574",
+      "phone": "+93218288988379",
+      "name": "Soni Mishra",
+      "instanceId": "inst_mth6ammj_jwnd",
+      "sentAt": "2026-09-01T12:41:12.422Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788266471082_eexx",
+      "phone": "+120363370850731784",
+      "name": "Customer",
+      "instanceId": "inst_mth6ammj_jwnd",
+      "sentAt": "2026-09-01T12:41:11.082Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788176285527_qcb9",
+      "phone": "+120363165099714371",
+      "name": "Customer",
+      "instanceId": "inst_mth3mzxr_6a30",
+      "sentAt": "2026-08-31T11:38:05.527Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788172896089_ghnb",
+      "phone": "+244843318087781",
+      "name": "Gaurav",
+      "instanceId": "inst_mth3mzxr_6a30",
+      "sentAt": "2026-08-31T10:41:36.089Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788135347666_oahd",
+      "phone": "+191027562422525",
+      "name": "Usha Tiwari",
+      "instanceId": "inst-org-68ff",
+      "sentAt": "2026-08-31T00:15:47.666Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788135347348_mf7h",
+      "phone": "+919773879841",
+      "name": "Customer",
+      "instanceId": "inst-org-68ff",
+      "sentAt": "2026-08-31T00:15:47.348Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788135240154_uwd5",
+      "phone": "+149447782703165",
+      "name": "Sk Tiwari",
+      "instanceId": "inst-org-68ff",
+      "sentAt": "2026-08-31T00:14:00.154Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788135239875_hvph",
+      "phone": "+919871648941",
+      "name": "Customer",
+      "instanceId": "inst-org-68ff",
+      "sentAt": "2026-08-31T00:13:59.875Z",
+      "status": "DELIVERED"
+    },
+    {
+      "id": "wlog_1788091804930_xbcu",
+      "phone": "+236700630524083",
+      "name": "Viral nest",
+      "instanceId": "inst-6ed467eb",
+      "sentAt": "2026-08-30T12:10:04.930Z",
+      "status": "DELIVERED"
+    }
+  ]
+}

@@ -1,0 +1,1757 @@
+[
+  {
+    "id": "cmp-1788280013577",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtio5t4d_9e76",
+    "name": "Campaign 09/01, 09:54 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T16:26:53.577Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788280012807",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB038C510B2C5192F7E3F",
+        "status": "READ",
+        "sentAt": "2026-09-01T16:28:41.970Z",
+        "deliveredAt": "2026-09-01T16:28:45.312Z",
+        "readAt": "2026-09-01T16:29:26.346Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-01T16:26:54.108Z",
+    "contentType": "poll",
+    "pollQuestion": "Would you like to schedule an eye checkup this week?",
+    "pollOptions": [
+      "Yes, definitely!",
+      "Maybe next week",
+      "No, thanks"
+    ],
+    "pollData": {
+      "question": "Would you like to schedule an eye checkup this week?",
+      "options": [
+        "Yes, definitely!",
+        "Maybe next week",
+        "No, thanks"
+      ],
+      "multiple": false
+    },
+    "messageType": "Poll"
+  },
+  {
+    "id": "cmp-1788254401904",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "test Broadcast",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T09:20:01.904Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788254401862",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB07FEC8E15A309DA7334",
+        "status": "READ",
+        "sentAt": "2026-09-01T09:20:05.802Z",
+        "deliveredAt": "2026-09-01T09:20:23.762Z",
+        "readAt": "2026-09-01T09:22:39.855Z",
+        "replyText": "Ok",
+        "repliedAt": "2026-09-01T09:22:39.645Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-01T09:20:02.111Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788253928614",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "test Broadcast",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T09:12:08.614Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788253928605",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0DDCA59A35E4B2C7A7A",
+        "status": "READ",
+        "sentAt": "2026-09-01T09:12:11.045Z",
+        "deliveredAt": "2026-09-01T09:20:13.612Z",
+        "readAt": "2026-09-01T09:22:15.265Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?igjjl",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-01T09:12:08.814Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788253808265",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "test Broadcast",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T09:10:08.265Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788253808229",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB035FC9F7913A1270233",
+        "status": "READ",
+        "sentAt": "2026-09-01T09:10:11.754Z",
+        "deliveredAt": "2026-09-01T09:10:17.561Z",
+        "readAt": "2026-09-01T09:22:16.541Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-01T09:10:08.466Z",
+    "contentType": "poll",
+    "pollQuestion": "Would you like to schedule an eye checkup this week?",
+    "pollOptions": [
+      "Yes, definitely!",
+      "Maybe next week",
+      "No, thanks"
+    ],
+    "pollData": {
+      "question": "Would you like to schedule an eye checkup this week?",
+      "options": [
+        "Yes, definitely!",
+        "Maybe next week",
+        "No, thanks"
+      ],
+      "multiple": false
+    },
+    "messageType": "Poll"
+  },
+  {
+    "id": "cmp-1788253304023",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "test Broadcast",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T09:01:44.022Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788253303972",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB066E362C2C1D83C3912",
+        "status": "READ",
+        "sentAt": "2026-09-01T09:01:48.082Z",
+        "deliveredAt": "2026-09-01T09:01:55.905Z",
+        "readAt": "2026-09-01T09:09:09.392Z",
+        "replyText": "Ok",
+        "repliedAt": "2026-09-01T09:09:09.193Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-01T09:01:44.224Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788252756804",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "test Broadcast",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T08:52:36.804Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788252756794",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0223FE09904E1FAFAA1",
+        "status": "READ",
+        "sentAt": "2026-09-01T08:52:39.723Z",
+        "deliveredAt": "2026-09-01T08:52:41.303Z",
+        "readAt": "2026-09-01T08:53:02.212Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-01T08:52:36.999Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788252264958",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "just fo salw Broadcast",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T08:44:24.958Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788252264941",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0070EA332142FA026A1",
+        "status": "READ",
+        "sentAt": "2026-09-01T08:44:27.690Z",
+        "deliveredAt": "2026-09-01T08:44:29.199Z",
+        "readAt": "2026-09-01T08:44:49.483Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{name}},\n\nWe have an exclusive offer from {{business_name}}! Enjoy {{discount}} OFF with coupon code *{{coupon_code}}*.\n\nValid until {{expiry_date}}!",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10",
+    "createdAt": "2026-09-01T08:44:25.148Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788250418945",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/01, 01:42 PM",
+    "targetAudienceType": "Groups",
+    "scheduledAt": "2026-09-01T08:13:38.945Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 2,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc_1788250418945_0",
+        "phone": "918178128362",
+        "name": "Contact 1",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-01T08:35:08.781Z",
+        "deliveredAt": "2026-09-01T08:35:08.781Z"
+      },
+      {
+        "id": "rc_1788250418945_1",
+        "phone": "918700207572",
+        "name": "Contact 2",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-01T08:35:09.228Z",
+        "deliveredAt": "2026-09-01T08:35:09.228Z"
+      }
+    ],
+    "messageText": "{hi|hello|hey} hloo this s an tril essge ca,paign for thi acoaunt",
+    "mediaUrl": null,
+    "createdAt": "2026-09-01T08:13:39.122Z",
+    "contentType": "poll",
+    "pollQuestion": "Would you like to schedule an eye checkup this week?",
+    "pollOptions": [
+      "Yes, definitely!",
+      "Maybe next week",
+      "No, thanks"
+    ],
+    "pollData": {
+      "question": "Would you like to schedule an eye checkup this week?",
+      "options": [
+        "Yes, definitely!",
+        "Maybe next week",
+        "No, thanks"
+      ],
+      "multiple": false
+    },
+    "messageType": "Poll"
+  },
+  {
+    "id": "cmp-1788246691281",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "just fo salw Broadcast",
+    "targetAudienceType": "Groups",
+    "scheduledAt": "2026-09-01T07:11:31.280Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 2,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "cnt_dbe782f44f68e5a8",
+        "phone": "917678106554",
+        "name": "Customer",
+        "messageId": "3EB0354A8ADA2399BC2E3C",
+        "status": "READ",
+        "sentAt": "2026-09-01T08:13:41.469Z",
+        "deliveredAt": "2026-09-01T08:13:43.487Z",
+        "readAt": "2026-09-01T08:18:25.594Z",
+        "pollVote": "Voted",
+        "pollVotedAt": "2026-09-01T08:18:25.413Z",
+        "replyText": "Itni achi english kaha se sikhi aapne",
+        "repliedAt": "2026-09-01T08:18:22.813Z"
+      },
+      {
+        "id": "cnt_e61038e5179437d7",
+        "phone": "918178962366",
+        "name": "Customer",
+        "messageId": "3EB08E86787D71F839C78F",
+        "status": "READ",
+        "sentAt": "2026-09-01T08:14:12.797Z",
+        "deliveredAt": "2026-09-01T08:14:32.784Z",
+        "readAt": "2026-09-01T08:28:46.655Z",
+        "pollVote": "Voted",
+        "pollVotedAt": "2026-09-01T08:14:56.535Z",
+        "replyText": "Therk",
+        "repliedAt": "2026-09-01T08:28:46.475Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{name}},\n\nWe have an exclusive offer from {{business_name}}! Enjoy {{discount}} OFF with coupon code *{{coupon_code}}*.\n\nValid until {{expiry_date}}!",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10",
+    "createdAt": "2026-09-01T07:11:31.445Z",
+    "contentType": "button",
+    "actionButtons": [
+      {
+        "id": "btn_1",
+        "type": "CALL",
+        "displayText": "Call Clinic",
+        "value": "+919876543210"
+      },
+      {
+        "id": "btn_2",
+        "type": "URL",
+        "displayText": "Get Directions",
+        "value": "https://maps.google.com"
+      }
+    ],
+    "buttons": [
+      {
+        "id": "btn_1",
+        "type": "CALL",
+        "displayText": "Call Clinic",
+        "value": "+919876543210"
+      },
+      {
+        "id": "btn_2",
+        "type": "URL",
+        "displayText": "Get Directions",
+        "value": "https://maps.google.com"
+      }
+    ],
+    "messageType": "Button With Media"
+  },
+  {
+    "id": "cmp-1788245820485",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "just fo salw Broadcast",
+    "targetAudienceType": "Groups",
+    "scheduledAt": "2026-09-01T06:57:00.485Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "grp_dummy_1788245820477",
+        "phone": "919876543210",
+        "name": "Group Member",
+        "messageId": "3EB05E9F1D631FCC0B722F",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-01T06:57:02.403Z",
+        "deliveredAt": "2026-09-01T06:57:02.403Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{name}},\n\nWe have an exclusive offer from {{business_name}}! Enjoy {{discount}} OFF with coupon code *{{coupon_code}}*.\n\nValid until {{expiry_date}}!",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10",
+    "createdAt": "2026-09-01T06:57:00.654Z",
+    "contentType": "button",
+    "actionButtons": [
+      {
+        "id": "btn_2",
+        "type": "URL",
+        "displayText": "Get Directions",
+        "value": "https://maps.google.com"
+      }
+    ],
+    "buttons": [
+      {
+        "id": "btn_2",
+        "type": "URL",
+        "displayText": "Get Directions",
+        "value": "https://maps.google.com"
+      }
+    ],
+    "messageType": "Button With Media"
+  },
+  {
+    "id": "cmp-1788245580900",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "just fo salw Broadcast",
+    "targetAudienceType": "Groups",
+    "scheduledAt": "2026-09-01T06:53:00.900Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "grp_dummy_1788245580890",
+        "phone": "919876543210",
+        "name": "Group Member",
+        "messageId": "3EB0F4D7F3CCB280AAE8BF",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-01T06:53:03.282Z",
+        "deliveredAt": "2026-09-01T06:53:03.282Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{name}},\n\nWe have an exclusive offer from {{business_name}}! Enjoy {{discount}} OFF with coupon code *{{coupon_code}}*.\n\nValid until {{expiry_date}}!",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSsIEWm-a_yM0-fIJaAAZN5AzY_6CsN1PJ2h_PuhZWDEQ&s=10",
+    "createdAt": "2026-09-01T06:53:01.072Z",
+    "contentType": "button",
+    "actionButtons": [
+      {
+        "id": "btn_1",
+        "type": "CALL",
+        "displayText": "Call Clinic",
+        "value": "+919876543210"
+      }
+    ],
+    "buttons": [
+      {
+        "id": "btn_1",
+        "type": "CALL",
+        "displayText": "Call Clinic",
+        "value": "+919876543210"
+      }
+    ],
+    "messageType": "Button With Media"
+  },
+  {
+    "id": "cmp-1788221132953",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/01, 05:34 AM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-01T00:05:32.952Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788221132564",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB065B6F7C795303DE7CD",
+        "status": "READ",
+        "sentAt": "2026-09-01T00:05:39.557Z",
+        "deliveredAt": "2026-09-01T00:05:40.301Z",
+        "readAt": "2026-09-01T01:32:56.498Z",
+        "replyText": "Whatsapp",
+        "repliedAt": "2026-09-01T01:32:55.024Z"
+      }
+    ],
+    "messageText": "yooo dude",
+    "mediaUrl": "https://d1.awsstatic.com/onedam/marketing-channels/website/aws/en_US/homepage/console-sign-in/athens-locale-zone.486cd4ba5a8a39ec22e57c9f76944395d650747e.jpg",
+    "createdAt": "2026-09-01T00:05:33.788Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788184773965",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 08/31, 07:28 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-31T13:59:33.965Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788184773913",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0CB94939A0B46B90A44",
+        "status": "READ",
+        "sentAt": "2026-08-31T13:59:37.023Z",
+        "deliveredAt": "2026-08-31T13:59:39.230Z",
+        "readAt": "2026-09-01T01:32:55.114Z",
+        "replyText": "Heho",
+        "repliedAt": "2026-09-01T01:32:54.918Z",
+        "buttonClicked": "Comprehensive Eye Exam",
+        "buttonClickedAt": "2026-08-31T14:02:12.385Z"
+      }
+    ],
+    "messageText": "{hi|hello|hey} {{name}}thesing message temante",
+    "mediaUrl": null,
+    "createdAt": "2026-08-31T13:59:34.499Z",
+    "contentType": "list",
+    "menuData": {
+      "buttonText": "Select Service",
+      "sectionTitle": "Clinic Services",
+      "items": [
+        {
+          "id": "m_1",
+          "title": "Comprehensive Eye Exam",
+          "description": "30-min vision test"
+        },
+        {
+          "id": "m_2",
+          "title": "Frame & Lens Consultation",
+          "description": "Try 200+ designer frames"
+        }
+      ]
+    },
+    "messageType": "List/Menu"
+  },
+  {
+    "id": "cmp-1788172830577",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth3mzxr_6a30",
+    "name": "Deepak waa campaign",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-31T10:40:30.577Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 2,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788172830565",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0D419A39DC6DC2F5800",
+        "status": "READ",
+        "sentAt": "2026-08-31T10:40:33.924Z",
+        "deliveredAt": "2026-08-31T10:40:35.851Z",
+        "readAt": "2026-08-31T11:03:13.653Z",
+        "pollVote": "Voted",
+        "pollVotedAt": "2026-08-31T11:03:13.308Z"
+      },
+      {
+        "id": "pst_1_1788172830565",
+        "phone": "917678106554",
+        "name": "Recipient 2",
+        "messageId": "3EB000A66EEB2CB2DA8B86",
+        "status": "READ",
+        "sentAt": "2026-08-31T10:40:42.744Z",
+        "deliveredAt": "2026-08-31T10:40:51.059Z",
+        "readAt": "2026-08-31T10:45:30.457Z",
+        "pollVote": "Voted",
+        "pollVotedAt": "2026-08-31T10:45:18.972Z",
+        "replyText": "Hello",
+        "repliedAt": "2026-08-31T10:45:30.032Z"
+      }
+    ],
+    "messageText": "trail of message",
+    "mediaUrl": null,
+    "createdAt": "2026-08-31T10:40:31.058Z",
+    "contentType": "poll",
+    "pollQuestion": "Are you interested in our new eyewear collection?",
+    "pollOptions": [
+      "Yes, definitely!",
+      "Maybe next week",
+      "No, thanks"
+    ],
+    "pollData": {
+      "question": "Are you interested in our new eyewear collection?",
+      "options": [
+        "Yes, definitely!",
+        "Maybe next week",
+        "No, thanks"
+      ],
+      "multiple": false
+    },
+    "messageType": "Poll"
+  },
+  {
+    "id": "cmp-1788136193025",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Campaign 08/31, 05:58 AM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-31T00:29:53.025Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788136192979",
+        "phone": "919773879841",
+        "name": "Recipient 1",
+        "messageId": "3EB0077F9C5C29EE86C6C0",
+        "status": "READ",
+        "sentAt": "2026-08-31T00:29:55.600Z",
+        "deliveredAt": "2026-08-31T00:30:05.405Z",
+        "readAt": "2026-08-31T00:32:31.405Z",
+        "pollVote": "Voted",
+        "pollVotedAt": "2026-08-31T00:31:40.538Z",
+        "replyText": "Theek h",
+        "repliedAt": "2026-08-31T00:32:30.807Z"
+      },
+      {
+        "id": "pst_1_1788136192979",
+        "phone": "919871648941",
+        "name": "Recipient 2",
+        "messageId": "3EB0235EC1C07F22C51518",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-31T00:30:06.685Z",
+        "deliveredAt": "2026-08-31T00:30:12.873Z"
+      }
+    ],
+    "messageText": "testiing",
+    "mediaUrl": null,
+    "createdAt": "2026-08-31T00:29:53.476Z",
+    "contentType": "text",
+    "pollQuestion": "Are you interested in our new eyewear collection?",
+    "pollOptions": [
+      "Yes, definitely!",
+      "Maybe next week",
+      "No, thanks"
+    ],
+    "pollData": {
+      "question": "Are you interested in our new eyewear collection?",
+      "options": [
+        "Yes, definitely!",
+        "Maybe next week",
+        "No, thanks"
+      ],
+      "multiple": false
+    },
+    "messageType": "Poll"
+  },
+  {
+    "id": "cmp-1788135160952",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Campaign 08/31, 05:41 AM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-31T00:12:40.951Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 2,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788135160936",
+        "phone": "919773879841",
+        "name": "Recipient 1",
+        "messageId": "3EB052894C54A53B6CB13D",
+        "status": "READ",
+        "sentAt": "2026-08-31T00:12:43.992Z",
+        "deliveredAt": "2026-08-31T00:12:56.132Z",
+        "readAt": "2026-08-31T00:15:46.497Z",
+        "replyText": "This way",
+        "repliedAt": "2026-08-31T00:15:46.044Z"
+      },
+      {
+        "id": "pst_1_1788135160936",
+        "phone": "919871648941",
+        "name": "Recipient 2",
+        "messageId": "3EB0D399AA43F366A2BC3C",
+        "status": "READ",
+        "sentAt": "2026-08-31T00:12:55.152Z",
+        "deliveredAt": "2026-08-31T00:12:57.650Z",
+        "readAt": "2026-08-31T00:14:00.600Z",
+        "replyText": "Yoo",
+        "repliedAt": "2026-08-31T00:13:58.682Z"
+      }
+    ],
+    "messageText": "trail message teplate",
+    "mediaUrl": null,
+    "createdAt": "2026-08-31T00:12:41.396Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788134298069",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Campaign 08/31, 05:27 AM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T23:58:18.069Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 2,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788134298059",
+        "phone": "919773879841",
+        "name": "Recipient 1",
+        "messageId": "3EB0CF63F83C7B7186F9B6",
+        "status": "READ",
+        "sentAt": "2026-08-30T23:58:23.112Z",
+        "deliveredAt": "2026-08-30T23:58:23.112Z",
+        "readAt": "2026-08-31T00:15:46.643Z",
+        "replyText": "This way",
+        "repliedAt": "2026-08-31T00:15:46.044Z"
+      },
+      {
+        "id": "pst_1_1788134298059",
+        "phone": "919871648941",
+        "name": "Recipient 2",
+        "messageId": "3EB0D89BBCD45E74095D72",
+        "status": "READ",
+        "deliveredAt": "2026-08-31T00:11:19.463Z",
+        "readAt": "2026-08-31T00:14:00.477Z",
+        "replyText": "Yoo",
+        "repliedAt": "2026-08-31T00:13:58.682Z"
+      }
+    ],
+    "messageText": "trail message",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:58:18.659Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788134003958",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Poll Response & Decryption Live Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:53:23.958Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rec-poll-1",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0D546F7EC5C99C4A5D7",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:53:28.288Z",
+        "deliveredAt": "2026-08-30T23:53:28.288Z"
+      }
+    ],
+    "messageText": "🌟 *OpticalManager Feedback Poll*\n\nWhich eyewear style do you prefer for daily wear?",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:53:24.396Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133992662",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Interactive Response Capture Engine Live Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:53:12.662Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rec-1",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB026D3FC190BF97CAB38",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:53:14.943Z",
+        "deliveredAt": "2026-08-30T23:53:14.943Z"
+      }
+    ],
+    "messageText": "🎉 *OpticalManager Live Test*\n\nHello! Test our real-time interactive response capture engine. Please click an action button below:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:53:13.102Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133966843",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Interactive Button & Read Tracking Live Test",
+    "targetAudienceType": "CUSTOM",
+    "scheduledAt": "2026-08-30T23:52:46.843Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 0,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [],
+    "messageText": "🎉 *OpticalManager Live Interactive Test*\n\nHello! Test our real-time interactive response capture engine. Please tap a button below or reply:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:52:47.280Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133221626",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Polished List Menu Broadcast Live",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:40:21.625Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788133221625-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB02E034FFE2641122A7A",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:40:24.222Z",
+        "deliveredAt": "2026-08-30T23:40:24.222Z"
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nWelcome to OpticalManager Care. Tap below to browse our clinic services and book an appointment:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:40:22.212Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133215288",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Polished List Menu Broadcast",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:40:15.288Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 0,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 1,
+    "recipients": [
+      {
+        "id": "rc-1788133215288-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "status": "FAILED",
+        "errorMessage": "Connection Closed"
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nWelcome to OpticalManager Care. Tap below to browse our clinic services and book an appointment:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:40:15.721Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133208959",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Polished List Menu Broadcast",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:40:08.959Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 0,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 1,
+    "recipients": [
+      {
+        "id": "rc-1788133208959-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nWelcome to OpticalManager Care. Tap below to browse our clinic services and book an appointment:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:40:09.393Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133204310",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Polished Buttons Broadcast",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:40:04.309Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788133204309-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0DED59E24C7029AACD5",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:40:09.528Z",
+        "deliveredAt": "2026-08-30T23:40:09.528Z"
+      }
+    ],
+    "messageText": "👓 *OpticalManager Premium Eyewear*\n\n🌟 *Weekend Special Sale*\nEnjoy *25% OFF* on all anti-glare and blue-cut lenses.\n\n• Free eye power checkup included\n• Over 500+ designer frames\n• Same day fitting available",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:40:04.744Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133159756",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Polished List Menu Broadcast",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:39:19.756Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788133159756-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0DCC14C72D33D9C622A",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:39:23.089Z",
+        "deliveredAt": "2026-08-30T23:39:23.089Z"
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nWelcome to OpticalManager Care. Tap below to browse our clinic services and book an appointment:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:39:20.188Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788133155040",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Polished Buttons Broadcast",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:39:15.040Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788133155040-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB07D55B859D80A04A75A",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:40:02.243Z",
+        "deliveredAt": "2026-08-30T23:40:02.243Z"
+      }
+    ],
+    "messageText": "👓 *OpticalManager Premium Eyewear*\n\n🌟 *Weekend Special Sale*\nEnjoy *25% OFF* on all anti-glare and blue-cut lenses.\n\n• Free eye power checkup included\n• Over 500+ designer frames\n• Same day fitting available",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:39:15.472Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788132722443",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live Native List Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:32:02.443Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788132722443-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0B24A968126AE53840C",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:32:04.663Z",
+        "deliveredAt": "2026-08-30T23:32:04.663Z"
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nPlease choose a clinic service:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:32:03.034Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788132717750",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live Native Buttons Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:31:57.749Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788132717749-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0EC8E055911486F1525",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:32:00.167Z",
+        "deliveredAt": "2026-08-30T23:32:00.167Z"
+      }
+    ],
+    "messageText": "👓 *OpticalManager Premium Eyewear*\n\nExclusive 25% discount on all premium lenses today!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:31:58.182Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131999984",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live List Menu Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:19:59.984Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788131999984-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB05E2E00BD1FE239EA10",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:20:02.367Z",
+        "deliveredAt": "2026-08-30T23:20:02.367Z"
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nPlease choose a service to book:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:20:00.552Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131995203",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live Single-Message Poll Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:19:55.203Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788131995203-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB065F3E76C8AF91ACE1D",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:19:57.300Z",
+        "deliveredAt": "2026-08-30T23:19:57.300Z"
+      }
+    ],
+    "messageText": "🌟 Exclusive Eye Checkup Camp\n\nWe are hosting a free vision checkup this weekend at our main clinic.",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:19:55.629Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131990495",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live Buttons Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:19:50.495Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788131990495-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0EE83A6ED8476BCD202",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:19:52.801Z",
+        "deliveredAt": "2026-08-30T23:19:52.801Z"
+      }
+    ],
+    "messageText": "👓 *OpticalManager Premium Eyewear*\n\nDiscover our latest designer frames with blue-cut lenses and enjoy *20% OFF* today!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:19:50.923Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131914236",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live Button Verification",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:18:34.236Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788131914236-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB04113B8367927E85445",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:18:36.321Z",
+        "deliveredAt": "2026-08-30T23:18:36.321Z"
+      }
+    ],
+    "messageText": "👓 Premium Eyewear Discount\n\nEnjoy 25% off on all anti-glare and blue-cut lenses this week!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:18:34.815Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131904239",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Live Verification Message",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T23:18:24.239Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788131904239-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB028313FD87F1F8D3F81",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:18:28.717Z",
+        "deliveredAt": "2026-08-30T23:18:28.717Z"
+      }
+    ],
+    "messageText": "🔥 Live WhatsApp Broadcast Engine test! If you received this, Baileys live link is active.",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:18:26.573Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131523895",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Campaign 08/31, 04:41 AM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T23:12:03.895Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788131523887",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0AF68A748ABA58CAC3E",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:12:05.686Z",
+        "deliveredAt": "2026-08-30T23:12:05.686Z"
+      }
+    ],
+    "messageText": "test msg",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:12:04.315Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788131422469",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-org-68ff",
+    "name": "Campaign 08/31, 04:38 AM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T23:10:22.469Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788131422459",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0233B21F4333A592FA8",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T23:10:25.643Z",
+        "deliveredAt": "2026-08-30T23:10:25.643Z"
+      }
+    ],
+    "messageText": "{hi|hello|hey}test begins",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T23:10:23.135Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788092202486",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Verification - Services Menu",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:16:42.486Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788092202486-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB02FF78B04E2D49BE193",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:16:44.784Z",
+        "deliveredAt": "2026-08-30T12:16:44.784Z"
+      }
+    ],
+    "messageText": "🏥 *OpticalManager Care Clinic*\n\nPlease select one of our optical clinic services from the menu below to schedule your appointment with our optometrist.",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:16:43.249Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788092195435",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Verification - Action Buttons",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:16:35.435Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788092195435-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB07095491A26EBFD3D0C",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:16:39.173Z",
+        "deliveredAt": "2026-08-30T12:16:39.173Z"
+      }
+    ],
+    "messageText": "👓 *OpticalManager Exclusive Offer*\n\nDear Customer, thank you for choosing us! Explore our new lightweight titanium eyewear collection and enjoy *20% OFF* this week only.",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:16:37.383Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788092094687",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Live List Menu Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:14:54.687Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788092094687-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0D2E1231C24685F7926",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:14:57.019Z",
+        "deliveredAt": "2026-08-30T12:14:57.019Z"
+      }
+    ],
+    "messageText": "👓 Select an Optical Service from our menu:",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:14:55.293Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788092084103",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Native Buttons Live",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:14:44.103Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788092084103-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB02AA0E357FEC2FBA1E7",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:14:46.519Z",
+        "deliveredAt": "2026-08-30T12:14:46.519Z"
+      }
+    ],
+    "messageText": "👓 Check out our new Titanium frames collection!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:14:44.857Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788092079466",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Single Message Poll Live",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:14:39.466Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788092079466-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0A35C18C28D77EAEBE4",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:14:41.261Z",
+        "deliveredAt": "2026-08-30T12:14:41.261Z"
+      }
+    ],
+    "messageText": "🌟 Exclusive Weekend Eye Checkup Offer!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:14:40.073Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788092033535",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Single Message Button Test",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:13:53.534Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788092033535-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB08E1409749C659DB48E",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:13:55.697Z",
+        "deliveredAt": "2026-08-30T12:13:55.697Z"
+      }
+    ],
+    "messageText": "Special Eyewear Offer Just for You!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:13:54.139Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788091814774",
+    "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Campaign 08/30, 05:39 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T12:10:14.774Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788091814766",
+        "phone": "917678106554",
+        "name": "Recipient 1",
+        "messageId": "3EB06E126F572FA315E983",
+        "status": "READ",
+        "sentAt": "2026-08-30T12:10:20.752Z",
+        "deliveredAt": "2026-08-30T12:10:22.929Z",
+        "readAt": "2026-08-30T12:14:05.151Z"
+      }
+    ],
+    "messageText": "yoooo",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:10:17.653Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788091697040",
+    "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Campaign 08/30, 05:36 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T12:08:17.040Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788091697031",
+        "phone": "917678106554",
+        "name": "Recipient 1",
+        "messageId": "3EB041CFA46645E61A272C",
+        "status": "READ",
+        "sentAt": "2026-08-30T12:08:21.259Z",
+        "deliveredAt": "2026-08-30T12:08:26.376Z",
+        "readAt": "2026-08-30T12:09:45.766Z"
+      },
+      {
+        "id": "pst_1_1788091697031",
+        "phone": "918178962366",
+        "name": "Recipient 2",
+        "messageId": "3EB0B4EED1825B5B48031A",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:08:31.488Z",
+        "deliveredAt": "2026-08-30T12:08:31.488Z"
+      }
+    ],
+    "messageText": "hi there",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:08:17.627Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788091394283",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Test Buttons Verification",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:03:14.283Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788091394283-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0C29B38B25CCC36C935",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:03:16.373Z",
+        "deliveredAt": "2026-08-30T12:03:16.373Z"
+      }
+    ],
+    "messageText": "Special Weekend Discount Offer!",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:03:14.854Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788091385507",
+    "organizationId": "org-demo",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Test Poll Verification",
+    "targetAudienceType": "MULTI_AUDIENCE",
+    "scheduledAt": "2026-08-30T12:03:05.507Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "rc-1788091385507-0",
+        "phone": "918178962366",
+        "name": "Gaurav",
+        "messageId": "3EB0C8A9A8B5890C769FD2",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T12:03:07.967Z",
+        "deliveredAt": "2026-08-30T12:03:07.967Z"
+      }
+    ],
+    "messageText": "Please participate in our frame poll",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T12:03:06.079Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788091158044",
+    "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Campaign 08/30, 05:28 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T11:59:18.044Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788091157991",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0EE65307190600C16E7",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T11:59:20.579Z",
+        "deliveredAt": "2026-08-30T11:59:20.579Z"
+      }
+    ],
+    "messageText": "{hi|hello|hey}jai kahrgsh",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T11:59:18.606Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788090662221",
+    "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Campaign 08/30, 05:20 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T11:51:02.221Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788090662162",
+        "phone": "91817962366",
+        "name": "Recipient 1",
+        "messageId": "3EB070E742FFFB18ADD714",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T11:51:07.174Z",
+        "deliveredAt": "2026-08-30T11:51:07.174Z"
+      }
+    ],
+    "messageText": "fahhhhh",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T11:51:02.740Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788089968718",
+    "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst-6ed467eb",
+    "name": "Campaign 08/30, 05:07 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-08-30T11:39:28.718Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788089968670",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB084D4E0395E19AE21D5",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-30T11:39:31.420Z",
+        "deliveredAt": "2026-08-30T11:39:31.420Z"
+      }
+    ],
+    "messageText": "{hi|hello|hey} is this me or somene new or happiely living men ",
+    "mediaUrl": null,
+    "createdAt": "2026-08-30T11:39:29.142Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788014196661",
+    "organizationId": "6ed467eb-6157-45a9-8db9-9fe18c3201d1",
+    "shopId": "shop-main",
+    "whatsappNumberId": "num-6ed467eb",
+    "templateId": "tpl-custom",
+    "name": "Eyewear Special Offer",
+    "targetAudienceType": "Custom Segment Audience",
+    "audienceNames": [
+      "Custom Segment Audience"
+    ],
+    "scheduledAt": "2026-08-29T14:36:36.661Z",
+    "status": "COMPLETED",
+    "totalRecipients": 3,
+    "sentCount": 3,
+    "deliveredCount": 3,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "custom-1788011625993",
+        "phone": "+91 81306 38354",
+        "name": "saurabh",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-29T14:36:37.808Z",
+        "deliveredAt": "2026-08-29T14:36:37.808Z"
+      },
+      {
+        "id": "custom-1788011567880",
+        "phone": "+91 76781 06554",
+        "name": "deepak",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-29T14:36:43.970Z",
+        "deliveredAt": "2026-08-29T14:36:43.970Z"
+      },
+      {
+        "id": "custom-1788011525555",
+        "phone": "+91 81789 62366",
+        "name": "Gaurav Tiwari",
+        "status": "DELIVERED",
+        "sentAt": "2026-08-29T14:36:50.142Z",
+        "deliveredAt": "2026-08-29T14:36:50.142Z"
+      }
+    ],
+    "messageText": "Hello {{customer_name}},\n\nExclusive Festival Offer from {{shop_name}}! Upgrade your eyewear this season with 20% OFF on premium prescription lenses & frames.\n\nUse code {{voucher_code}} at checkout!",
+    "createdAt": "2026-08-29T14:36:36.661Z"
+  }
+]

@@ -17,7 +17,11 @@ export interface CampaignDispatchPayload {
   mediaUrl?: string;
 }
 
-@Processor("campaign-dispatch")
+@Processor("campaign-dispatch", {
+  stalledInterval: 600000, // Check stalled jobs once per 10 mins (conserves Upstash commands)
+  drainDelay: 60, // Wait 60s when queue is empty before polling
+  maxStalledCount: 1,
+})
 export class CampaignDispatchProcessor extends WorkerHost {
   private readonly logger = new Logger(CampaignDispatchProcessor.name);
 
@@ -25,7 +29,6 @@ export class CampaignDispatchProcessor extends WorkerHost {
     const { campaignId, recipients } = job.data;
     this.logger.log(`Dispatching campaign ${campaignId} with ${recipients.length} recipients...`);
 
-    // In full implementation, iterates recipients and enqueues to message-sending queue
     return {
       status: "DISPATCHED",
       totalRecipients: recipients.length,

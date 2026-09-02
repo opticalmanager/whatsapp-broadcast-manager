@@ -1,49 +1,38 @@
-import { pgTable, uuid, varchar, timestamp, integer, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
-import { whatsappNumbers } from "./whatsapp-numbers.schema";
-import { broadcastTemplates } from "./templates.schema";
-
-export const campaignExecutionStatusEnum = pgEnum("campaign_execution_status", [
-  "DRAFT",
-  "SCHEDULED",
-  "PROCESSING",
-  "PAUSED",
-  "COMPLETED",
-  "CANCELLED",
-  "FAILED",
-]);
+import { pgTable, varchar, text, timestamp, integer, jsonb, index } from "drizzle-orm/pg-core";
 
 export const campaigns = pgTable(
   "campaigns",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull(),
-    shopId: uuid("shop_id").notNull(),
-    whatsappNumberId: uuid("whatsapp_number_id")
-      .notNull()
-      .references(() => whatsappNumbers.id, { onDelete: "restrict" }),
-    templateId: uuid("template_id").references(() => broadcastTemplates.id, { onDelete: "set null" }),
+    id: varchar("id", { length: 255 }).primaryKey(),
+    organizationId: varchar("organization_id", { length: 64 }).notNull(),
+    whatsappSessionId: varchar("whatsapp_session_id", { length: 255 }),
     name: varchar("name", { length: 255 }).notNull(),
-    targetAudienceType: varchar("target_audience_type", { length: 50 }).notNull(),
-    audienceFilterPayload: jsonb("audience_filter_payload"),
+    targetAudienceType: varchar("target_audience_type", { length: 50 }).notNull().default("ALL"),
+    audienceSegmentId: varchar("audience_segment_id", { length: 255 }),
+    messageText: text("message_text").notNull(),
+    mediaUrl: text("media_url"),
+    status: varchar("status", { length: 32 }).notNull().default("DRAFT"),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull().defaultNow(),
-    status: campaignExecutionStatusEnum("status").notNull().default("DRAFT"),
 
-    totalRecipients: integer("total_recipients").notNull().default(0),
-    sentCount: integer("sent_count").notNull().default(0),
-    deliveredCount: integer("delivered_count").notNull().default(0),
-    readCount: integer("read_count").notNull().default(0),
-    failedCount: integer("failed_count").notNull().default(0),
+    totalRecipients: integer("total_recipients").default(0),
+    sentCount: integer("sent_count").default(0),
+    deliveredCount: integer("delivered_count").default(0),
+    readCount: integer("read_count").default(0),
+    failedCount: integer("failed_count").default(0),
 
-    minDelaySeconds: integer("min_delay_seconds").notNull().default(8),
-    maxDelaySeconds: integer("max_delay_seconds").notNull().default(20),
-    batchSize: integer("batch_size").notNull().default(50),
-    batchPauseMinutes: integer("batch_pause_minutes").notNull().default(10),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    contentType: varchar("content_type", { length: 32 }),
+    pollQuestion: text("poll_question"),
+    pollOptions: jsonb("poll_options"),
+    actionButtons: jsonb("action_buttons"),
+    menuData: jsonb("menu_data"),
+    pollData: jsonb("poll_data"),
   },
   (table) => ({
-    orgShopIdx: index("idx_campaigns_org_shop").on(table.organizationId, table.shopId),
-    statusIdx: index("idx_campaigns_status").on(table.status),
+    orgIdx: index("idx_campaigns_org").on(table.organizationId),
+    statusSchedIdx: index("idx_campaigns_status_sched").on(table.status, table.scheduledAt),
   })
 );
+

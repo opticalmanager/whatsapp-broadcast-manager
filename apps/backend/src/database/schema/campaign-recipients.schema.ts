@@ -1,39 +1,35 @@
-import { pgTable, uuid, varchar, text, timestamp, integer, jsonb, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, index } from "drizzle-orm/pg-core";
 import { campaigns } from "./campaigns.schema";
-
-export const recipientStatusEnum = pgEnum("recipient_status", [
-  "PENDING",
-  "QUEUED",
-  "SENDING",
-  "SENT",
-  "DELIVERED",
-  "READ",
-  "FAILED",
-  "SKIPPED",
-]);
 
 export const campaignRecipients = pgTable(
   "campaign_recipients",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    campaignId: uuid("campaign_id")
+    id: varchar("id", { length: 255 }).primaryKey(),
+    campaignId: varchar("campaign_id", { length: 255 })
       .notNull()
       .references(() => campaigns.id, { onDelete: "cascade" }),
-    crmCustomerId: uuid("crm_customer_id"),
-    recipientPhone: varchar("recipient_phone", { length: 30 }).notNull(),
-    recipientName: varchar("recipient_name", { length: 255 }),
-    variablePayload: jsonb("variable_payload").default({}),
-    status: recipientStatusEnum("status").notNull().default("PENDING"),
+    organizationId: varchar("organization_id", { length: 64 }).notNull(),
+    contactId: varchar("contact_id", { length: 255 }),
+    phone: varchar("phone", { length: 30 }).notNull(),
+    name: varchar("name", { length: 255 }),
     messageId: varchar("message_id", { length: 255 }),
-    errorMessage: text("error_message"),
-    retryCount: integer("retry_count").notNull().default(0),
+    status: varchar("status", { length: 32 }).notNull().default("PENDING"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     deliveredAt: timestamp("delivered_at", { withTimezone: true }),
     readAt: timestamp("read_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    pollVote: text("poll_vote"),
+    pollVotedAt: timestamp("poll_voted_at", { withTimezone: true }),
+    replyText: text("reply_text"),
+    repliedAt: timestamp("replied_at", { withTimezone: true }),
+    buttonClicked: text("button_clicked"),
+    buttonClickedAt: timestamp("button_clicked_at", { withTimezone: true }),
   },
   (table) => ({
-    campaignStatusIdx: index("idx_recipients_campaign_status").on(table.campaignId, table.status),
-    phoneIdx: index("idx_recipients_phone").on(table.recipientPhone),
+    campaignIdx: index("idx_recipients_campaign").on(table.campaignId),
+    msgIdIdx: index("idx_recipients_msg_id").on(table.messageId),
+    phoneIdx: index("idx_recipients_phone").on(table.phone),
   })
 );
+

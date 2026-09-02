@@ -17,6 +17,16 @@ export class AnalyticsController {
     return this.authService.validateSsoToken(token);
   }
 
+  @Get("dashboard")
+  async getDashboardMetrics(@Headers("authorization") authHeader: string) {
+    const session = this.extractSession(authHeader);
+    const metrics = await this.analyticsService.getDashboardMetrics(session.organizationId);
+    return {
+      success: true,
+      data: metrics,
+    };
+  }
+
   @Get("campaigns/:id/recipients")
   getCampaignRecipients(
     @Headers("authorization") authHeader: string,

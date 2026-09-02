@@ -1,31 +1,30 @@
-import { pgTable, uuid, varchar, text, timestamp, boolean, integer, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, timestamp, boolean, integer, jsonb, index } from "drizzle-orm/pg-core";
 
-export const whatsappConnectionStatusEnum = pgEnum("whatsapp_connection_status", [
-  "UNLINKED",
-  "GENERATING_QR",
-  "CONNECTED",
-  "RECONNECTING",
-  "LOGGED_OUT",
-]);
-
-export const whatsappNumbers = pgTable(
-  "whatsapp_numbers",
+export const whatsappSessions = pgTable(
+  "whatsapp_sessions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: uuid("organization_id").notNull(),
-    shopId: uuid("shop_id").notNull(),
+    id: varchar("id", { length: 255 }).primaryKey(),
+    organizationId: varchar("organization_id", { length: 64 }).notNull(),
     phoneNumber: varchar("phone_number", { length: 30 }),
     displayName: varchar("display_name", { length: 255 }),
-    status: whatsappConnectionStatusEnum("status").notNull().default("UNLINKED"),
-    sessionDataRef: text("session_data_ref"),
-    qrCodeBase64: text("qr_code_base64"),
-    batteryLevel: integer("battery_level"),
-    warmupTier: integer("warmup_tier").notNull().default(1),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    status: varchar("status", { length: 32 }).notNull().default("DISCONNECTED"),
+    authDirKey: varchar("auth_dir_key", { length: 500 }).notNull(),
+    batteryLevel: integer("battery_level").default(100),
+    isPlugged: boolean("is_plugged").default(true),
+    connectedAt: timestamp("connected_at", { withTimezone: true }),
+    lastActiveAt: timestamp("last_active_at", { withTimezone: true }).defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+    instanceName: varchar("instance_name", { length: 255 }).default("Main Outlet"),
+    qrCache: text("qr_cache"),
+    notes: text("notes"),
+    authCredsJson: text("auth_creds_json"),
+    keysBackup: jsonb("keys_backup"),
   },
   (table) => ({
-    orgShopIdx: index("idx_wa_numbers_org_shop").on(table.organizationId, table.shopId),
+    orgIdx: index("idx_wa_sessions_org").on(table.organizationId),
   })
 );
+
+export const whatsappNumbers = whatsappSessions;
+

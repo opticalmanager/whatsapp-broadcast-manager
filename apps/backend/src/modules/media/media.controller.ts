@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Headers, HttpCode, HttpStatus } from "@nestjs/common";
 import { MediaService } from "./media.service";
 import { AuthService } from "../auth/auth.service";
-import { IsNotEmpty, IsString } from "class-validator";
+import { IsNotEmpty, IsString, IsOptional } from "class-validator";
 
 export class UploadUrlDto {
   @IsString()
@@ -11,6 +11,20 @@ export class UploadUrlDto {
   @IsString()
   @IsNotEmpty()
   mimeType: string;
+}
+
+export class DirectUploadDto {
+  @IsString()
+  @IsNotEmpty()
+  filename: string;
+
+  @IsString()
+  @IsNotEmpty()
+  mimeType: string;
+
+  @IsString()
+  @IsNotEmpty()
+  base64Data: string;
 }
 
 @Controller("media")
@@ -42,7 +56,27 @@ export class MediaController {
     );
     return {
       success: true,
-      message: "Presigned S3 upload URL generated.",
+      message: "Presigned Cloudflare S3 upload URL generated.",
+      data: result,
+    };
+  }
+
+  @Post("upload-direct")
+  @HttpCode(HttpStatus.OK)
+  async uploadDirect(
+    @Headers("authorization") authHeader: string,
+    @Body() dto: DirectUploadDto
+  ) {
+    const session = this.extractSession(authHeader);
+    const result = await this.mediaService.uploadDirect(
+      session.organizationId,
+      dto.filename,
+      dto.mimeType,
+      dto.base64Data
+    );
+    return {
+      success: true,
+      message: "File uploaded successfully (30-day CDN retention).",
       data: result,
     };
   }

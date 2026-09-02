@@ -10,7 +10,13 @@
     "dev:backend": "npm --prefix apps/backend run start:dev",
     "dev:frontend": "npm --prefix apps/frontend run dev",
     "build:backend": "npm --prefix apps/backend run build",
-    "build:frontend": "npm --prefix apps/frontend run build"
+    "build:frontend": "npm --prefix apps/frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "start:prod": "pm2 start ecosystem.config.js",
+    "reload:prod": "pm2 reload ecosystem.config.js",
+    "stop:prod": "pm2 stop ecosystem.config.js",
+    "logs:prod": "pm2 logs"
+
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

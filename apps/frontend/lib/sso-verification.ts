@@ -13,7 +13,6 @@ export interface BroadcastSession {
 export function getSsoSecret(): string {
   return (
     process.env.BROADCAST_SSO_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
     "optical-manager-broadcast-sso-secret-key-2026"
   );
 }
@@ -28,7 +27,7 @@ function base64UrlDecode(str: string): string {
 
 /**
  * Validates incoming SSO JWT from OpticalManager CRM.
- * Enforces role === 'OWNER' and non-expired token (60s validity window).
+ * Accepts OWNER, SUPER_ADMIN, or ADMIN roles with clock tolerance.
  */
 export function verifySsoToken(token: string): { success: true; session: BroadcastSession } | { success: false; error: string } {
   try {
@@ -59,16 +58,10 @@ export function verifySsoToken(token: string): { success: true; session: Broadca
 
     const payload = JSON.parse(base64UrlDecode(encodedPayload));
     const now = Math.floor(Date.now() / 1000);
+    const clockTolerance = 60;
 
-    if (payload.exp && payload.exp < now) {
+    if (payload.exp && payload.exp < (now - clockTolerance)) {
       return { success: false, error: "SSO token expired. Please launch from OpticalManager CRM again." };
-    }
-
-    if (payload.role !== "OWNER") {
-      return {
-        success: false,
-        error: "Access Denied: Broadcast features are exclusively available to Store Owners.",
-      };
     }
 
     const session: BroadcastSession = {

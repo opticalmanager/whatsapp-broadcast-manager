@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { getBackendUrl } from "@/lib/backend-url";
 import { X, Plus, Sparkles, Image as ImageIcon, FileText, Video, MessageSquare, Loader2 } from "lucide-react";
 import { WhatsAppPreview } from "./WhatsAppPreview";
 import { toast } from "sonner";
@@ -41,7 +42,7 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
 
     try {
       setIsSubmitting(true);
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:4000";
+      const backendUrl = getBackendUrl();
       const res = await fetch(`${backendUrl}/api/v1/templates`, {
         method: "POST",
         headers: {

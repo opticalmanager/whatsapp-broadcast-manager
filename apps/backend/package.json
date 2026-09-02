@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "prestart": "node scripts/free-port.js 4000",
     "start": "nest start",
+    "prestart:dev": "node scripts/free-port.js 4000",
     "start:dev": "nest start --watch",
     "build": "nest build",
     "db:generate": "drizzle-kit generate",
