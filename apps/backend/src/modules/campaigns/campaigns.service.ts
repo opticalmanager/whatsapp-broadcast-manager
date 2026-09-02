@@ -333,6 +333,46 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         SET sent_count = ${targetCmp.sentCount}, delivered_count = ${targetCmp.deliveredCount}, read_count = ${targetCmp.readCount}, updated_at = NOW()
         WHERE id = ${targetCmp.id}
       `.catch(() => {});
+    } else {
+      // Database Fallback: Find the most recent broadcast sent to this number before or at reply time
+      (async () => {
+        try {
+          const dbMatches = await this.db.sql`
+            SELECT cr.id, cr.campaign_id, cr.phone, cr.name, cr.sent_at, c.created_at as camp_created_at
+            FROM campaign_recipients cr
+            JOIN campaigns c ON c.id = cr.campaign_id
+            WHERE RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanJidPhone10}
+              AND (cr.sent_at IS NOT NULL OR c.created_at <= ${eventTime.toISOString()}::timestamptz)
+            ORDER BY COALESCE(cr.sent_at, c.created_at) DESC
+            LIMIT 1
+          `;
+          if (dbMatches && dbMatches.length > 0) {
+            const matchRow = dbMatches[0];
+            await this.db.sql`
+              UPDATE campaign_recipients
+              SET 
+                status = 'READ',
+                read_at = COALESCE(read_at, ${eventTime.toISOString()}::timestamptz),
+                delivered_at = COALESCE(delivered_at, ${eventTime.toISOString()}::timestamptz),
+                poll_vote = COALESCE(${event.type === 'POLL_VOTE' ? (event.value || 'Voted') : null}, poll_vote),
+                poll_voted_at = CASE WHEN ${event.type === 'POLL_VOTE'} THEN ${eventTime.toISOString()}::timestamptz ELSE poll_voted_at END,
+                reply_text = ${event.value},
+                replied_at = ${eventTime.toISOString()}::timestamptz,
+                button_clicked = COALESCE(${event.type === 'BUTTON' ? (event.buttonTitle || event.buttonId || event.value) : null}, button_clicked),
+                button_clicked_at = CASE WHEN ${event.type === 'BUTTON'} THEN ${eventTime.toISOString()}::timestamptz ELSE button_clicked_at END
+              WHERE id = ${matchRow.id}
+            `;
+            
+            await this.db.sql`
+              UPDATE campaigns 
+              SET read_count = read_count + 1, updated_at = NOW()
+              WHERE id = ${matchRow.campaign_id}
+            `.catch(() => {});
+          }
+        } catch (err: any) {
+          this.logger.debug(`DB campaign reply update note: ${err.message}`);
+        }
+      })();
     }
   }
 

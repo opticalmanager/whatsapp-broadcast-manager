@@ -447,7 +447,7 @@
     "totalRecipients": 2,
     "sentCount": 2,
     "deliveredCount": 2,
-    "readCount": 0,
+    "readCount": 1,
     "failedCount": 0,
     "recipients": [
       {
@@ -464,9 +464,12 @@
         "phone": "918178962366",
         "name": "Customer",
         "messageId": "3EB091C9F3A86634CB0278",
-        "status": "DELIVERED",
+        "status": "READ",
         "sentAt": "2026-09-02T07:29:43.581Z",
-        "deliveredAt": "2026-09-02T07:29:43.581Z"
+        "deliveredAt": "2026-09-02T07:29:43.581Z",
+        "readAt": "2026-09-02T07:39:46.359Z",
+        "replyText": "Okay",
+        "repliedAt": "2026-09-02T07:40:40.178Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} {{name}},\n\nWe have an exclusive offer from {{business_name}}! Enjoy {{discount}} OFF with coupon code *{{coupon_code}}*.\n\nValid until {{expiry_date}}!",

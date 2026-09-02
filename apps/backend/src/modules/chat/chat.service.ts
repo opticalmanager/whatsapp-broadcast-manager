@@ -106,10 +106,12 @@ export class ChatService {
             SELECT cm.id, cm.phone, cm.content, cm.created_at, cm.message_type
             FROM chat_messages cm
             WHERE cm.direction = 'INCOMING'
-              AND RIGHT(REGEXP_REPLACE(cm.phone, '\\D', '', 'g'), 10) = ANY(${phoneListClean10})
+              AND RIGHT(REGEXP_REPLACE(cm.phone, '\\D', '', 'g'), 10) IN ${this.db.sql(phoneListClean10)}
             ORDER BY cm.created_at DESC
           `;
-        } catch {}
+        } catch (err: any) {
+          this.logger.debug(`Could not query incoming chat messages: ${err.message}`);
+        }
 
         // ONLY include recipients who have actually sent a reply, clicked a button, or voted on a poll!
         const respondersList: any[] = [];
@@ -119,14 +121,31 @@ export class ChatService {
           const rec10 = (rec.phone || "").replace(/\D/g, "").slice(-10);
           if (seenPhones.has(rec10)) continue;
 
-          const matchMsg = incomingMsgs.find((m: any) => (m.phone || "").replace(/\D/g, "").slice(-10) === rec10);
+          const recSentTime = rec.sent_at ? new Date(rec.sent_at).getTime() : new Date(camp.created_at || 0).getTime();
+
+          // Rule: An incoming message counts as a campaign reply if sent on or after the campaign was sent!
+          const matchMsg = incomingMsgs.find((m: any) => {
+            const m10 = (m.phone || "").replace(/\D/g, "").slice(-10);
+            const mTime = new Date(m.created_at).getTime();
+            return m10 === rec10 && mTime >= (recSentTime - 60 * 1000);
+          });
+
           const hasReply = Boolean(rec.reply_text || rec.button_clicked || rec.poll_vote || matchMsg);
 
           // DO NOT show numbers that did NOT send any reply!
           if (hasReply) {
             seenPhones.add(rec10);
-            const lastContent = matchMsg?.content || rec.reply_text || (rec.button_clicked ? `Button: ${rec.button_clicked}` : rec.poll_vote ? `Voted: ${rec.poll_vote}` : "Customer Reply");
-            const lastTime = matchMsg?.created_at ? new Date(matchMsg.created_at) : (rec.created_at ? new Date(rec.created_at) : new Date());
+            const lastContent =
+              matchMsg?.content ||
+              rec.reply_text ||
+              (rec.button_clicked ? `Button: ${rec.button_clicked}` : rec.poll_vote ? `Voted: ${rec.poll_vote}` : "Customer Reply");
+            const lastTime = matchMsg?.created_at
+              ? new Date(matchMsg.created_at)
+              : rec.replied_at
+              ? new Date(rec.replied_at)
+              : rec.sent_at
+              ? new Date(rec.sent_at)
+              : new Date();
 
             respondersList.push({
               id: `conv_${effectiveOrg}_${rec10}`,
@@ -161,7 +180,7 @@ export class ChatService {
               SELECT c.name 
               FROM campaign_recipients cr2
               JOIN campaigns c ON c.id = cr2.campaign_id
-              WHERE RIGHT(cr2.phone, 10) = RIGHT(cc.phone, 10)
+              WHERE RIGHT(REGEXP_REPLACE(cr2.phone, '\\D', '', 'g'), 10) = RIGHT(REGEXP_REPLACE(cc.phone, '\\D', '', 'g'), 10)
               ORDER BY cr2.created_at DESC NULLS LAST LIMIT 1
             ) as campaign_name
           FROM chat_conversations cc
@@ -237,7 +256,7 @@ export class ChatService {
           c.action_buttons
         FROM campaign_recipients cr
         JOIN campaigns c ON c.id = cr.campaign_id
-        WHERE RIGHT(cr.phone, 10) = ${cleanPhone10}
+        WHERE RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
         ORDER BY cr.created_at ASC
         LIMIT 50
       `;
