@@ -88,7 +88,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   private reconnectAttempts: Map<string, number> = new Map();
   /** Maps instanceId → organizationId for strict org-level session isolation */
   private sessionOrgMap: Map<string, string> = new Map();
-  private onConnectedCallbacks: Array<(numberId: string) => void> = [];
+  private onConnectedCallbacks: Array<(numberId: string, orgId?: string) => void> = [];
   private messageReceiptCallbacks: Array<(msgId: string, remoteJid: string, status: number) => void> = [];
   public incomingMessageCallbacks: Array<(instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void> = [];
   public incomingResponseCallbacks: Array<(event: IncomingResponseEvent) => void> = [];
@@ -128,7 +128,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     private readonly db: DatabaseService
   ) {}
 
-  addOnConnectedListener(cb: (numberId: string) => void) {
+  addOnConnectedListener(cb: (numberId: string, orgId?: string) => void) {
     this.onConnectedCallbacks.push(cb);
   }
 
@@ -658,17 +658,30 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     this.logger.log(`Checking WhatsApp registration for ${recipientJid}...`);
 
     let targetJid = recipientJid;
+    let verifiedExists = false;
+
     try {
       const results = await Promise.race([
         socket.onWhatsApp(recipientJid),
-        new Promise<any>((resolve) => setTimeout(() => resolve(null), 2500))
+        new Promise<any>((_, reject) => setTimeout(() => reject(new Error("ON_WHATSAPP_TIMEOUT")), 3500))
       ]);
-      if (Array.isArray(results) && results.length > 0 && results[0]?.exists && results[0]?.jid) {
-        targetJid = results[0].jid;
-        this.logger.log(`Verified WhatsApp recipient: ${targetJid}`);
+
+      if (Array.isArray(results)) {
+        if (results.length === 0 || (results[0] && results[0].exists === false)) {
+          this.logger.warn(`[Non-WhatsApp] ${opts.recipientPhoneNumber} is NOT registered on WhatsApp.`);
+          throw new BadRequestException("Recipient number is not registered on WhatsApp (Non-WhatsApp number)");
+        }
+        if (results[0]?.exists && results[0]?.jid) {
+          targetJid = results[0].jid;
+          verifiedExists = true;
+          this.logger.log(`Verified authentic WhatsApp recipient: ${targetJid}`);
+        }
       }
     } catch (waErr: any) {
-      this.logger.warn(`onWhatsApp check warning: ${waErr.message}`);
+      if (waErr.message?.includes("not registered on WhatsApp") || waErr.message?.includes("Non-WhatsApp")) {
+        throw waErr;
+      }
+      this.logger.warn(`onWhatsApp check timeout/warning for ${recipientJid}: ${waErr.message}. Proceeding cautiously with normalized JID.`);
     }
 
     try {
@@ -1807,6 +1820,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     if (connection === "open") {
       this.logger.log(`Session ${numberId} CONNECTED successfully! Persistent link active.`);
       this.sessionStates.set(numberId, "CONNECTED");
+      this.onConnectedCallbacks.forEach((cb) => { try { cb(numberId, orgId); } catch {} });
       this.lastQrCache.delete(numberId);
       this.sessionConnectedTimes.set(numberId, Date.now());
 

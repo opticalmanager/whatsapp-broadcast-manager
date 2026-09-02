@@ -1,5 +1,663 @@
 [
   {
+    "id": "cmp-1788349536357",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjwgio4_s81a",
+    "name": "optical promotion",
+    "targetAudienceType": "Contacts",
+    "scheduledAt": "2026-09-02T11:45:36.357Z",
+    "status": "COMPLETED",
+    "totalRecipients": 88,
+    "sentCount": 52,
+    "deliveredCount": 52,
+    "readCount": 0,
+    "failedCount": 36,
+    "recipients": [
+      {
+        "id": "cnt_d472933c1bb150b8",
+        "phone": "+919853409007",
+        "name": "Ben Franklin Opticians",
+        "messageId": "3EB0438B3148A906403B16",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:46:04.664Z",
+        "deliveredAt": "2026-09-02T11:46:04.664Z"
+      },
+      {
+        "id": "cnt_b1144cbfe0bff73b",
+        "phone": "+919318416263",
+        "name": "Titan Eye+ at Shahdara, New Delhi (Buy 1 Get 1 Free)",
+        "messageId": "3EB08331DC9312AA9094E0",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:46:32.585Z",
+        "deliveredAt": "2026-09-02T11:46:35.333Z"
+      },
+      {
+        "id": "cnt_ffb14d0730524182",
+        "phone": "+917428891184",
+        "name": "Lenskart.com Flagship Store at Raj Nagar RDC, Ghaziabad (First Lens Replacement Free)",
+        "messageId": "3EB02E69AE4360E2973476",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:47:02.851Z",
+        "deliveredAt": "2026-09-02T11:47:02.851Z"
+      },
+      {
+        "id": "cnt_ce01260b107d6318",
+        "phone": "+919773855245",
+        "name": "Visual Vision optical store (Optical Store near me Eye testing / contact lenses)",
+        "messageId": "3EB00E3AB588AAA810851F",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:47:33.332Z",
+        "deliveredAt": "2026-09-02T11:47:35.961Z"
+      },
+      {
+        "id": "cnt_4299617b5c0a4f21",
+        "phone": "+917949212332",
+        "name": "Om Opticals - Essilor Experts",
+        "messageId": "3EB0431BDFFBD4571F17DC",
+        "status": "READ",
+        "sentAt": "2026-09-02T11:48:04.342Z",
+        "deliveredAt": "2026-09-02T11:48:04.342Z",
+        "readAt": "2026-09-02T11:48:18.829Z",
+        "replyText": "Bhej do",
+        "repliedAt": "2026-09-02T11:48:18.829Z"
+      },
+      {
+        "id": "cnt_457a9dcb49248168",
+        "phone": "+911145768815",
+        "name": "Prince Optical Works",
+        "messageId": "3EB02327138CEF556C1970",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:49:08.934Z",
+        "deliveredAt": "2026-09-02T11:49:08.934Z"
+      },
+      {
+        "id": "cnt_a9a2abdb97e255e6",
+        "phone": "+919873256551",
+        "name": "Lakshmi Opticals & Watches (Jagat Farm) - Optical Shop In Greater Noida",
+        "messageId": "3EB019275A0DA4374343C8",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:49:35.049Z",
+        "deliveredAt": "2026-09-02T11:49:37.849Z"
+      },
+      {
+        "id": "cnt_9e17fc76a9a6cc8f",
+        "phone": "+919582685963",
+        "name": "Optical Express",
+        "messageId": "3EB0914FE584EBB8A3311C",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:50:08.640Z",
+        "deliveredAt": "2026-09-02T11:50:17.255Z"
+      },
+      {
+        "id": "cnt_f833fdd1aa0d00bd",
+        "phone": "+918929421380",
+        "name": "Lenskart.com at Gaur City Mall (First Lens Replacement Free)",
+        "messageId": "3EB0ECC02D5AB10CB251E9",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:50:42.431Z",
+        "deliveredAt": "2026-09-02T11:50:42.431Z"
+      },
+      {
+        "id": "cnt_8697bf274c34eac0",
+        "phone": "+917428891374",
+        "name": "Lenskart.com at Sector 12, Vasundhara (First Lens Replacement Free)",
+        "messageId": "3EB04B5E4CA210677A01AE",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:51:15.344Z",
+        "deliveredAt": "2026-09-02T11:51:15.344Z"
+      },
+      {
+        "id": "cnt_748d0918046edd2e",
+        "phone": "+919310400524",
+        "name": "Dayal Opticals",
+        "messageId": "3EB0F8B8E2B6C551F149EB",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:52:19.103Z",
+        "deliveredAt": "2026-09-02T11:52:21.089Z"
+      },
+      {
+        "id": "cnt_c534122c5fbe9894",
+        "phone": "+911204571973",
+        "name": "Titan Eye+ at Jagat Farm, Noida",
+        "messageId": "3EB05210D41C18BE0FE7B7",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:52:49.090Z",
+        "deliveredAt": "2026-09-02T11:52:49.090Z"
+      },
+      {
+        "id": "cnt_5316d13b697270de",
+        "phone": "+918130659090",
+        "name": "GEM OPTICIANS - Select Citywalk Mall, Saket",
+        "messageId": "3EB069A1CFF6EA4A6E5AB6",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T11:53:20.000Z",
+        "deliveredAt": "2026-09-02T11:53:23.176Z"
+      },
+      {
+        "id": "cnt_6ff237f5f9647b89",
+        "phone": "+919310102325",
+        "name": "Dayal Opticals - DLF Avenue",
+        "messageId": "3EB079BDBE96900BF50492",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:15:53.860Z"
+      },
+      {
+        "id": "cnt_50d6fc81f3087033",
+        "phone": "+919121176844",
+        "name": "ben franklin at Vision Eye Centre - Delhi",
+        "messageId": "3EB097FA9998C81431558A",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:15:55.992Z"
+      },
+      {
+        "id": "cnt_6ece10feef35236c",
+        "phone": "+911141720600",
+        "name": "Dayal Opticals",
+        "messageId": "3EB0FF1E2E43B85966AF38",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:01.646Z"
+      },
+      {
+        "id": "cnt_4ecd88c850b40410",
+        "phone": "+919310400527",
+        "name": "Dayal Opticals",
+        "messageId": "3EB05D8DF4E4413750E9A7",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:03.954Z"
+      },
+      {
+        "id": "cnt_46d3ecf7b58219ad",
+        "phone": "+919310110457",
+        "name": "Dayal Opticals",
+        "messageId": "3EB0B1A946A1974E050B24",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:06.194Z"
+      },
+      {
+        "id": "cnt_a907033d96ccd2c7",
+        "phone": "+919910333456",
+        "name": "Titan Eyewear",
+        "messageId": "3EB06166E31E7AB1193CD9",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:08.487Z"
+      },
+      {
+        "id": "cnt_d0176ca570c613c6",
+        "phone": "+919643121391",
+        "name": "Lenskart.com at Sapphire 83 Mall, Gurugram (First Lens Replacement Free)",
+        "messageId": "3EB06DEF512A26196D6904",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:11.305Z"
+      },
+      {
+        "id": "cnt_dbad7b5ee2e28436",
+        "phone": "+911141448106",
+        "name": "Himalaya Opticals Dwarka",
+        "messageId": "3EB08B441487D5EADE2663",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:17.585Z"
+      },
+      {
+        "id": "cnt_d80c48d7d7eaecb3",
+        "phone": "+917042592510",
+        "name": "Ben Franklin Opticians",
+        "messageId": "3EB066AA8723D0EAC59DBB",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:19.954Z"
+      },
+      {
+        "id": "cnt_f0c8c52b279144be",
+        "phone": "+911247961353",
+        "name": "Titan Eye+ at Sushant Lok Phase I, Gurugram (Buy 1 Get 1 Free)",
+        "messageId": "3EB03BC4E8761DF57217DE",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:26.840Z"
+      },
+      {
+        "id": "cnt_8587693567ad759d",
+        "phone": "+911146179900",
+        "name": "Dayal Opticals",
+        "messageId": "3EB0E2055C17C32F046DFC",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:30.261Z"
+      },
+      {
+        "id": "cnt_3ccfe4e696e86669",
+        "phone": "+911244266981",
+        "name": "Titan Eye+ at Sector 14, Gurugram (Buy 1 Get 1 Free)",
+        "messageId": "3EB02927B05F6B19945034",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:34.607Z"
+      },
+      {
+        "id": "cnt_3c9ca47368916f1b",
+        "phone": "+917428891320",
+        "name": "Lenskart.com at Good Earth City Centre Mall, Gurugram (First Lens Replacement Free)",
+        "messageId": "3EB063D7BE2855625D9639",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:37.816Z"
+      },
+      {
+        "id": "cnt_7fa579bda27a4aa3",
+        "phone": "+917678266200",
+        "name": "Dayal Opticals Elegante NSP",
+        "messageId": "3EB01351F008717B9371B8",
+        "status": "DELIVERED",
+        "deliveredAt": "2026-09-02T12:16:40.165Z"
+      },
+      {
+        "id": "cnt_926a818929918fab",
+        "phone": "+919310100915",
+        "name": "Dayal Opticals - Galleria Market",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_bf89c5f74bbea22a",
+        "phone": "+917027024600",
+        "name": "Titan Eye+ at Rohtak Road, Bahadurgarh (Buy 1 Get 1 Free)",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_d7e4e5044f3fa7f0",
+        "phone": "+917980149388",
+        "name": "Titan Eye+ at VVIP Mall, Rajnagar Ext, Ghaziabad",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_1457fec982b5e017",
+        "phone": "+911143013638",
+        "name": "Cleardekho Optical",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_c646820b1c1acfaf",
+        "phone": "+911204533924",
+        "name": "Titan Eye+ at Sector 15, Ghaziabad (Buy 1 Get 1 Free)",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_4cbf2f7ac7fe0de1",
+        "phone": "+917948233388",
+        "name": "Om Optical - Essilor Experts",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_fcd8398a854f9cbc",
+        "phone": "+917948233386",
+        "name": "Om Optical - Essilor Experts",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_d1b9f264d3fd047f",
+        "phone": "+917948233385",
+        "name": "Om Optical - Essilor Experts",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_adf049ad0d5b8b4c",
+        "phone": "+911203684845",
+        "name": "Cleardekho Optical",
+        "messageId": "3EB0E6747851E54289F234",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:04:59.969Z",
+        "deliveredAt": "2026-09-02T12:04:59.969Z"
+      },
+      {
+        "id": "cnt_0ece30dbe5c0522b",
+        "phone": "+919318490053",
+        "name": "Himalaya Opticals",
+        "messageId": "3EB01FCEE60B8AF95CA32E",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:05:21.906Z",
+        "deliveredAt": "2026-09-02T12:05:23.301Z"
+      },
+      {
+        "id": "cnt_a907fffb548a6bae",
+        "phone": "+911205110871",
+        "name": "Titan Eye+ at Gaur Mall, Noida (Buy 1 Get 1 Free)",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_a43e6426eaabbc74",
+        "phone": "+919667995162",
+        "name": "Titan Eye+ at Spectrum @ Metro Mall, Noida (Buy 1 Get 1 Free)",
+        "messageId": "3EB071662876DD709CB5DB",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:06:00.252Z",
+        "deliveredAt": "2026-09-02T12:06:00.252Z"
+      },
+      {
+        "id": "cnt_9b1f6ff1df277192",
+        "phone": "+919205583169",
+        "name": "Ben Franklin Opticians",
+        "messageId": "3EB0C2ADAAF9DB78F84792",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:06:22.124Z",
+        "deliveredAt": "2026-09-02T12:06:22.124Z"
+      },
+      {
+        "id": "cnt_488c9bca6bccb997",
+        "phone": "+911129238888",
+        "name": "Dayal Opticals",
+        "messageId": "3EB031DA286B68A8984FBE",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:07:27.190Z",
+        "deliveredAt": "2026-09-02T12:07:27.190Z"
+      },
+      {
+        "id": "cnt_07e660e4a3be99a2",
+        "phone": "+919810497033",
+        "name": "Optical Affairs",
+        "messageId": "3EB0C8E109748CCEBB9E42",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:07:47.409Z",
+        "deliveredAt": "2026-09-02T12:07:47.409Z"
+      },
+      {
+        "id": "cnt_c973c8d516f0625c",
+        "phone": "+919971859090",
+        "name": "GEM OPTICIANS - South Extension 1",
+        "messageId": "3EB02BBD33FFC1EC87D76E",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:08:08.427Z",
+        "deliveredAt": "2026-09-02T12:08:08.427Z"
+      },
+      {
+        "id": "cnt_2945477f661c863b",
+        "phone": "+919582299189",
+        "name": "Ben Franklin Opticians",
+        "messageId": "3EB00FB54E45A2C928B159",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:08:31.003Z",
+        "deliveredAt": "2026-09-02T12:08:31.003Z"
+      },
+      {
+        "id": "cnt_f60847d6ac996273",
+        "phone": "+911140597500",
+        "name": "Dayal Opticals - Select Citywalk",
+        "messageId": "3EB0089038F4C3EB7C977C",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:08:53.572Z",
+        "deliveredAt": "2026-09-02T12:08:53.572Z"
+      },
+      {
+        "id": "cnt_798e2c5e28af7d32",
+        "phone": "+919391831620",
+        "name": "ben franklin",
+        "messageId": "3EB00D84BE60D23C100E5C",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:09:57.371Z",
+        "deliveredAt": "2026-09-02T12:09:57.371Z"
+      },
+      {
+        "id": "cnt_b0a8ba46b12ff80f",
+        "phone": "+919625318941",
+        "name": "Himalaya Optical",
+        "messageId": "3EB0AF90CFE53003540EB5",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:10:19.290Z",
+        "deliveredAt": "2026-09-02T12:10:19.290Z"
+      },
+      {
+        "id": "cnt_cf113ba4997ab025",
+        "phone": "+919311773748",
+        "name": "Lenskart.com at Roshan Mandi, Najafgarh, Delhi (First Lens Replacement Free)",
+        "messageId": "3EB08773192F77CDDC57EF",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:10:46.166Z",
+        "deliveredAt": "2026-09-02T12:10:46.166Z"
+      },
+      {
+        "id": "cnt_53f841695866edfd",
+        "phone": "+919599806207",
+        "name": "New Optical Points - Best Optical Shop | Contact Lense | Crizal | blue rey Noida NCR",
+        "messageId": "3EB0B5F996E15CD4AAFB95",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:11:06.330Z",
+        "deliveredAt": "2026-09-02T12:11:06.330Z"
+      },
+      {
+        "id": "cnt_fb68ff643404c17e",
+        "phone": "+918065423737",
+        "name": "Centre For Sight Eye Hospital | Dwarka - New Delhi",
+        "messageId": "3EB0DF64F0A85A44266C61",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:11:26.695Z",
+        "deliveredAt": "2026-09-02T12:11:26.695Z"
+      },
+      {
+        "id": "cnt_1367de2e8711e2ed",
+        "phone": "+918744084216",
+        "name": "Lenskart.com at Rajouri Garden, Delhi (First Lens Replacement Free)",
+        "messageId": "3EB0F06B667E00DED7C07B",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:11:40.432Z",
+        "deliveredAt": "2026-09-02T12:11:40.432Z"
+      },
+      {
+        "id": "cnt_39fc4739a22f200c",
+        "phone": "+917836942194",
+        "name": "Optic Love | Best Optical Shop in Delhi",
+        "messageId": "3EB01D92004A64E3125B56",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:12:01.155Z",
+        "deliveredAt": "2026-09-02T12:12:01.155Z"
+      },
+      {
+        "id": "cnt_41dcbe0e9660e9aa",
+        "phone": "+917669944461",
+        "name": "Siddharth Opticals Punjabi Bagh",
+        "messageId": "3EB01AA4D65028BA63CF13",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:12:20.375Z",
+        "deliveredAt": "2026-09-02T12:12:20.375Z"
+      },
+      {
+        "id": "cnt_7600b36c51de8b5e",
+        "phone": "+919999017017",
+        "name": "Spex",
+        "messageId": "3EB00DDDF92CCB7B8C6240",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:12:39.471Z",
+        "deliveredAt": "2026-09-02T12:12:39.471Z"
+      },
+      {
+        "id": "cnt_946d623bc2a2be7d",
+        "phone": "+919870122710",
+        "name": "Cleardekho Optical",
+        "messageId": "3EB056CB301754950BF5EC",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:13:01.701Z",
+        "deliveredAt": "2026-09-02T12:13:01.701Z"
+      },
+      {
+        "id": "cnt_55c0add7b67b5dcd",
+        "phone": "+911135788495",
+        "name": "Cleardekho Optical",
+        "messageId": "3EB07F7C3D13365D4821F4",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:14:05.641Z",
+        "deliveredAt": "2026-09-02T12:14:05.641Z"
+      },
+      {
+        "id": "cnt_78cc8b2a6ac70240",
+        "phone": "+919312282357",
+        "name": "Optical Avenue",
+        "messageId": "3EB0CF40D940F8D7C788E5",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:14:27.467Z",
+        "deliveredAt": "2026-09-02T12:14:27.467Z"
+      },
+      {
+        "id": "cnt_2dd02968b6ef1236",
+        "phone": "+919795473679",
+        "name": "Wholesale Optical Dealer in Delhi - Discount optical plus",
+        "messageId": "3EB03B8A03F57F47BF88AB",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:14:46.518Z",
+        "deliveredAt": "2026-09-02T12:14:46.518Z"
+      },
+      {
+        "id": "cnt_5ae694bc0e7bd188",
+        "phone": "+918045262648",
+        "name": "GKB - Optical Store in Chandni Chowk, New Delhi",
+        "messageId": "3EB01DA479688A5CC74323",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:15:08.972Z",
+        "deliveredAt": "2026-09-02T12:15:08.972Z"
+      },
+      {
+        "id": "cnt_d134b2c2d73d0315",
+        "phone": "+919871562351",
+        "name": "The Optical Store",
+        "messageId": "3EB09D6979084C2F5916BC",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:15:27.950Z",
+        "deliveredAt": "2026-09-02T12:15:27.950Z"
+      },
+      {
+        "id": "cnt_e69b74600b2b0ec7",
+        "phone": "+911145521290",
+        "name": "Cleardekho Optical",
+        "messageId": "3EB080A8F2E4A127DD3461",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T12:16:33.765Z",
+        "deliveredAt": "2026-09-02T12:16:33.765Z"
+      },
+      {
+        "id": "cnt_cdd45f64669c96c3",
+        "phone": "+911141435580",
+        "name": "Titan Eye+ at Rajouri Garden, New Delhi (Buy 1 Get 1 Free)",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_0ab5bb7d604c64ac",
+        "phone": "+919205267378",
+        "name": "Optical Planet | Best Optical In Dwarka | Branded Spectacles | Contact Lenses | Optometrist",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_c0b56c2c6640c6bf",
+        "phone": "+919999020666",
+        "name": "ClearDekho Optical",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_830388094d03af34",
+        "phone": "+917835869143",
+        "name": "Eye Vision Express Optical",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_668cc2974960030a",
+        "phone": "+917428891214",
+        "name": "Lenskart.com at Sector 49, Arcadia (First Lens Replacement Free)",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_1d724d52a6e3da89",
+        "phone": "+919891741555",
+        "name": "Dayal Opticals - Khan Market",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_82e598eed0402fc8",
+        "phone": "+911204120800",
+        "name": "Rastogi Opticians - Since 2007, Optical Shop at Sector 4, Vaishali",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_17f15472156544bd",
+        "phone": "+918071679747",
+        "name": "GKB - Optical Store in Ambience Mall, Gurugram",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_75967dbce2735004",
+        "phone": "+919641919191",
+        "name": "Sharp Sight Eye Hospital, West Delhi",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_36207af2852ea8d7",
+        "phone": "+919870332173",
+        "name": "Optical Avenue | Your Trusted Multi Brand Eyewear Optical Store in Dwarka",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_fff15d820040ecb3",
+        "phone": "+917303157158",
+        "name": "Lenskart.com Flagship Store at Amar Colony, New Delhi (First Lens Replacement Free)",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      },
+      {
+        "id": "cnt_389b120aafea5208",
+        "phone": "+918062913091",
+        "name": "Optical Gallery - Essilor Experts",
+        "status": "FAILED",
+        "errorMessage": "WhatsApp outlet device is not connected. Please pair device first in Settings."
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}\nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
+    "mediaUrl": "http://localhost:4000/uploads/org-f7c924751158c061/1788348146416_ge84lr.jpg",
+    "createdAt": "2026-09-02T11:45:36.420Z",
+    "contentType": "media"
+  },
+  {
+    "id": "cmp-1788349372081",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjwgio4_s81a",
+    "name": "optical shops reachup",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T11:42:52.080Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788349370731",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB053741F1CDCD3757BA3",
+        "status": "READ",
+        "sentAt": "2026-09-02T11:42:56.852Z",
+        "deliveredAt": "2026-09-02T11:42:59.206Z",
+        "readAt": "2026-09-02T11:43:01.462Z",
+        "replyText": "Pravah is hiring Forward Deployed Engineer\n\nFor 2023, 2024, 2025 grads\nLocation: Multiple\n\nhttps://jobs.ashbyhq.com/pravah/1e002f56-0b3c-4908-9bee-fb94215bfead\n\n👉WhatsApp Channel: https://whatsapp.com/channel/0029VaI5CV93AzNUiZ5Tt226\n\n👉Telegram Link: https://t.me/addlist/4q2PYC0pH_VjZDk5\n\nLike for more job opportunities ❤️",
+        "repliedAt": "2026-09-02T13:10:13.881Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}\nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
+    "mediaUrl": "http://localhost:4000/uploads/org-f7c924751158c061/1788348146416_ge84lr.jpg",
+    "createdAt": "2026-09-02T11:42:52.144Z",
+    "contentType": "media"
+  },
+  {
     "id": "cmp-1788348896566",
     "organizationId": "org-2387e0cc194fb93b",
     "shopId": "shop-main",
@@ -7,18 +665,24 @@
     "name": "Campaign 09/02, 05:03 PM",
     "targetAudienceType": "Paste",
     "scheduledAt": "2026-09-02T11:34:56.566Z",
-    "status": "PAUSED",
+    "status": "COMPLETED",
     "totalRecipients": 1,
-    "sentCount": 0,
-    "deliveredCount": 0,
-    "readCount": 0,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
     "failedCount": 0,
     "recipients": [
       {
         "id": "pst_0_1788348897199",
         "phone": "917678106554",
         "name": "Recipient 1",
-        "status": "PENDING"
+        "messageId": "3EB03274FBF95C6BB53117",
+        "status": "READ",
+        "sentAt": "2026-09-02T11:36:31.756Z",
+        "deliveredAt": "2026-09-02T11:38:03.009Z",
+        "readAt": "2026-09-02T11:43:37.070Z",
+        "replyText": "**WE ARE HIRING!**  \n**INTERNATIONAL VOICE PROCESS**  \n**JOIN OUR TEAM!**\n\n**Sector 144, Greater Noida | WFO**  \n**6+ months international voice experience – mandatory**  \n**UG / Grad / PG**  \n**Up to ₹36K CTC**  \n**5 days | Rotational shifts & week-offs**  \n**Cab allowance ₹3,600**  \n\n\n**Great people, great opportunities!**  \n**Start your career with us!**\n\nContact - 8700985779",
+        "repliedAt": "2026-09-02T12:29:14.155Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} \n\nhii, how can i help you today",
@@ -50,8 +714,8 @@
         "sentAt": "2026-09-02T11:24:31.599Z",
         "deliveredAt": "2026-09-02T11:24:39.072Z",
         "readAt": "2026-09-02T11:24:53.086Z",
-        "replyText": "Ok",
-        "repliedAt": "2026-09-02T11:31:17.413Z"
+        "replyText": "**WE ARE HIRING!**  \n**INTERNATIONAL VOICE PROCESS**  \n**JOIN OUR TEAM!**\n\n**Sector 144, Greater Noida | WFO**  \n**6+ months international voice experience – mandatory**  \n**UG / Grad / PG**  \n**Up to ₹36K CTC**  \n**5 days | Rotational shifts & week-offs**  \n**Cab allowance ₹3,600**  \n\n\n**Great people, great opportunities!**  \n**Start your career with us!**\n\nContact - 8700985779",
+        "repliedAt": "2026-09-02T12:29:12.873Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}\nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
@@ -84,8 +748,8 @@
         "sentAt": "2026-09-02T10:43:13.202Z",
         "deliveredAt": "2026-09-02T10:55:09.091Z",
         "readAt": "2026-09-02T11:09:56.542Z",
-        "replyText": "Ok",
-        "repliedAt": "2026-09-02T11:31:18.434Z"
+        "replyText": "Sure",
+        "repliedAt": "2026-09-02T11:36:26.068Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} ",
@@ -734,7 +1398,7 @@
     "totalRecipients": 2,
     "sentCount": 2,
     "deliveredCount": 2,
-    "readCount": 1,
+    "readCount": 2,
     "failedCount": 0,
     "recipients": [
       {
@@ -742,9 +1406,10 @@
         "phone": "917678106554",
         "name": "Customer",
         "messageId": "3EB0CCA592CC9C08EA2B77",
-        "status": "DELIVERED",
+        "status": "READ",
         "sentAt": "2026-09-02T07:29:12.520Z",
-        "deliveredAt": "2026-09-02T09:12:48.141Z"
+        "deliveredAt": "2026-09-02T09:12:48.141Z",
+        "readAt": "2026-09-02T11:43:38.386Z"
       },
       {
         "id": "cnt_e61038e5179437d7",

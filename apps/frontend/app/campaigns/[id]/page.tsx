@@ -145,6 +145,29 @@ export default function CampaignReportFullPage() {
   const [addingList, setAddingList] = useState<boolean>(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
+  // Resume / Retry all disconnected recipients
+  const handleRetryDisconnected = async () => {
+    setRetryingId("DISCONNECTED");
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${backendUrl}/api/v1/campaigns/${campaignId}/retry-disconnected`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.success(json.message || "Resumed campaign dispatch across connected devices!");
+        fetchReport(false);
+      } else {
+        toast.error(json.message || "Failed to resume campaign. Ensure at least 1 WhatsApp device is connected.");
+      }
+    } catch {
+      toast.error("Network error while resuming campaign.");
+    } finally {
+      setRetryingId(null);
+    }
+  };
+
   // Retry Failed Recipient
   const handleRetryRecipient = async (recipientId: string, phone: string) => {
     setRetryingId(recipientId);
@@ -871,6 +894,24 @@ export default function CampaignReportFullPage() {
                             <span className="text-slate-400">✓</span>
                             <span>SENT</span>
                           </span>
+                        ) : rec.status === "NON_WHATSAPP" ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800">
+                              NON-WHATSAPP
+                            </span>
+                            <div className="text-[9px] text-orange-600 dark:text-orange-400 font-semibold" title={rec.failureReason || "Not registered on WhatsApp"}>
+                              {rec.failureReason || "Not registered on WhatsApp"}
+                            </div>
+                          </div>
+                        ) : rec.status === "INVALID_NUMBER" ? (
+                          <div className="space-y-0.5">
+                            <span className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase border bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800">
+                              INVALID NUMBER
+                            </span>
+                            <div className="text-[9px] text-red-500 font-semibold" title={rec.failureReason || "Invalid phone digits / Landline"}>
+                              {rec.failureReason || "Invalid phone digits / Landline"}
+                            </div>
+                          </div>
                         ) : rec.status === "FAILED" ? (
                           <div className="space-y-1">
                             <div className="flex items-center gap-1.5">
@@ -888,7 +929,7 @@ export default function CampaignReportFullPage() {
                               </button>
                             </div>
                             {rec.failureReason && (
-                              <div className="text-[9px] text-rose-500 font-semibold max-w-[140px] truncate" title={rec.failureReason}>
+                              <div className="text-[9px] text-rose-500 font-semibold max-w-[180px] leading-tight" title={rec.failureReason}>
                                 {rec.failureReason}
                               </div>
                             )}
@@ -904,7 +945,7 @@ export default function CampaignReportFullPage() {
                               {rec.status}
                             </span>
                             {rec.failureReason && (
-                              <div className="text-[9px] text-rose-500 font-semibold max-w-[140px] truncate" title={rec.failureReason}>
+                              <div className="text-[9px] text-slate-400 font-semibold max-w-[180px]" title={rec.failureReason}>
                                 {rec.failureReason}
                               </div>
                             )}

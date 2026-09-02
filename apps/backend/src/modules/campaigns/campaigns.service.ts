@@ -67,9 +67,9 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     await this.loadFromDatabase();
     this.loadFromDisk();
 
-    this.baileysService.addOnConnectedListener((_numberId) => {
-      this.logger.log("WhatsApp connection confirmed active. Checking for campaigns to auto-resume...");
-      this.autoResumePendingCampaigns();
+    this.baileysService.addOnConnectedListener((numberId, orgId) => {
+      this.logger.log(`WhatsApp connection confirmed active for ${numberId} (org: ${orgId}). Checking for campaigns to auto-resume...`);
+      this.autoResumePendingCampaigns(orgId);
     });
 
     this.baileysService.addOnMessageReceiptListener((msgId, remoteJid, status) => {
@@ -479,24 +479,41 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  autoResumePendingCampaigns() {
+  autoResumePendingCampaigns(targetOrgId?: string) {
     for (const cmp of this.campaignsStore.values()) {
-      if (cmp.status === "PROCESSING" || cmp.status === "PAUSED") {
-        const delivered = (cmp.recipients || []).filter((r) => r.status === "DELIVERED").length;
-        const permaFailed = (cmp.recipients || []).filter(
-          (r) => r.status === "FAILED" && r.errorMessage?.includes("not registered on WhatsApp")
-        ).length;
+      if (targetOrgId && cmp.organizationId && cmp.organizationId !== targetOrgId && cmp.organizationId !== 'org-demo') {
+        continue;
+      }
 
-        if (delivered + permaFailed < cmp.totalRecipients && !this.activeDispatches.has(cmp.id)) {
+      const connected = this.baileysService.getConnectedInstances(cmp.organizationId);
+      if (connected.length === 0) continue;
+
+      const isAutoPaused = cmp.status === "PAUSED" && ((cmp as any).pauseReason === "AUTO_PAUSED_DEVICE_DISCONNECTED" || !(cmp as any).manualUserPause);
+      const isProcessing = cmp.status === "PROCESSING";
+
+      if ((isAutoPaused || isProcessing) && !this.activeDispatches.has(cmp.id)) {
+        const hasPendingRecipients = (cmp.recipients || []).some(
+          (r) => r.status === "PENDING" || r.status === "QUEUED" || r.status === "SENDING" || (r.status === "FAILED" && r.errorMessage?.includes("not connected"))
+        );
+
+        if (hasPendingRecipients) {
+          // Re-queue any recipients that had falsely failed due to disconnected device
           (cmp.recipients || []).forEach((r) => {
-            if (r.status === "FAILED" && !r.errorMessage?.includes("not registered on WhatsApp")) {
+            if (r.status === "FAILED" && (r.errorMessage?.includes("not connected") || r.errorMessage?.includes("disconnected"))) {
               r.status = "PENDING";
+              r.errorMessage = undefined;
             }
           });
+
           cmp.status = "PROCESSING";
+          (cmp as any).pauseReason = undefined;
           this.saveToDisk();
 
-          this.logger.log(`[Auto-Resume] Resuming campaign ${cmp.id} (${cmp.name})...`);
+          this.db.sql`
+            UPDATE campaigns SET status = 'PROCESSING', pause_reason = NULL, updated_at = NOW() WHERE id = ${cmp.id}
+          `.catch(() => {});
+
+          this.logger.log(`[Auto-Resume] Resuming campaign "${cmp.name}" (${cmp.id}) across connected WhatsApp instances: ${connected.join(", ")}...`);
           this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
             this.logger.error(`Error in resumed dispatch loop for ${cmp.id}: ${err.message}`);
           });
@@ -1291,6 +1308,25 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
+        // Live Connection Check: Verify active WhatsApp instance before sending each message
+        const liveConnectedPool = this.baileysService.getConnectedInstances(campaign.organizationId);
+        if (liveConnectedPool.length === 0) {
+          this.logger.warn(`[Auto-Pause] No connected WhatsApp instance found for ${campaign.organizationId}. Checking for active socket...`);
+          const recovered = await this.baileysService.waitForActiveSocket(campaign.whatsappNumberId, 12000, campaign.organizationId);
+          if (!recovered?.user?.id) {
+            this.logger.warn(`[Auto-Pause] WhatsApp device is currently disconnected. Automatically pausing campaign "${campaign.name}" (${campaign.id}). Remaining ${campaign.recipients!.length - i} pending messages will resume automatically once WhatsApp reconnects.`);
+            campaign.status = "PAUSED";
+            (campaign as any).pauseReason = "AUTO_PAUSED_DEVICE_DISCONNECTED";
+            this.saveToDisk();
+            this.db.sql`
+              UPDATE campaigns 
+              SET status = 'PAUSED', pause_reason = 'AUTO_PAUSED_DEVICE_DISCONNECTED', updated_at = NOW() 
+              WHERE id = ${campaign.id}
+            `.catch(() => {});
+            return; // Cleanly exit without marking remaining recipients failed!
+          }
+        }
+
         // Delivery Time Window Safeguard (e.g. 10:00 AM to 07:00 PM)
         if (globalSettings.deliveryWindowEnabled) {
           const now = new Date();
@@ -1536,15 +1572,37 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           }
         } catch (err: any) {
           const errMsg = err.message || "";
-          if (errMsg.includes("not registered on WhatsApp") || errMsg.toLowerCase().includes("non whatsapp")) {
+          const isDisconnected = errMsg.includes("not connected") || errMsg.includes("Connection Closed") || errMsg.includes("Socket disconnected") || errMsg.includes("restart required") || errMsg.includes("Connection Lost");
+
+          if (isDisconnected) {
+            this.logger.warn(`[Auto-Pause on Disconnect] WhatsApp instance disconnected while dispatching to ${rec.phone}. Gracefully auto-pausing campaign "${campaign.name}"...`);
+            rec.status = "PENDING"; // Keep recipient in PENDING so it can be sent once reconnected!
+            rec.errorMessage = undefined;
+            campaign.status = "PAUSED";
+            (campaign as any).pauseReason = "AUTO_PAUSED_DEVICE_DISCONNECTED";
+            this.saveToDisk();
+
+            this.db.sql`
+              UPDATE campaigns 
+              SET status = 'PAUSED', pause_reason = 'AUTO_PAUSED_DEVICE_DISCONNECTED', updated_at = NOW() 
+              WHERE id = ${campaign.id}
+            `.catch(() => {});
+
+            return; // Cleanly exit dispatch loop!
+          }
+
+          if (errMsg.includes("not registered on WhatsApp") || errMsg.toLowerCase().includes("non whatsapp") || errMsg.includes("Non-WhatsApp")) {
             rec.status = "NON_WHATSAPP";
-            rec.errorMessage = "Recipient number is not registered on WhatsApp";
-          } else if (errMsg.includes("Invalid recipient phone number") || errMsg.includes("10 digits")) {
+            rec.errorMessage = "Not registered on WhatsApp (Non-WhatsApp number)";
+            (rec as any).failureCategory = "NON_WHATSAPP";
+          } else if (errMsg.includes("Invalid recipient phone number") || errMsg.includes("10 digits") || errMsg.includes("Landline")) {
             rec.status = "INVALID_NUMBER";
-            rec.errorMessage = "Invalid phone number format (less than 10 digits)";
+            rec.errorMessage = "Invalid phone number format / Landline";
+            (rec as any).failureCategory = "INVALID_NUMBER";
           } else {
             rec.status = "FAILED";
-            rec.errorMessage = errMsg || "WhatsApp device disconnected or number unreachable.";
+            rec.errorMessage = errMsg || "Failed to deliver message via WhatsApp device.";
+            (rec as any).failureCategory = "FAILED";
           }
 
           campaign.failedCount = campaign.recipients!.filter((r) => ["FAILED", "INVALID_NUMBER", "NON_WHATSAPP"].includes(r.status)).length;
@@ -1554,7 +1612,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             SET status = ${rec.status}, error_message = ${rec.errorMessage}
             WHERE id = ${rec.id}
           `.catch(() => {});
-          this.logger.warn(`Dispatch status for ${rec.phone}: ${rec.status} (${rec.errorMessage})`);
+          this.logger.warn(`Dispatch result for ${rec.phone}: ${rec.status} (${rec.errorMessage})`);
         }
 
         this.saveToDisk();

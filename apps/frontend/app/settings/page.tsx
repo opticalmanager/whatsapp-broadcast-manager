@@ -58,11 +58,11 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({
     switchAccountAfter: 1,
     sendParallelInstances: true,
-    minDelaySec: 15,
-    maxDelaySec: 20,
+    minDelaySec: 50,
+    maxDelaySec: 60,
     sleepEnabled: true,
-    sleepAfterMessages: 25,
-    sleepForSeconds: 10,
+    sleepAfterMessages: 10,
+    sleepForSeconds: 60,
     defaultCountryCode: "91",
     defaultCountryName: "India",
     defaultLanguage: "English",
@@ -96,11 +96,11 @@ export default function SettingsPage() {
             setSettings({
               switchAccountAfter: Number(json.data.switchAccountAfter) || 1,
               sendParallelInstances: json.data.sendParallelInstances !== false,
-              minDelaySec: Number(json.data.minDelaySec) || 15,
-              maxDelaySec: Number(json.data.maxDelaySec) || 20,
+              minDelaySec: json.data.minDelaySec != null ? Number(json.data.minDelaySec) : 50,
+              maxDelaySec: json.data.maxDelaySec != null ? Number(json.data.maxDelaySec) : 60,
               sleepEnabled: json.data.sleepEnabled !== false,
-              sleepAfterMessages: Number(json.data.sleepAfterMessages) || 25,
-              sleepForSeconds: Number(json.data.sleepForSeconds) || 10,
+              sleepAfterMessages: json.data.sleepAfterMessages != null ? Number(json.data.sleepAfterMessages) : 10,
+              sleepForSeconds: json.data.sleepForSeconds != null ? Number(json.data.sleepForSeconds) : 60,
               defaultCountryCode: json.data.defaultCountryCode || "91",
               defaultCountryName: json.data.defaultCountryName || "India",
               defaultLanguage: json.data.defaultLanguage || "English",
@@ -134,7 +134,18 @@ export default function SettingsPage() {
           ...getAuthHeaders(),
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          ...settings,
+          minDelaySec: Math.max(0, Number(settings.minDelaySec) || 0),
+          maxDelaySec: Math.max(Number(settings.minDelaySec) || 0, Number(settings.maxDelaySec) || 0),
+          sleepAfterMessages: Math.max(1, Number(settings.sleepAfterMessages) || 10),
+          sleepForSeconds: Math.max(0, Number(settings.sleepForSeconds) || 0),
+          switchAccountAfter: Math.max(1, Number(settings.switchAccountAfter) || 1),
+          warmupWeek1Limit: Math.max(1, Number(settings.warmupWeek1Limit) || 50),
+          warmupWeek2Limit: Math.max(1, Number(settings.warmupWeek2Limit) || 150),
+          warmupWeek3Limit: Math.max(1, Number(settings.warmupWeek3Limit) || 300),
+          warmupWeek4Limit: Math.max(1, Number(settings.warmupWeek4Limit) || 500),
+        }),
       });
 
       if (res.ok) {
@@ -244,12 +255,19 @@ export default function SettingsPage() {
                     type="number"
                     min={1}
                     value={settings.switchAccountAfter}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const val = e.target.value;
                       setSettings((prev) => ({
                         ...prev,
-                        switchAccountAfter: Math.max(1, parseInt(e.target.value) || 1),
-                      }))
-                    }
+                        switchAccountAfter: val === "" ? ("" as any) : Number(val),
+                      }));
+                    }}
+                    onBlur={() => {
+                      setSettings((prev) => ({
+                        ...prev,
+                        switchAccountAfter: Math.max(1, Number(prev.switchAccountAfter) || 1),
+                      }));
+                    }}
                     className="w-28 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-l-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                   <div className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-l-0 border-slate-200 dark:border-slate-800 rounded-r-xl text-xs text-slate-500 font-medium">
@@ -306,12 +324,19 @@ export default function SettingsPage() {
                       type="number"
                       min={1}
                       value={settings.minDelaySec}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const val = e.target.value;
                         setSettings((prev) => ({
                           ...prev,
-                          minDelaySec: Math.max(1, parseInt(e.target.value) || 1),
-                        }))
-                      }
+                          minDelaySec: val === "" ? ("" as any) : Number(val),
+                        }));
+                      }}
+                      onBlur={() => {
+                        setSettings((prev) => ({
+                          ...prev,
+                          minDelaySec: Math.max(0, Number(prev.minDelaySec) || 0),
+                        }));
+                      }}
                       className="w-28 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-l-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                     <div className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-l-0 border-slate-200 dark:border-slate-800 rounded-r-xl text-xs text-slate-500 font-medium">
@@ -331,12 +356,19 @@ export default function SettingsPage() {
                       type="number"
                       min={settings.minDelaySec}
                       value={settings.maxDelaySec}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const val = e.target.value;
                         setSettings((prev) => ({
                           ...prev,
-                          maxDelaySec: Math.max(prev.minDelaySec, parseInt(e.target.value) || prev.minDelaySec),
-                        }))
-                      }
+                          maxDelaySec: val === "" ? ("" as any) : Number(val),
+                        }));
+                      }}
+                      onBlur={() => {
+                        setSettings((prev) => ({
+                          ...prev,
+                          maxDelaySec: Math.max(Number(prev.minDelaySec) || 0, Number(prev.maxDelaySec) || Number(prev.minDelaySec) || 0),
+                        }));
+                      }}
                       className="w-28 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-l-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                     />
                     <div className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-l-0 border-slate-200 dark:border-slate-800 rounded-r-xl text-xs text-slate-500 font-medium">
@@ -494,12 +526,19 @@ export default function SettingsPage() {
                     type="number"
                     min={1}
                     value={settings.sleepAfterMessages}
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        sleepAfterMessages: Math.max(1, parseInt(e.target.value) || 1),
-                      }))
-                    }
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setSettings((prev) => ({
+                          ...prev,
+                          sleepAfterMessages: val === "" ? ("" as any) : Number(val),
+                        }));
+                      }}
+                      onBlur={() => {
+                        setSettings((prev) => ({
+                          ...prev,
+                          sleepAfterMessages: Math.max(1, Number(prev.sleepAfterMessages) || 10),
+                        }));
+                      }}
                     className="w-28 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-l-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                   <div className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-l-0 border-slate-200 dark:border-slate-800 rounded-r-xl text-xs text-slate-500 font-medium">
@@ -519,12 +558,19 @@ export default function SettingsPage() {
                     type="number"
                     min={1}
                     value={settings.sleepForSeconds}
-                    onChange={(e) =>
-                      setSettings((prev) => ({
-                        ...prev,
-                        sleepForSeconds: Math.max(1, parseInt(e.target.value) || 1),
-                      }))
-                    }
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        setSettings((prev) => ({
+                          ...prev,
+                          sleepForSeconds: val === "" ? ("" as any) : Number(val),
+                        }));
+                      }}
+                      onBlur={() => {
+                        setSettings((prev) => ({
+                          ...prev,
+                          sleepForSeconds: Math.max(0, Number(prev.sleepForSeconds) || 0),
+                        }));
+                      }}
                     className="w-28 px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-l-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
                   />
                   <div className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-l-0 border-slate-200 dark:border-slate-800 rounded-r-xl text-xs text-slate-500 font-medium">
@@ -677,12 +723,11 @@ export default function SettingsPage() {
                       min={10}
                       max={100}
                       value={settings.warmupWeek1Limit}
-                      onChange={(e) =>
-                        setSettings((prev) => ({
-                          ...prev,
-                          warmupWeek1Limit: Math.max(1, parseInt(e.target.value) || 50),
-                        }))
-                      }
+                      onChange={(e) => {
+                      const val = e.target.value;
+                      setSettings((prev) => ({ ...prev, warmupWeek1Limit: val === "" ? ("" as any) : Number(val) }));
+                    }}
+                    onBlur={() => setSettings((prev) => ({ ...prev, warmupWeek1Limit: Math.max(1, Number(prev.warmupWeek1Limit) || 50) }))}
                       className="w-24 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-l-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none"
                     />
                     <div className="px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-l-0 border-slate-200 dark:border-slate-700 rounded-r-xl text-xs text-slate-500 font-medium">
