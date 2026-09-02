@@ -513,7 +513,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       if (!this.campaignsStore.has(item.id)) {
         const activeNumberId =
           item.whatsappNumberId ||
-          this.baileysService.getActiveSessionNumberId() ||
+          this.baileysService.getActiveSessionNumberId(orgId) ||
           `num-${(orgId || "org-demo").slice(0, 8)}`;
 
         const recs: RecipientRecord[] = (item.recipients || []).map((r: any, idx: number) => ({
@@ -1027,9 +1027,10 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     this.saveToDisk();
 
     try {
-      const activeNumberId = cmp.whatsappNumberId || this.baileysService.getActiveSessionNumberId();
+      const activeNumberId = cmp.whatsappNumberId || this.baileysService.getActiveSessionNumberId(cmp.organizationId);
       const sendRes = await this.baileysService.sendBroadcastMessage({
         numberId: activeNumberId,
+        orgId: cmp.organizationId,
         recipientPhoneNumber: rec.phone,
         text: cmp.messageText || "Campaign Broadcast",
         mediaUrl: cmp.mediaUrl,
@@ -1116,7 +1117,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
     const activeNumberId =
       payload.whatsappNumberId ||
-      this.baileysService.getActiveSessionNumberId() ||
+      this.baileysService.getActiveSessionNumberId(orgId) ||
       `num-${(orgId || "org-demo").slice(0, 8)}`;
 
     const recipientsList: RecipientRecord[] = rawRecipients.map((r, i) => ({
@@ -1247,7 +1248,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
       if (allConnected.length === 0) {
         this.logger.log(`Waiting for an active WhatsApp instance socket for org ${campaign.organizationId}...`);
-        const socket = await this.baileysService.waitForActiveSocket(campaign.whatsappNumberId, 25000);
+        const socket = await this.baileysService.waitForActiveSocket(campaign.whatsappNumberId, 25000, campaign.organizationId);
         if (socket?.user?.id) {
           allConnected = this.baileysService.getConnectedInstances(campaign.organizationId);
           if (allConnected.length === 0 && campaign.whatsappNumberId) {
@@ -1257,7 +1258,10 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (allConnected.length === 0) {
-        this.logger.warn(`No connected WhatsApp socket found for ${campaign.organizationId}. Pausing campaign for auto-resume upon connection.`);
+        this.logger.warn(`No connected WhatsApp socket found for ${campaign.organizationId}. Setting campaign to PAUSED.`);
+        campaign.status = "PAUSED";
+        this.saveToDisk();
+        this.db.sql`UPDATE campaigns SET status = 'PAUSED', updated_at = NOW() WHERE id = ${campaign.id}`.catch(() => {});
         return;
       }
 
@@ -1420,6 +1424,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
         const broadcastOptions = {
           numberId: targetInstanceId,
+          orgId: campaign.organizationId,
           recipientPhoneNumber: rec.phone,
           text: textToSend,
           mediaUrl: mediaUrl || campaign.mediaUrl,

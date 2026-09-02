@@ -306,7 +306,7 @@ export class WelcomeMessageService implements OnModuleInit {
         if (socket && !resp.mediaUrl) {
           await socket.sendMessage(remoteJid, { text: replyText });
         } else {
-          await this.baileysService.sendTextMessage(instanceId, cleanPhone, replyText, resp.mediaUrl);
+          await this.baileysService.sendTextMessage(instanceId, cleanPhone, replyText, resp.mediaUrl, orgId);
         }
         this.logger.log("[Welcome Sent] Dispatched welcome greeting to " + cleanPhone);
       } catch (err: any) {

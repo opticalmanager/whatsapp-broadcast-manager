@@ -339,7 +339,7 @@ export class ChatService {
       throw new BadRequestException("Invalid recipient phone number format.");
     }
 
-    const activeNumberId = payload.instanceId || this.sessionManager.getActiveSessionNumberId();
+    const activeNumberId = payload.instanceId || this.sessionManager.getActiveSessionNumberId(effectiveOrg);
     if (!activeNumberId) {
       throw new BadRequestException("No active WhatsApp outlet connected. Please pair a device first.");
     }
@@ -352,6 +352,7 @@ export class ChatService {
     // 1. Dispatch through Baileys socket
     const sendRes = await this.sessionManager.sendBroadcastMessage({
       numberId: activeNumberId,
+      orgId: effectiveOrg,
       recipientPhoneNumber: cleanPhone,
       text: textToSend,
       mediaUrl: payload.mediaUrl,

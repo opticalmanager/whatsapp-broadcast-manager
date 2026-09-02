@@ -285,7 +285,7 @@ export class AutoReplyService implements OnModuleInit {
           await socket.sendMessage(remoteJid, { text: replyText });
           this.logger.log("[AutoReply Sent] Dispatched direct reply to " + remoteJid);
         } else {
-          await this.baileysService.sendTextMessage(instanceId, cleanPhone, replyText, resp.mediaUrl);
+          await this.baileysService.sendTextMessage(instanceId, cleanPhone, replyText, resp.mediaUrl, orgId);
           this.logger.log("[AutoReply Sent] Dispatched reply to " + cleanPhone);
         }
       } catch (sendErr: any) {

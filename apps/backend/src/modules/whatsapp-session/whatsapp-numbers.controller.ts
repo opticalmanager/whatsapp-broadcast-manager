@@ -245,7 +245,9 @@ export class WhatsAppNumbersController {
     const result = await this.sessionManager.sendTextMessage(
       dto.instanceId,
       dto.recipientPhoneNumber,
-      dto.messageText
+      dto.messageText,
+      undefined,
+      session.organizationId
     );
 
     return {

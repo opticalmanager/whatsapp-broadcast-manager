@@ -86,6 +86,8 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   private reconnectTimers: Map<string, NodeJS.Timeout> = new Map();
   private keepAliveTimers: Map<string, NodeJS.Timeout> = new Map();
   private reconnectAttempts: Map<string, number> = new Map();
+  /** Maps instanceId → organizationId for strict org-level session isolation */
+  private sessionOrgMap: Map<string, string> = new Map();
   private onConnectedCallbacks: Array<(numberId: string) => void> = [];
   private messageReceiptCallbacks: Array<(msgId: string, remoteJid: string, status: number) => void> = [];
   public incomingMessageCallbacks: Array<(instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void> = [];
@@ -529,6 +531,9 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   getConnectedInstances(orgId: string): string[] {
     const active: string[] = [];
     for (const [id, socket] of this.sessions.entries()) {
+      // STRICT ORG ISOLATION: Only return instances belonging to the requesting org
+      const instanceOrg = this.sessionOrgMap.get(id);
+      if (instanceOrg && instanceOrg !== orgId) continue;
       if (socket?.user?.id && this.sessionStates.get(id) === "CONNECTED") {
         active.push(id);
       }
@@ -613,6 +618,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
   async sendBroadcastMessage(opts: {
     numberId?: string | null;
+    orgId?: string;
     recipientPhoneNumber: string;
     text?: string;
     mediaUrl?: string;
@@ -635,7 +641,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     };
     textWithMediaMode?: "caption" | "separate";
   }): Promise<{ success: boolean; messageId: string }> {
-    const socket = this.getSessionSocket(opts.numberId || undefined);
+    const socket = this.getSessionSocket(opts.numberId || undefined, opts.orgId);
 
     if (!socket || !socket.user?.id) {
       throw new BadRequestException("WhatsApp outlet device is not connected. Please pair device first in Settings.");
@@ -678,115 +684,122 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
     let result: any;
 
-    // Helper: Send Media (Intelligent MIME & Format Detection)
+    // Helper: Send Media (Bulletproof Direct Buffer & MIME Pipeline)
     const sendMedia = async (captionText?: string) => {
       if (!opts.mediaUrl || !opts.mediaUrl.trim()) return null;
-      const mediaUrl = opts.mediaUrl.trim();
+      const rawMediaUrl = opts.mediaUrl.trim();
 
-      // 1. Data URI (Base64)
-      if (mediaUrl.startsWith("data:")) {
-        const match = mediaUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.*)$/);
-        if (match) {
-          const mimeType = match[1].toLowerCase();
-          const buffer = Buffer.from(match[2], "base64");
-          if (mimeType.startsWith("image/")) {
-            return await socket.sendMessage(targetJid, { image: buffer, caption: captionText });
-          } else if (mimeType.startsWith("video/")) {
-            return await socket.sendMessage(targetJid, { video: buffer, caption: captionText });
-          } else if (mimeType.startsWith("audio/")) {
-            return await socket.sendMessage(targetJid, { audio: buffer, mimetype: mimeType });
-          } else {
-            const fileName = mimeType.includes("pdf") ? "document.pdf" : "attachment";
-            return await socket.sendMessage(targetJid, {
-              document: buffer,
-              mimetype: mimeType,
-              fileName,
-              caption: captionText,
-            });
+      try {
+        let buffer: Buffer | null = null;
+        let mimeType = "image/jpeg";
+        let isImage = true;
+        let isVideo = false;
+        let isAudio = false;
+        let isPdf = false;
+        let rawFileName = "attachment.jpg";
+
+        // 1. Check Data URI (Base64)
+        if (rawMediaUrl.startsWith("data:")) {
+          const commaIdx = rawMediaUrl.indexOf(",");
+          if (commaIdx !== -1) {
+            const header = rawMediaUrl.slice(0, commaIdx);
+            const data = rawMediaUrl.slice(commaIdx + 1);
+            const mimeMatch = header.match(/data:([^;]+)/);
+            if (mimeMatch) mimeType = mimeMatch[1].toLowerCase();
+            buffer = Buffer.from(data, "base64");
           }
         }
-      }
 
-      // 2. Remote HTTP / HTTPS Public URL
-      if (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://")) {
-        const urlLower = mediaUrl.toLowerCase();
-        const msgTypeLower = (opts.messageType || "").toLowerCase();
-
-        // Check if URL clearly contains image extensions anywhere (even with query params like ?w=800 or CDN hashes)
-        let isImage = 
-          /\.(jpg|jpeg|png|webp|gif|bmp|svg|tiff|avif)(\?|$|#)/i.test(urlLower) ||
-          urlLower.includes("images.unsplash.com") ||
-          urlLower.includes("picsum.photos") ||
-          urlLower.includes("/image") ||
-          urlLower.includes("cloudinary.com") ||
-          msgTypeLower.includes("image") ||
-          msgTypeLower === "media" ||
-          msgTypeLower === "text with media";
-
-        let isVideo = 
-          /\.(mp4|3gp|mov|avi|mkv|webm)(\?|$|#)/i.test(urlLower) ||
-          msgTypeLower.includes("video");
-
-        let isAudio = 
-          /\.(mp3|ogg|wav|m4a|aac)(\?|$|#)/i.test(urlLower) ||
-          msgTypeLower.includes("audio");
-
-        let isPdf = 
-          /\.(pdf)(\?|$|#)/i.test(urlLower) ||
-          msgTypeLower.includes("pdf") ||
-          msgTypeLower.includes("document");
-
-        // If still ambiguous, inspect headers via fast HEAD request
-        let detectedMime: string | null = null;
-        if (!isImage && !isVideo && !isAudio && !isPdf) {
-          try {
-            const headRes = await fetch(mediaUrl, { method: "HEAD", signal: AbortSignal.timeout(3000) });
-            const ct = headRes.headers.get("content-type")?.toLowerCase();
-            if (ct) {
-              detectedMime = ct;
-              if (ct.startsWith("image/")) isImage = true;
-              else if (ct.startsWith("video/")) isVideo = true;
-              else if (ct.startsWith("audio/")) isAudio = true;
-              else if (ct.includes("pdf")) isPdf = true;
+        // 2. Check Local File Path or /uploads/ storage on server
+        if (!buffer && (rawMediaUrl.includes("/uploads/") || !rawMediaUrl.startsWith("http"))) {
+          let relPath = rawMediaUrl;
+          if (rawMediaUrl.includes("/uploads/")) {
+            relPath = rawMediaUrl.substring(rawMediaUrl.indexOf("/uploads/"));
+          }
+          const candidatePaths = [
+            path.resolve(process.cwd(), "public", relPath.replace(/^\/uploads\//, "uploads/")),
+            path.resolve(process.cwd(), "public", relPath.replace(/^\//, "")),
+            path.resolve(process.cwd(), "apps/backend/public", relPath.replace(/^\/uploads\//, "uploads/")),
+            path.resolve(process.cwd(), "apps/backend/public", relPath.replace(/^\//, "")),
+            path.resolve(relPath),
+          ];
+          for (const cp of candidatePaths) {
+            if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
+              buffer = fs.readFileSync(cp);
+              rawFileName = path.basename(cp);
+              const ext = path.extname(cp).toLowerCase();
+              if (ext === ".png") mimeType = "image/png";
+              else if (ext === ".webp") mimeType = "image/webp";
+              else if (ext === ".gif") mimeType = "image/gif";
+              else if (ext === ".pdf") mimeType = "application/pdf";
+              else if (ext === ".mp4") mimeType = "video/mp4";
+              else mimeType = "image/jpeg";
+              this.logger.log(`Loaded media directly from local disk: ${cp} (${buffer.length} bytes)`);
+              break;
             }
+          }
+        }
+
+        // 3. Remote HTTP / HTTPS URL (Pre-fetch buffer to avoid Baileys stream failures)
+        if (!buffer && (rawMediaUrl.startsWith("http://") || rawMediaUrl.startsWith("https://"))) {
+          this.logger.log(`Downloading media buffer from URL: ${rawMediaUrl}...`);
+          const res = await fetch(rawMediaUrl, { signal: AbortSignal.timeout(15000) });
+          if (!res.ok) {
+            throw new Error(`Failed to fetch media from URL (${res.status} ${res.statusText}): ${rawMediaUrl}`);
+          }
+          const ct = res.headers.get("content-type");
+          if (ct) mimeType = ct.toLowerCase();
+          const arrBuf = await res.arrayBuffer();
+          buffer = Buffer.from(arrBuf);
+          try {
+            const urlPath = new URL(rawMediaUrl).pathname;
+            const bName = path.basename(urlPath);
+            if (bName && bName.includes(".")) rawFileName = decodeURIComponent(bName);
           } catch {}
         }
 
-        // Default to Image if undecided (most marketing campaigns use images)
-        if (!isImage && !isVideo && !isAudio && !isPdf) {
+        if (!buffer || buffer.length === 0) {
+          throw new Error(`Could not load media from provided source: ${rawMediaUrl.slice(0, 100)}`);
+        }
+
+        // Classify Media
+        const msgTypeLower = (opts.messageType || "").toLowerCase();
+        const urlLower = rawMediaUrl.toLowerCase();
+        if (mimeType.startsWith("video/") || msgTypeLower.includes("video") || /\.(mp4|3gp|mov|avi|mkv|webm)/i.test(urlLower)) {
+          isVideo = true;
+          isImage = false;
+        } else if (mimeType.startsWith("audio/") || msgTypeLower.includes("audio") || /\.(mp3|ogg|wav|m4a|aac)/i.test(urlLower)) {
+          isAudio = true;
+          isImage = false;
+        } else if (mimeType.includes("pdf") || msgTypeLower.includes("pdf") || msgTypeLower.includes("document") || /\.pdf/i.test(urlLower)) {
+          isPdf = true;
+          isImage = false;
+        } else {
           isImage = true;
         }
 
         if (isImage) {
-          this.logger.log(`Sending image message from URL: ${mediaUrl}`);
-          return await socket.sendMessage(targetJid, { image: { url: mediaUrl }, caption: captionText });
+          this.logger.log(`Dispatching Baileys image buffer (${buffer.length} bytes) to ${targetJid}`);
+          return await socket.sendMessage(targetJid, { image: buffer, caption: captionText, mimetype: mimeType });
         } else if (isVideo) {
-          this.logger.log(`Sending video message from URL: ${mediaUrl}`);
-          return await socket.sendMessage(targetJid, { video: { url: mediaUrl }, caption: captionText });
+          this.logger.log(`Dispatching Baileys video buffer (${buffer.length} bytes) to ${targetJid}`);
+          return await socket.sendMessage(targetJid, { video: buffer, caption: captionText, mimetype: mimeType });
         } else if (isAudio) {
-          this.logger.log(`Sending audio message from URL: ${mediaUrl}`);
-          return await socket.sendMessage(targetJid, { audio: { url: mediaUrl }, mimetype: "audio/mp4" });
+          this.logger.log(`Dispatching Baileys audio buffer (${buffer.length} bytes) to ${targetJid}`);
+          return await socket.sendMessage(targetJid, { audio: buffer, mimetype: mimeType || "audio/mp4" });
         } else {
-          // Extract real filename from URL if possible
-          let rawFileName = "document.pdf";
-          try {
-            const urlPath = new URL(mediaUrl).pathname;
-            const baseName = urlPath.substring(urlPath.lastIndexOf('/') + 1);
-            if (baseName && baseName.includes('.')) {
-              rawFileName = decodeURIComponent(baseName);
-            }
-          } catch {}
-
-          this.logger.log(`Sending document attachment (${rawFileName}) from URL: ${mediaUrl}`);
+          this.logger.log(`Dispatching Baileys document buffer (${rawFileName}, ${buffer.length} bytes) to ${targetJid}`);
           return await socket.sendMessage(targetJid, {
-            document: { url: mediaUrl },
-            mimetype: detectedMime || (isPdf ? "application/pdf" : "application/octet-stream"),
+            document: buffer,
+            mimetype: mimeType || "application/pdf",
             fileName: rawFileName,
             caption: captionText,
           });
         }
+      } catch (mediaErr: any) {
+        this.logger.error(`sendMedia failed for ${targetJid}: ${mediaErr.message}`);
+        throw mediaErr;
       }
-      return null;
     };
 
     // 1. POLL DISPATCH (Single Unified WhatsApp Poll Message)
@@ -912,47 +925,65 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     numberId: string | null | undefined,
     recipientPhoneNumber: string,
     text: string,
-    mediaUrl?: string
+    mediaUrl?: string,
+    orgId?: string
   ): Promise<{ success: boolean; messageId: string }> {
     return this.sendBroadcastMessage({
       numberId,
+      orgId,
       recipientPhoneNumber,
       text,
       mediaUrl,
     });
   }
 
-  getSessionSocket(numberId?: string): WASocket | null {
+  getSessionSocket(numberId?: string, orgId?: string): WASocket | null {
+    // 1. Try exact requested instance (must belong to same org if orgId specified)
     if (numberId && this.sessions.has(numberId)) {
-      const s = this.sessions.get(numberId)!;
-      if (s.user?.id && this.sessionStates.get(numberId) === "CONNECTED") return s;
+      const instanceOrg = this.sessionOrgMap.get(numberId);
+      if (!orgId || !instanceOrg || instanceOrg === orgId) {
+        const s = this.sessions.get(numberId)!;
+        if (s.user?.id && this.sessionStates.get(numberId) === "CONNECTED") return s;
+      }
     }
+    // 2. Fallback: find any connected instance ONLY within the same organization
     for (const [id, s] of this.sessions.entries()) {
-      if (s && s.user?.id && this.sessionStates.get(id) === "CONNECTED") return s;
+      if (s && s.user?.id && this.sessionStates.get(id) === "CONNECTED") {
+        const instanceOrg = this.sessionOrgMap.get(id);
+        // STRICT: Skip instances belonging to a different org
+        if (orgId && instanceOrg && instanceOrg !== orgId) continue;
+        return s;
+      }
     }
     return null;
   }
 
-  getActiveSessionNumberId(): string | null {
+  getActiveSessionNumberId(orgId?: string): string | null {
     for (const [id, s] of this.sessions.entries()) {
       if (s && s.user?.id && this.sessionStates.get(id) === "CONNECTED") {
+        const instanceOrg = this.sessionOrgMap.get(id);
+        if (orgId && instanceOrg && instanceOrg !== orgId) continue;
         return id;
       }
     }
     for (const [id, s] of this.sessions.entries()) {
-      if (s && s.user?.id) return id;
+      if (s && s.user?.id) {
+        const instanceOrg = this.sessionOrgMap.get(id);
+        if (orgId && instanceOrg && instanceOrg !== orgId) continue;
+        return id;
+      }
     }
     return null;
   }
 
-  async waitForActiveSocket(numberId?: string, timeoutMs: number = 20000): Promise<WASocket | null> {
-    const existing = this.getSessionSocket(numberId);
+  async waitForActiveSocket(numberId?: string, timeoutMs: number = 20000, orgId?: string): Promise<WASocket | null> {
+    const existing = this.getSessionSocket(numberId, orgId);
     if (existing) return existing;
 
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       await new Promise((r) => setTimeout(r, 1000));
-      const s = this.getSessionSocket(numberId);
+      const s = this.getSessionSocket(numberId, orgId);
       if (s) return s;
     }
     return null;
@@ -977,6 +1008,9 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
   async initSession(numberId: string, orgId: string, shopId: string, forceFresh = false): Promise<WASocket> {
     const authFolderPath = this.getAuthFolderPath(numberId, orgId);
+
+    // Register org ownership for strict session isolation
+    this.sessionOrgMap.set(numberId, orgId);
 
     if (this.sessions.has(numberId)) {
       const existingSocket = this.sessions.get(numberId);

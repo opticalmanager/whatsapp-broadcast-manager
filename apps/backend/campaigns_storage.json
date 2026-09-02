@@ -1,5 +1,160 @@
 [
   {
+    "id": "cmp-1788342436079",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjwgio4_s81a",
+    "name": "Campaign 09/02, 03:17 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T09:47:16.079Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788342435932",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0B218325119353AF7AB",
+        "status": "READ",
+        "sentAt": "2026-09-02T09:52:56.782Z",
+        "deliveredAt": "2026-09-02T09:53:42.094Z",
+        "readAt": "2026-09-02T09:53:42.739Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T09:47:16.143Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788341999938",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/02, 03:09 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T09:39:59.938Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788341999931",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB01966F472172B13AA7F",
+        "status": "READ",
+        "sentAt": "2026-09-02T09:40:03.015Z",
+        "deliveredAt": "2026-09-02T09:40:06.058Z",
+        "readAt": "2026-09-02T09:40:11.261Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T09:40:00.137Z",
+    "contentType": "text",
+    "messageType": "Text"
+  },
+  {
+    "id": "cmp-1788341904377",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/02, 03:08 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T09:38:24.377Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 0,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 1,
+    "recipients": [
+      {
+        "id": "pst_0_1788341904368",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "status": "FAILED",
+        "errorMessage": "Request failed with status code 404"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} \nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
+    "mediaUrl": "http://localhost:4000/uploads/org-f7c924751158c061/1788341441120_jq3dgp.jpg",
+    "createdAt": "2026-09-02T09:38:24.575Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788341866025",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/02, 03:07 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T09:37:46.025Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788341866013",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB08FA7E87F4C30EF66DB",
+        "status": "READ",
+        "sentAt": "2026-09-02T09:37:49.623Z",
+        "deliveredAt": "2026-09-02T09:37:56.914Z",
+        "readAt": "2026-09-02T09:38:43.591Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T09:37:46.225Z",
+    "contentType": "text",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788341528088",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjqfoey_amrc",
+    "name": "Campaign 09/02, 03:01 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T09:32:08.088Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788341527940",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB08319AA2C2EB60C4F07",
+        "status": "READ",
+        "sentAt": "2026-09-02T09:52:56.705Z",
+        "deliveredAt": "2026-09-02T09:53:42.053Z",
+        "readAt": "2026-09-02T09:53:43.974Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} \nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
+    "mediaUrl": "blob:https://broadcast.opticalmanager.in/739df92d-355b-4545-a37b-a566672c9461",
+    "createdAt": "2026-09-02T09:32:08.151Z",
+    "contentType": "media"
+  },
+  {
     "id": "cmp-1788336939747",
     "organizationId": "org-68ff663e674769f3",
     "shopId": "shop-main",
@@ -23,8 +178,8 @@
         "sentAt": "2026-09-02T08:15:43.046Z",
         "deliveredAt": "2026-09-02T08:15:59.412Z",
         "readAt": "2026-09-02T08:16:57.228Z",
-        "replyText": "Ding ding",
-        "repliedAt": "2026-09-02T09:12:47.625Z"
+        "replyText": "Ok",
+        "repliedAt": "2026-09-02T09:23:35.196Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} ",
@@ -526,7 +681,7 @@
         "messageId": "3EB0CCA592CC9C08EA2B77",
         "status": "DELIVERED",
         "sentAt": "2026-09-02T07:29:12.520Z",
-        "deliveredAt": "2026-09-02T07:36:29.561Z"
+        "deliveredAt": "2026-09-02T09:12:48.141Z"
       },
       {
         "id": "cnt_e61038e5179437d7",

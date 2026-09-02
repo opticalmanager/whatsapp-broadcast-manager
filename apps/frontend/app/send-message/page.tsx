@@ -655,8 +655,8 @@ function CampaignsStudioInner() {
     return resolved;
   }, [messageText, unsubSettings, sampleRecipientData]);
 
-  // File Upload Handling
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // File Upload Handling (Base64 + Direct Cloud/Server Storage)
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     if (attachedFiles.length >= 5) {
@@ -665,16 +665,54 @@ function CampaignsStudioInner() {
     }
 
     const file = files[0];
-    const newAttach: AttachedFile = {
-      id: "f-" + Date.now(),
-      name: file.name,
-      size: (file.size / 1024).toFixed(1) + " KB",
-      type: file.type,
-      url: URL.createObjectURL(file)
-    };
+    const previewUrl = URL.createObjectURL(file);
 
-    setAttachedFiles((prev) => [...prev, newAttach].slice(0, 5));
-    toast.success(`Attached ${file.name}`);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        let finalMediaUrl = base64Data;
+
+        // Try direct backend upload for CDN URL
+        try {
+          const res = await fetch(`${backendUrl}/api/v1/media/upload-direct`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...getAuthHeaders(),
+            },
+            body: JSON.stringify({
+              filename: file.name,
+              mimeType: file.type || "image/jpeg",
+              base64Data,
+            }),
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && json.data?.fileUrl) {
+              finalMediaUrl = json.data.fileUrl;
+            }
+          }
+        } catch {}
+
+        const newAttach: AttachedFile = {
+          id: "f-" + Date.now(),
+          name: file.name,
+          size: (file.size / 1024).toFixed(1) + " KB",
+          type: file.type,
+          url: finalMediaUrl,
+        };
+
+        setAttachedFiles((prev) => [...prev, newAttach].slice(0, 5));
+        setPublicMediaUrl(finalMediaUrl);
+        setMediaFormat(file.type.startsWith("image/") ? "IMAGE" : file.type.includes("pdf") ? "DOCUMENT" : file.type.startsWith("video/") ? "VIDEO" : "IMAGE");
+        setMessageType("Text With Media");
+        toast.success(`Attached ${file.name}`);
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast.error("Failed to process attached file.");
+    }
   };
 
   const handleRemoveAttachment = (id: string) => {
