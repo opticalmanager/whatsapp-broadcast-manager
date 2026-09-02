@@ -74,7 +74,7 @@ export default function WelcomeMessagePage() {
   const [settings, setSettings] = useState<WelcomeMessageSettings>({
     organizationId: "org-demo",
     instanceId: "ALL",
-    enabled: true,
+    enabled: false,
     frequency: "FIRST_TIME_EVER",
     minDelaySec: 1.0,
     maxDelaySec: 3.0,
@@ -82,7 +82,7 @@ export default function WelcomeMessagePage() {
     responses: [
       {
         type: "Text",
-        text: "👋 {Hello|Hi|Greetings} {{name}}! Welcome to our business. How can we assist you today?",
+        text: "👋 Hello {{name}}! Thank you for contacting us. How can we assist you today?",
       },
     ],
   });
@@ -118,6 +118,7 @@ export default function WelcomeMessagePage() {
         if (settJson.success && settJson.data) {
           setSettings({
             ...settJson.data,
+            enabled: settJson.data.enabled === true,
             frequency: "FIRST_TIME_EVER",
             responses:
               settJson.data.responses && settJson.data.responses.length > 0
@@ -125,7 +126,7 @@ export default function WelcomeMessagePage() {
                 : [
                     {
                       type: "Text",
-                      text: "👋 {Hello|Hi|Greetings} {{name}}! Welcome to our business. How can we assist you today?",
+                      text: "👋 Hello {{name}}! Thank you for contacting us. How can we assist you today?",
                     },
                   ],
           });

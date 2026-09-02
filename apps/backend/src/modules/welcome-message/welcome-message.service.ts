@@ -199,7 +199,7 @@ export class WelcomeMessageService implements OnModuleInit {
     const settings: WelcomeMessageSettings = this.settingsStore.get(settingsKey) || this.settingsStore.get(fallbackKey) || {
       organizationId: orgId,
       instanceId,
-      enabled: true,
+      enabled: false,
       frequency: "FIRST_TIME_EVER",
       minDelaySec: 0.8,
       maxDelaySec: 2.2,
@@ -207,7 +207,7 @@ export class WelcomeMessageService implements OnModuleInit {
       responses: [
         {
           type: "Text",
-          text: "👋 {Hello|Hi|Greetings} {{name}}! Welcome to our business. How can we assist you today?",
+          text: "👋 Hello {{name}}! Thank you for contacting us. How can we assist you today?",
           mediaUrl: undefined,
         },
       ],
@@ -340,7 +340,7 @@ export class WelcomeMessageService implements OnModuleInit {
     const def: WelcomeMessageSettings = {
       organizationId: orgId,
       instanceId: instanceId || "ALL",
-      enabled: true,
+      enabled: false,
       frequency: "FIRST_TIME_EVER",
       minDelaySec: 0.8,
       maxDelaySec: 2.2,
@@ -348,7 +348,7 @@ export class WelcomeMessageService implements OnModuleInit {
       responses: [
         {
           type: "Text",
-          text: "👋 {Hello|Hi|Greetings} {{name}}! Welcome to our business. How can we assist you today?",
+          text: "👋 Hello {{name}}! Thank you for contacting us. How can we assist you today?",
           mediaUrl: undefined,
         },
       ],

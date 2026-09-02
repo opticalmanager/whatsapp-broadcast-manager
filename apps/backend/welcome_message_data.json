@@ -11,7 +11,7 @@
       "responses": [
         {
           "type": "Text",
-          "text": "👋 {Hello|Hi|Greetings} {{name}}! Welcome to Dhaba Opticals. How can we help you today with frame choices or eye test bookings?"
+          "text": "👋 Hello {{name}}! Thank you for contacting us. How can we assist you today?"
         }
       ],
       "updatedAt": "2026-09-02T07:12:18.768Z"
