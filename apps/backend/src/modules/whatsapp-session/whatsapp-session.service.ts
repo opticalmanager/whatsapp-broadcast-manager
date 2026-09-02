@@ -1288,16 +1288,27 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
             responseValue = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || "").trim();
           }
 
-          // If a user replies or interacts, the message was read!
-          this.messageReceiptCallbacks.forEach((cb) => {
-            try {
-              cb(quotedMsgId || "INCOMING_REPLY", remoteJid, 4);
-            } catch {}
-          });
+          // If a user replies to a specific broadcast, update read receipt
+          if (quotedMsgId) {
+            this.messageReceiptCallbacks.forEach((cb) => {
+              try {
+                cb(quotedMsgId, remoteJid, 4);
+              } catch {}
+            });
+          }
 
           if (responseValue) {
             let cleanPhone = remoteJid.split('@')[0].split(':')[0];
             let resolvedContactName = pushName || 'Customer';
+
+            // Check if Baileys participant or alt JID has the actual phone number
+            const altJid = (msg.key as any).participant || (msg.key as any).remoteJidAlt || (msg.key as any).participantPn || (msg as any).participant;
+            if (altJid && typeof altJid === 'string' && !altJid.includes('@lid')) {
+              const altClean = altJid.split('@')[0].split(':')[0].replace(/\D/g, "");
+              if (altClean.length >= 10 && altClean.length <= 13) {
+                cleanPhone = altClean;
+              }
+            }
 
             // Persist to Supabase Database
             (async () => {
@@ -1332,11 +1343,24 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                     }
                   }
 
-                  // 2. If NOT resolved, do NOT falsely map to arbitrary campaign recipients by generic name!
-                  if (resolvedRealPhone) {
+                  // 2. If not resolved by quote, find latest broadcast recipient sent from this instance
+                  if (!resolvedRealPhone) {
+                    try {
+                      const latestSent = await this.db.sql`
+                        SELECT phone, name FROM campaign_recipients 
+                        WHERE status IN ('SENT', 'DELIVERED') 
+                        ORDER BY sent_at DESC NULLS LAST 
+                        LIMIT 1
+                      `;
+                      if (latestSent && latestSent.length > 0 && latestSent[0].phone) {
+                        resolvedRealPhone = latestSent[0].phone.replace(/\D/g, "");
+                      }
+                    } catch {}
+                  }
+
+                  if (resolvedRealPhone && resolvedRealPhone.length >= 10 && resolvedRealPhone.length <= 13) {
                     cleanPhone = resolvedRealPhone;
                   } else if (cleanPhone.length > 13) {
-                    // Ignore stray LID messages that do not belong to any active conversation or campaign
                     this.logger.warn(`Ignoring unmapped WhatsApp LID message from ${remoteJid}`);
                     return;
                   }
@@ -1430,8 +1454,9 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                   const incomingUpper = (responseValue || '').trim().toUpperCase();
                   const matchedKeyword = keywords.find((k: string) => incomingUpper === k || incomingUpper.startsWith(k + ' ') || incomingUpper.includes(k));
 
-                  if (matchedKeyword) {
-                    this.logger.log(`Opt-out keyword '${matchedKeyword}' detected from ${cleanPhone} on instance ${numberId}`);
+                  const cleanDigits = cleanPhone.replace(/\D/g, "");
+                  if (matchedKeyword && cleanDigits.length >= 10 && cleanDigits.length <= 13) {
+                    this.logger.log(`Opt-out keyword '${matchedKeyword}' detected from ${cleanDigits} on instance ${numberId}`);
                     const unsubId = `unsub_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
                     
                     const effectiveOrgId = orgId && orgId !== "org_default" ? orgId : "org-demo";
@@ -1439,7 +1464,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                       INSERT INTO public.unsubscribers (
                         id, organization_id, phone, name, trigger_keyword, instance_id, source, unsubscribed_at, created_at, updated_at
                       ) VALUES (
-                        ${unsubId}, ${effectiveOrgId}, ${cleanPhone}, ${resolvedContactName || null}, ${matchedKeyword}, ${numberId}, 'AUTO_KEYWORD', NOW(), NOW(), NOW()
+                        ${unsubId}, ${effectiveOrgId}, ${cleanDigits}, ${resolvedContactName || null}, ${matchedKeyword}, ${numberId}, 'AUTO_KEYWORD', NOW(), NOW(), NOW()
                       )
                       ON CONFLICT (organization_id, phone) DO UPDATE SET
                         trigger_keyword = EXCLUDED.trigger_keyword,
@@ -1447,7 +1472,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                         unsubscribed_at = NOW(),
                         updated_at = NOW()
                     `.catch((err) => {
-                      this.logger.warn(`Failed to insert unsubscriber ${cleanPhone}: ${err.message}`);
+                      this.logger.warn(`Failed to insert unsubscriber ${cleanDigits}: ${err.message}`);
                     });
 
                     // Update contacts tag to UNSUBSCRIBED
@@ -1459,7 +1484,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                         ELSE tags
                       END
                       WHERE (organization_id = ${effectiveOrgId} OR organization_id = 'org-demo' OR organization_id = ${orgId})
-                        AND (phone = ${cleanPhone} OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanPhone.slice(-10)})
+                        AND (phone = ${cleanDigits} OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanDigits.slice(-10)})
                     `.catch(() => {});
 
                     // Optional confirmation reply

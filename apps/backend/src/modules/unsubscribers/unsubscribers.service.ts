@@ -106,6 +106,7 @@ export class UnsubscribersService {
         rows = await this.db.sql`
           SELECT * FROM public.unsubscribers
           WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL)
+            AND LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) BETWEEN 10 AND 13
             AND (phone ILIKE ${pattern} OR name ILIKE ${pattern} OR trigger_keyword ILIKE ${pattern})
           ORDER BY unsubscribed_at DESC
           LIMIT 300
@@ -113,7 +114,8 @@ export class UnsubscribersService {
       } else {
         rows = await this.db.sql`
           SELECT * FROM public.unsubscribers
-          WHERE organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL
+          WHERE (organization_id = ${effectiveOrg} OR organization_id = 'org-demo' OR organization_id = 'org_default' OR organization_id IS NOT NULL)
+            AND LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) BETWEEN 10 AND 13
           ORDER BY unsubscribed_at DESC
           LIMIT 300
         `;

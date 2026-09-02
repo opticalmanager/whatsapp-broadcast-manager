@@ -1,5 +1,89 @@
 [
   {
+    "id": "cmp-1788334147474",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/02, 12:58 PM",
+    "targetAudienceType": "Groups",
+    "scheduledAt": "2026-09-02T07:29:07.474Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 2,
+    "readCount": 2,
+    "failedCount": 0,
+    "recipients": [],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-02T07:29:07.881Z",
+    "contentType": "media",
+    "messageType": "Text With Media"
+  },
+  {
+    "id": "cmp-1788333573429",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjqfoey_amrc",
+    "name": "Campaign 09/02, 12:49 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T07:19:33.429Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788333573023",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB0A7BCABEBCF4B83E1DA",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T07:19:36.303Z",
+        "deliveredAt": "2026-09-02T07:19:53.806Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T07:19:33.495Z",
+    "contentType": "text"
+  },
+  {
+    "id": "cmp-1788333385521",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtjqfoey_amrc",
+    "name": "Campaign 09/02, 12:45 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T07:16:25.521Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788333385096",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB02CCCA8117427295619",
+        "status": "READ",
+        "sentAt": "2026-09-02T07:16:29.315Z",
+        "deliveredAt": "2026-09-02T07:16:33.024Z",
+        "readAt": "2026-09-02T07:18:11.682Z",
+        "replyText": "Ok",
+        "repliedAt": "2026-09-02T07:18:11.617Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
+    "mediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRsF7cBBOar3BeHyDlABrfOsrOAR-bF0bwicPaqB6xZ1A&s=10",
+    "createdAt": "2026-09-02T07:16:25.584Z",
+    "contentType": "media"
+  },
+  {
     "id": "cmp-1788332235300",
     "organizationId": "org-68ff663e674769f3",
     "shopId": "shop-main",
@@ -63,7 +147,7 @@
         "status": "READ",
         "sentAt": "2026-09-01T16:28:41.970Z",
         "deliveredAt": "2026-09-01T16:28:45.312Z",
-        "readAt": "2026-09-01T16:29:26.346Z"
+        "readAt": "2026-09-02T07:17:23.061Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} ",
@@ -363,36 +447,26 @@
     "totalRecipients": 2,
     "sentCount": 2,
     "deliveredCount": 2,
-    "readCount": 1,
+    "readCount": 0,
     "failedCount": 0,
     "recipients": [
       {
         "id": "cnt_dbe782f44f68e5a8",
         "phone": "917678106554",
         "name": "Customer",
-        "messageId": "3EB03FD86B3965C48741C3",
+        "messageId": "3EB0CCA592CC9C08EA2B77",
         "status": "DELIVERED",
-        "sentAt": "2026-09-02T06:57:21.960Z",
-        "deliveredAt": "2026-09-02T07:03:18.158Z",
-        "readAt": "2026-09-02T06:53:23.214Z",
-        "pollVote": "Voted",
-        "pollVotedAt": "2026-09-01T08:18:25.413Z",
-        "replyText": "Itni achi english kaha se sikhi aapne",
-        "repliedAt": "2026-09-01T08:18:22.813Z"
+        "sentAt": "2026-09-02T07:29:12.520Z",
+        "deliveredAt": "2026-09-02T07:29:13.752Z"
       },
       {
         "id": "cnt_e61038e5179437d7",
         "phone": "918178962366",
         "name": "Customer",
-        "messageId": "3EB078FFAC1282B6459437",
-        "status": "READ",
-        "sentAt": "2026-09-02T06:57:53.736Z",
-        "deliveredAt": "2026-09-02T06:57:55.839Z",
-        "readAt": "2026-09-02T06:58:41.257Z",
-        "pollVote": "Voted",
-        "pollVotedAt": "2026-09-01T08:14:56.535Z",
-        "replyText": "Why",
-        "repliedAt": "2026-09-02T07:10:46.378Z"
+        "messageId": "3EB091C9F3A86634CB0278",
+        "status": "DELIVERED",
+        "sentAt": "2026-09-02T07:29:43.581Z",
+        "deliveredAt": "2026-09-02T07:29:43.581Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} {{name}},\n\nWe have an exclusive offer from {{business_name}}! Enjoy {{discount}} OFF with coupon code *{{coupon_code}}*.\n\nValid until {{expiry_date}}!",

@@ -203,146 +203,137 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   handleIncomingResponse(event: IncomingResponseEvent) {
     const rawClean = (event.resolvedPhone || event.remoteJid).split("@")[0].split(":")[0].replace(/\D/g, "");
     const cleanJidPhone10 = rawClean.slice(-10);
+    const eventTime = event.timestamp || new Date();
     this.logger.log(`[CampaignsService] Processing incoming ${event.type} from ${rawClean} (Phone10: ${cleanJidPhone10}, Value: "${event.value}")`);
 
-    for (const cmp of this.campaignsStore.values()) {
+    // 1. Find the target campaign: Prioritize exact quoted message, otherwise find latest campaign sent to this number
+    const sortedCampaigns = Array.from(this.campaignsStore.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    let targetCmp: any = null;
+    let targetRec: RecipientRecord | null = null;
+
+    for (const cmp of sortedCampaigns) {
       if (!cmp.recipients || cmp.recipients.length === 0) continue;
 
-      let hasMatch = false;
       for (const rec of cmp.recipients) {
         const cleanRecPhone10 = (rec.phone || "").replace(/\D/g, "").slice(-10);
-        const isMatch =
-          (event.quotedMsgId && rec.messageId && rec.messageId === event.quotedMsgId) ||
-          (cleanJidPhone10 && cleanRecPhone10 && cleanJidPhone10 === cleanRecPhone10);
+        const isQuotedMatch = Boolean(event.quotedMsgId && rec.messageId && rec.messageId === event.quotedMsgId);
+        const isPhoneMatch = Boolean(cleanJidPhone10 && cleanRecPhone10 && cleanJidPhone10 === cleanRecPhone10);
 
-        if (isMatch) {
-          hasMatch = true;
-
-          // Always mark as READ and DELIVERED when interacting
-          rec.status = "READ";
-          rec.readAt = rec.readAt || new Date();
-          rec.deliveredAt = rec.deliveredAt || new Date();
-
-          if (event.type === "POLL_VOTE") {
-            rec.pollVote = event.value || event.pollVote || "Voted";
-            rec.pollVotedAt = event.timestamp || new Date();
-            this.logger.log(`[Poll Response] Recorded vote for ${rec.phone} in "${cmp.name}": "${rec.pollVote}"`);
-          } else if (event.type === "BUTTON") {
-            rec.buttonClicked = event.buttonTitle || event.buttonId || event.value;
-            rec.buttonClickedAt = event.timestamp || new Date();
-            rec.replyText = `🔘 ${rec.buttonClicked}`;
-            rec.repliedAt = event.timestamp || new Date();
-            this.logger.log(`[Button Response] Recorded click for ${rec.phone} in "${cmp.name}": "${rec.buttonClicked}"`);
-          } else if (event.type === "LIST") {
-            rec.listItemSelected = event.listTitle || event.listId || event.value;
-            rec.replyText = `📋 ${rec.listItemSelected}`;
-            rec.repliedAt = event.timestamp || new Date();
-            this.logger.log(`[List Response] Recorded selection for ${rec.phone} in "${cmp.name}": "${rec.listItemSelected}"`);
-          } else {
-            rec.replyText = event.value;
-            rec.repliedAt = event.timestamp || new Date();
-            this.logger.log(`[Chat Reply] Recorded reply for ${rec.phone} in "${cmp.name}": "${rec.replyText}"`);
-
-            // Check if incoming text matches an action button
-            const rawButtons = (cmp as any).actionButtons || (cmp as any).buttons || [];
-            const matchingBtn = rawButtons.find((b: any) => {
-              const label = (b.displayText || b.text || b.id || "").toLowerCase().trim();
-              const val = (event.value || "").toLowerCase().trim();
-              return label === val || (val && label.includes(val)) || (label && val.includes(label));
-            });
-            if (matchingBtn && !rec.buttonClicked) {
-              rec.buttonClicked = matchingBtn.displayText || matchingBtn.text || matchingBtn.id;
-              rec.buttonClickedAt = event.timestamp || new Date();
-              this.logger.log(`[Button Match] Matched button "${rec.buttonClicked}" for ${rec.phone} from text reply.`);
-            }
-
-            // Check if incoming text matches a list menu item
-            const rawMenuItems = (cmp as any).menuData?.items || [];
-            const matchingMenuItem = rawMenuItems.find((m: any) => {
-              const title = (m.title || m.id || "").toLowerCase().trim();
-              const val = (event.value || "").toLowerCase().trim();
-              return title === val || (val && title.includes(val)) || (title && val.includes(title));
-            });
-            if (matchingMenuItem && !rec.listItemSelected) {
-              rec.listItemSelected = matchingMenuItem.title || matchingMenuItem.id;
-              this.logger.log(`[Menu Match] Matched menu "${rec.listItemSelected}" for ${rec.phone} from text reply.`);
-            }
-
-            // Check if incoming text matches a poll option
-            const pollOptions = (cmp as any).pollOptions || [];
-            const matchingPollOpt = pollOptions.find((opt: string) => {
-              const optNorm = opt.toLowerCase().trim();
-              const val = (event.value || "").toLowerCase().trim();
-              return optNorm === val || (val && optNorm.includes(val)) || (optNorm && val.includes(optNorm));
-            });
-            if (matchingPollOpt && !rec.pollVote) {
-              rec.pollVote = matchingPollOpt;
-              rec.pollVotedAt = event.timestamp || new Date();
-              this.logger.log(`[Poll Match] Matched poll vote "${rec.pollVote}" for ${rec.phone} from text reply.`);
-            }
+        if (isQuotedMatch) {
+          targetCmp = cmp;
+          targetRec = rec;
+          break;
+        } else if (!targetRec && isPhoneMatch) {
+          const recSentTime = rec.sentAt ? new Date(rec.sentAt).getTime() : new Date(cmp.createdAt || 0).getTime();
+          // Only associate if the campaign was sent before or at the time this reply arrived
+          if (recSentTime <= eventTime.getTime() + 10 * 1000) {
+            targetCmp = cmp;
+            targetRec = rec;
+            break;
           }
+        }
+      }
+      if (targetRec) break;
+    }
 
-          // Persist recipient to database
-          this.db.sql`
-            UPDATE campaign_recipients
-            SET 
-              status = 'READ',
-              read_at = COALESCE(read_at, NOW()),
-              delivered_at = COALESCE(delivered_at, NOW()),
-              poll_vote = COALESCE(${rec.pollVote || null}, poll_vote),
-              poll_voted_at = COALESCE(${rec.pollVotedAt ? rec.pollVotedAt.toISOString() : null}::timestamptz, poll_voted_at),
-              reply_text = COALESCE(${rec.replyText || null}, reply_text),
-              replied_at = COALESCE(${rec.repliedAt ? rec.repliedAt.toISOString() : null}::timestamptz, replied_at),
-              button_clicked = COALESCE(${rec.buttonClicked || null}, button_clicked),
-              button_clicked_at = COALESCE(${rec.buttonClickedAt ? rec.buttonClickedAt.toISOString() : null}::timestamptz, button_clicked_at)
-            WHERE id = ${rec.id} 
-               OR (campaign_id = ${cmp.id} AND (
-                 (message_id IS NOT NULL AND message_id = ${rec.messageId || ''}) 
-                 OR RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanJidPhone10}
-               ))
-          `.catch((err) => {
-            this.logger.debug(`Failed to update campaign_recipients in DB: ${err.message}`);
-          });
+    if (targetCmp && targetRec) {
+      targetRec.status = "READ";
+      targetRec.readAt = targetRec.readAt || eventTime;
+      targetRec.deliveredAt = targetRec.deliveredAt || eventTime;
+
+      if (event.type === "POLL_VOTE") {
+        targetRec.pollVote = event.value || event.pollVote || "Voted";
+        targetRec.pollVotedAt = eventTime;
+        this.logger.log(`[Poll Response] Recorded vote for ${targetRec.phone} in "${targetCmp.name}": "${targetRec.pollVote}"`);
+      } else if (event.type === "BUTTON") {
+        targetRec.buttonClicked = event.buttonTitle || event.buttonId || event.value;
+        targetRec.buttonClickedAt = eventTime;
+        targetRec.replyText = `🔘 ${targetRec.buttonClicked}`;
+        targetRec.repliedAt = eventTime;
+        this.logger.log(`[Button Response] Recorded click for ${targetRec.phone} in "${targetCmp.name}": "${targetRec.buttonClicked}"`);
+      } else if (event.type === "LIST") {
+        targetRec.listItemSelected = event.listTitle || event.listId || event.value;
+        targetRec.replyText = `📋 ${targetRec.listItemSelected}`;
+        targetRec.repliedAt = eventTime;
+        this.logger.log(`[List Response] Recorded selection for ${targetRec.phone} in "${targetCmp.name}": "${targetRec.listItemSelected}"`);
+      } else {
+        targetRec.replyText = event.value;
+        targetRec.repliedAt = eventTime;
+        this.logger.log(`[Chat Reply] Recorded reply for ${targetRec.phone} in "${targetCmp.name}": "${targetRec.replyText}"`);
+
+        // Check button match
+        const rawButtons = (targetCmp as any).actionButtons || (targetCmp as any).buttons || [];
+        const matchingBtn = rawButtons.find((b: any) => {
+          const label = (b.displayText || b.text || b.id || "").toLowerCase().trim();
+          const val = (event.value || "").toLowerCase().trim();
+          return label === val || (val && label.includes(val)) || (label && val.includes(label));
+        });
+        if (matchingBtn && !targetRec.buttonClicked) {
+          targetRec.buttonClicked = matchingBtn.displayText || matchingBtn.text || matchingBtn.id;
+          targetRec.buttonClickedAt = eventTime;
+        }
+
+        // Check menu match
+        const rawMenuItems = (targetCmp as any).menuData?.items || [];
+        const matchingMenuItem = rawMenuItems.find((m: any) => {
+          const title = (m.title || m.id || "").toLowerCase().trim();
+          const val = (event.value || "").toLowerCase().trim();
+          return title === val || (val && title.includes(val)) || (title && val.includes(title));
+        });
+        if (matchingMenuItem && !targetRec.listItemSelected) {
+          targetRec.listItemSelected = matchingMenuItem.title || matchingMenuItem.id;
+        }
+
+        // Check poll match
+        const pollOptions = (targetCmp as any).pollOptions || [];
+        const matchingPollOpt = pollOptions.find((opt: string) => {
+          const optNorm = opt.toLowerCase().trim();
+          const val = (event.value || "").toLowerCase().trim();
+          return optNorm === val || (val && optNorm.includes(val)) || (optNorm && val.includes(optNorm));
+        });
+        if (matchingPollOpt && !targetRec.pollVote) {
+          targetRec.pollVote = matchingPollOpt;
+          targetRec.pollVotedAt = eventTime;
         }
       }
 
-      if (hasMatch) {
-        cmp.sentCount = (cmp.recipients || []).filter(
-          (r) => r.status === "SENT" || r.status === "DELIVERED" || r.status === "READ"
-        ).length;
-        cmp.deliveredCount = (cmp.recipients || []).filter(
-          (r) => r.status === "DELIVERED" || r.status === "READ"
-        ).length;
-        cmp.readCount = (cmp.recipients || []).filter((r) => r.status === "READ").length;
+      // Strictly persist ONLY this recipient row in Postgres
+      this.db.sql`
+        UPDATE campaign_recipients
+        SET 
+          status = 'READ',
+          read_at = COALESCE(read_at, ${eventTime.toISOString()}::timestamptz),
+          delivered_at = COALESCE(delivered_at, ${eventTime.toISOString()}::timestamptz),
+          poll_vote = COALESCE(${targetRec.pollVote || null}, poll_vote),
+          poll_voted_at = COALESCE(${targetRec.pollVotedAt ? targetRec.pollVotedAt.toISOString() : null}::timestamptz, poll_voted_at),
+          reply_text = COALESCE(${targetRec.replyText || null}, reply_text),
+          replied_at = COALESCE(${targetRec.repliedAt ? targetRec.repliedAt.toISOString() : null}::timestamptz, replied_at),
+          button_clicked = COALESCE(${targetRec.buttonClicked || null}, button_clicked),
+          button_clicked_at = COALESCE(${targetRec.buttonClickedAt ? targetRec.buttonClickedAt.toISOString() : null}::timestamptz, button_clicked_at)
+        WHERE id = ${targetRec.id}
+      `.catch((err) => {
+        this.logger.debug(`Failed to update campaign_recipients in DB: ${err.message}`);
+      });
 
-        this.saveToDisk();
+      targetCmp.sentCount = (targetCmp.recipients || []).filter(
+        (r: any) => r.status === "SENT" || r.status === "DELIVERED" || r.status === "READ"
+      ).length;
+      targetCmp.deliveredCount = (targetCmp.recipients || []).filter(
+        (r: any) => r.status === "DELIVERED" || r.status === "READ"
+      ).length;
+      targetCmp.readCount = (targetCmp.recipients || []).filter((r: any) => r.status === "READ").length;
 
-        this.db.sql`
-          UPDATE campaigns 
-          SET sent_count = ${cmp.sentCount}, delivered_count = ${cmp.deliveredCount}, read_count = ${cmp.readCount}, updated_at = NOW()
-          WHERE id = ${cmp.id}
-        `.catch(() => {});
-      }
+      this.saveToDisk();
+
+      this.db.sql`
+        UPDATE campaigns 
+        SET sent_count = ${targetCmp.sentCount}, delivered_count = ${targetCmp.deliveredCount}, read_count = ${targetCmp.readCount}, updated_at = NOW()
+        WHERE id = ${targetCmp.id}
+      `.catch(() => {});
     }
-
-    // Direct database update across any campaign where this phone number was sent a broadcast
-    this.db.sql`
-      UPDATE campaign_recipients
-      SET 
-        status = 'READ',
-        read_at = COALESCE(read_at, NOW()),
-        delivered_at = COALESCE(delivered_at, NOW()),
-        poll_vote = COALESCE(${event.type === 'POLL_VOTE' ? (event.value || 'Voted') : null}, poll_vote),
-        poll_voted_at = CASE WHEN ${event.type === 'POLL_VOTE'} THEN NOW() ELSE poll_voted_at END,
-        reply_text = ${event.value},
-        replied_at = NOW(),
-        button_clicked = COALESCE(${event.type === 'BUTTON' ? (event.buttonTitle || event.buttonId || event.value) : null}, button_clicked),
-        button_clicked_at = CASE WHEN ${event.type === 'BUTTON'} THEN NOW() ELSE button_clicked_at END
-      WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanJidPhone10}
-        AND (status IN ('SENT', 'DELIVERED', 'READ') OR sent_at IS NOT NULL)
-    `.catch((err) => {
-      this.logger.debug(`Direct DB reply update note: ${err.message}`);
-    });
   }
 
   handleReceiptUpdate(msgId: string, remoteJid: string, status: number) {
@@ -644,10 +635,18 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // Merge incoming messages into recipients if not already present
+    // Merge incoming messages into recipients ONLY IF the message was created on or after this campaign broadcast was sent!
     for (const rec of rawRecipients) {
       const rec10 = (rec.phone || "").replace(/\D/g, "").slice(-10);
-      const match = incomingChatMsgs.find((m: any) => (m.phone || "").replace(/\D/g, "").slice(-10) === rec10);
+      const recSentTime = rec.sentAt ? new Date(rec.sentAt).getTime() : (cmp.createdAt ? new Date(cmp.createdAt).getTime() : 0);
+
+      // Strict temporal match: Only incoming messages received AFTER this campaign broadcast was sent (with 10s grace period)
+      const match = incomingChatMsgs.find((m: any) => {
+        const m10 = (m.phone || "").replace(/\D/g, "").slice(-10);
+        const mTime = new Date(m.created_at).getTime();
+        return m10 === rec10 && mTime >= (recSentTime - 10 * 1000);
+      });
+
       if (match) {
         if (!rec.replyText) {
           rec.replyText = match.content;
@@ -818,8 +817,12 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     }
     for (const m of incomingChatMsgs) {
       const m10 = (m.phone || "").replace(/\D/g, "").slice(-10);
-      if (!repliesMap.has(m10)) {
-        const rec = enrichedRecipients.find((r) => (r.phone || "").replace(/\D/g, "").slice(-10) === m10);
+      const rec = enrichedRecipients.find((r) => (r.phone || "").replace(/\D/g, "").slice(-10) === m10);
+      const recSentTime = rec?.sentAt ? new Date(rec.sentAt).getTime() : (cmp.createdAt ? new Date(cmp.createdAt).getTime() : 0);
+      const mTime = new Date(m.created_at).getTime();
+
+      // Only add to replies if message arrived AFTER the broadcast was sent to this recipient
+      if (mTime >= (recSentTime - 10 * 1000) && !repliesMap.has(m10)) {
         repliesMap.set(m10, {
           id: `rep-${m.id}`,
           phone: rec?.phone || m.phone,

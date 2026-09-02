@@ -372,12 +372,27 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.sql`CREATE INDEX IF NOT EXISTS idx_audiences_org ON public.audience_segments (organization_id);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_aud_members_aud_contact ON public.audience_members (audience_id, contact_id);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_campaigns_org ON public.campaigns (organization_id);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_campaigns_status_sched ON public.campaigns (status, scheduled_at);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_recipients_campaign ON public.campaign_recipients (campaign_id);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_recipients_msg_id ON public.campaign_recipients (message_id);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_recipients_phone ON public.campaign_recipients (phone);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_auto_reply_rules_org ON public.auto_reply_rules (organization_id, enabled);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_auto_reply_settings_org_inst ON public.auto_reply_settings (organization_id, instance_id);`;
+      // 13. Self-Healing Data Cleanup for Production Accuracy
+      await this.sql`
+        UPDATE public.campaign_recipients
+        SET 
+          reply_text = NULL,
+          replied_at = NULL,
+          poll_vote = NULL,
+          poll_voted_at = NULL,
+          button_clicked = NULL,
+          button_clicked_at = NULL,
+          read_at = NULL,
+          status = CASE WHEN delivered_at IS NOT NULL THEN 'DELIVERED' ELSE 'SENT' END
+        WHERE read_at IS NOT NULL 
+          AND sent_at IS NOT NULL 
+          AND read_at < sent_at - INTERVAL '30 seconds';
+      `.catch(() => {});
+
+      await this.sql`
+        DELETE FROM public.unsubscribers 
+        WHERE LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) > 13;
+      `.catch(() => {});
       await this.sql`CREATE INDEX IF NOT EXISTS idx_welcome_settings_org_inst ON public.welcome_message_settings (organization_id, instance_id);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_welcome_logs_org_phone ON public.welcome_message_logs (organization_id, phone);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_templates_org ON public.broadcast_templates (organization_id);`;
