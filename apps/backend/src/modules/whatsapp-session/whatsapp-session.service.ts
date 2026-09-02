@@ -95,6 +95,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   public pollTrackers: Map<string, TrackedPoll> = new Map();
   public lidToPhoneMap: Map<string, string> = new Map();
   public phoneToPushNameMap: Map<string, string> = new Map();
+  public processedIncomingMsgIds: Set<string> = new Set();
 
   public onIncomingMessage(cb: (instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void) {
     this.incomingMessageCallbacks.push(cb);
@@ -1282,6 +1283,18 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     socket.ev.on("messages.upsert", async ({ messages }: any) => {
       for (const msg of messages || []) {
         if (!msg.key?.fromMe && msg.key?.remoteJid && !msg.key.remoteJid.includes("@g.us") && !msg.key.remoteJid.includes("@broadcast")) {
+          const msgKeyId = msg.key?.id;
+          if (msgKeyId) {
+            if (this.processedIncomingMsgIds.has(msgKeyId)) {
+              continue; // Already processed this incoming WhatsApp message event
+            }
+            this.processedIncomingMsgIds.add(msgKeyId);
+            if (this.processedIncomingMsgIds.size > 10000) {
+              const firstKey = this.processedIncomingMsgIds.keys().next().value;
+              if (firstKey) this.processedIncomingMsgIds.delete(firstKey);
+            }
+          }
+
           const remoteJid = msg.key.remoteJid;
           const pushName = msg.pushName || "Customer";
 
@@ -1527,6 +1540,33 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                                 qMsg.documentMessage?.caption || 
                                 (qMsg.imageMessage ? "📷 Photo" : qMsg.documentMessage ? "📄 Document" : null);
                 quotedSender = ctxInfo.participant ? (ctxInfo.participant.includes('@lid') ? "You" : `+${ctxInfo.participant.split('@')[0].replace(/\D/g, '')}`) : "You";
+              }
+
+              // Check if message already exists in DB to prevent duplicate rows
+              if (msg.key?.id) {
+                const existingMsg = await this.db.sql`
+                  SELECT id FROM chat_messages 
+                  WHERE (organization_id = ${orgId} OR organization_id = 'org-demo')
+                    AND message_id = ${msg.key.id}
+                  LIMIT 1
+                `;
+                if (existingMsg && existingMsg.length > 0) {
+                  return; // Skip duplicate message
+                }
+              }
+
+              // Also check for duplicate incoming content within last 3 seconds
+              const recentDuplicate = await this.db.sql`
+                SELECT id FROM chat_messages
+                WHERE (organization_id = ${orgId} OR organization_id = 'org-demo')
+                  AND phone = ${cleanPhone}
+                  AND direction = 'INCOMING'
+                  AND content = ${responseValue}
+                  AND created_at >= NOW() - INTERVAL '3 seconds'
+                LIMIT 1
+              `;
+              if (recentDuplicate && recentDuplicate.length > 0) {
+                return; // Skip duplicate message
               }
 
               const conversationId = `conv_${orgId}_${cleanPhone.slice(-10)}`;

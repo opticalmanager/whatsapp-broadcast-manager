@@ -235,7 +235,25 @@ export default function ReceivedMessagesPage() {
         if (json.success && Array.isArray(json.data)) {
           // GUARD: Only apply messages if the user is still viewing this exact conversation!
           if (activeChatIdRef.current === conversationId) {
-            setMessages(json.data);
+            const seenIds = new Set<string>();
+            const seenFingerprints = new Set<string>();
+            const deduped: ChatMessage[] = [];
+
+            for (const m of json.data) {
+              if (m.id && seenIds.has(m.id)) continue;
+              if (m.messageId && seenIds.has(m.messageId)) continue;
+              if (m.id) seenIds.add(m.id);
+              if (m.messageId) seenIds.add(m.messageId);
+
+              const tBucket = Math.floor(new Date(m.createdAt || Date.now()).getTime() / 3000);
+              const fp = `${m.direction}_${(m.content || "").trim()}_${tBucket}`;
+              if (seenFingerprints.has(fp)) continue;
+              seenFingerprints.add(fp);
+
+              deduped.push(m);
+            }
+
+            setMessages(deduped);
             setHasMoreOlder(Boolean(json.hasMore));
           }
         }
@@ -293,9 +311,18 @@ export default function ReceivedMessagesPage() {
       const curr = activeChatRef.current;
       if (curr && (msg.conversationId === curr.id || msg.phone.slice(-10) === curr.phone.slice(-10))) {
         setMessages((prev) => {
-          const existingIdx = prev.findIndex(
-            (m) => m.id === msg.id || (m.id.startsWith("temp_") && m.content === msg.content && m.direction === msg.direction)
-          );
+          const msgTime = new Date(msg.createdAt || Date.now()).getTime();
+          const existingIdx = prev.findIndex((m) => {
+            if (m.id === msg.id) return true;
+            if (msg.messageId && m.messageId === msg.messageId) return true;
+            if (m.direction === msg.direction && (m.content || "").trim() === (msg.content || "").trim()) {
+              const mTime = new Date(m.createdAt || Date.now()).getTime();
+              if (Math.abs(msgTime - mTime) < 4000) return true;
+            }
+            if (m.id.startsWith("temp_") && m.content === msg.content && m.direction === msg.direction) return true;
+            return false;
+          });
+
           if (existingIdx !== -1) {
             const updated = [...prev];
             updated[existingIdx] = msg;

@@ -1,5 +1,32 @@
 [
   {
+    "id": "cmp-1788348896566",
+    "organizationId": "org-2387e0cc194fb93b",
+    "shopId": "shop-main",
+    "whatsappNumberId": "num-org-2387",
+    "name": "Campaign 09/02, 05:03 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T11:34:56.566Z",
+    "status": "PAUSED",
+    "totalRecipients": 1,
+    "sentCount": 0,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788348897199",
+        "phone": "917678106554",
+        "name": "Recipient 1",
+        "status": "PENDING"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} \n\nhii, how can i help you today",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T11:34:56.630Z",
+    "contentType": "text"
+  },
+  {
     "id": "cmp-1788348242707",
     "organizationId": "org-f7c924751158c061",
     "shopId": "shop-main",
@@ -23,8 +50,8 @@
         "sentAt": "2026-09-02T11:24:31.599Z",
         "deliveredAt": "2026-09-02T11:24:39.072Z",
         "readAt": "2026-09-02T11:24:53.086Z",
-        "replyText": "Demo",
-        "repliedAt": "2026-09-02T11:29:56.242Z"
+        "replyText": "Ok",
+        "repliedAt": "2026-09-02T11:31:17.413Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}\nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
@@ -56,7 +83,9 @@
         "status": "READ",
         "sentAt": "2026-09-02T10:43:13.202Z",
         "deliveredAt": "2026-09-02T10:55:09.091Z",
-        "readAt": "2026-09-02T11:09:56.542Z"
+        "readAt": "2026-09-02T11:09:56.542Z",
+        "replyText": "Ok",
+        "repliedAt": "2026-09-02T11:31:18.434Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} ",

@@ -309,8 +309,31 @@ export class ChatService {
 
       merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
+      // Deduplicate messages by message_id or identical (direction, content, 3-second window)
+      const deduplicatedMessages: any[] = [];
+      const seenIds = new Set<string>();
+      const seenFingerprints = new Set<string>();
+
+      for (const m of merged) {
+        if (m.message_id && seenIds.has(m.message_id)) {
+          continue;
+        }
+        if (m.message_id) {
+          seenIds.add(m.message_id);
+        }
+
+        const timeBucket = Math.floor(new Date(m.created_at).getTime() / 3000);
+        const fingerprint = `${m.direction}_${(m.phone || "").slice(-10)}_${(m.content || "").trim()}_${timeBucket}`;
+        if (seenFingerprints.has(fingerprint)) {
+          continue;
+        }
+        seenFingerprints.add(fingerprint);
+
+        deduplicatedMessages.push(m);
+      }
+
       return {
-        messages: merged.map((r) => this.mapMessage(r)),
+        messages: deduplicatedMessages.map((r) => this.mapMessage(r)),
         hasMore,
       };
     } catch (err: any) {
