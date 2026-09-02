@@ -16,21 +16,70 @@ export interface RecipientAuditItem {
   readAt?: Date;
 }
 
+export interface DailyActivityPoint {
+  date: string;
+  label: string;
+  sent: number;
+  delivered: number;
+  read: number;
+  replies: number;
+}
+
+export interface RecentCampaignSummary {
+  id: string;
+  name: string;
+  status: string;
+  targetAudienceType: string;
+  totalRecipients: number;
+  sentCount: number;
+  deliveredCount: number;
+  readCount: number;
+  failedCount: number;
+  scheduledAt: string;
+  createdAt: string;
+}
+
 export interface DashboardMetrics {
+  // Account & Devices
   devicesCount: number;
   devicesStatus: "CONNECTED" | "DISCONNECTED";
+  activeInstanceName: string;
+  activePhoneNumber: string | null;
+  instancesList: Array<{
+    id: string;
+    instanceName: string;
+    phoneNumber: string | null;
+    status: string;
+    connectedAt: string | null;
+  }>;
+
+  // Contacts & Audience
+  totalContacts: number;
+  activeSubscribers: number;
+  unsubscribedCount: number;
+  totalSubscribers: number; // legacy compatibility
+
+  // Broadcast KPIs
+  totalCampaigns: number;
+  totalMessages: number;
+  sentMessages: number;
+  deliveredMessages: number;
+  readMessages: number;
+  failedMessages: number;
+  pendingMessages: number;
+  pausedMessages: number;
+  deliveryRate: number; // percentage
+  readRate: number; // percentage
+
+  // Conversations & Automation
+  incomingReplies: number;
+  autoReplyMessages: number;
   autoReplyCount: number;
   welcomeMessageCount: number;
-  templatesCount: number;
-  totalCampaigns: number;
-
-  totalMessages: number;
-  pendingMessages: number;
-  autoReplyMessages: number;
   welcomeMessages: number;
-  sentMessages: number;
-  pausedMessages: number;
+  templatesCount: number;
 
+  // Diagnostics Breakdown
   errorWhileSending: number;
   invalidNumber: number;
   cancelledMessages: number;
@@ -38,7 +87,9 @@ export interface DashboardMetrics {
   instanceNotFound: number;
   notAWhatsAppNumber: number;
 
-  totalSubscribers: number;
+  // Visual Trends & Recents
+  dailyTrends: DailyActivityPoint[];
+  recentCampaigns: RecentCampaignSummary[];
 }
 
 @Injectable()
@@ -72,34 +123,68 @@ export class AnalyticsService {
   async getDashboardMetrics(orgId: string): Promise<DashboardMetrics> {
     const campaigns = this.campaignsService.findAll(orgId);
     const sessionStatus = this.baileysService.getSessionStatus();
+    const instances = await this.baileysService.getInstances(orgId);
 
     let totalMessages = 0;
     let pendingMessages = 0;
     let sentMessages = 0;
+    let deliveredMessages = 0;
+    let readMessages = 0;
+    let failedMessages = 0;
     let pausedMessages = 0;
+    let cancelledMessages = 0;
+
     let errorWhileSending = 0;
     let invalidNumber = 0;
-    let cancelledMessages = 0;
     let instanceNotConnected = 0;
     let instanceNotFound = 0;
     let notAWhatsAppNumber = 0;
 
+    // Build 7-day trend map
+    const dayMap = new Map<string, { sent: number; delivered: number; read: number; replies: number }>();
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const isoKey = d.toISOString().slice(0, 10);
+      dayMap.set(isoKey, { sent: 0, delivered: 0, read: 0, replies: 0 });
+    }
+
     campaigns.forEach((cmp) => {
-      totalMessages += cmp.totalRecipients || 0;
-      sentMessages += (cmp.sentCount || 0) + (cmp.deliveredCount || 0) + (cmp.readCount || 0);
-      
+      const recCount = cmp.totalRecipients || 0;
+      totalMessages += recCount;
+      const cSent = cmp.sentCount || 0;
+      const cDelivered = cmp.deliveredCount || 0;
+      const cRead = cmp.readCount || 0;
+      const cFailed = cmp.failedCount || 0;
+
+      sentMessages += (cSent + cDelivered + cRead);
+      deliveredMessages += (cDelivered + cRead);
+      readMessages += cRead;
+      failedMessages += cFailed;
+
       if (cmp.status === "PAUSED") {
-        pausedMessages += (cmp.totalRecipients || 0) - (cmp.sentCount || 0);
+        pausedMessages += Math.max(0, recCount - (cSent + cDelivered + cRead));
       } else if (cmp.status === "SCHEDULED" || cmp.status === "DRAFT") {
-        pendingMessages += (cmp.totalRecipients || 0);
+        pendingMessages += recCount;
       } else if (cmp.status === "CANCELLED") {
-        cancelledMessages += (cmp.totalRecipients || 0) - (cmp.sentCount || 0);
+        cancelledMessages += Math.max(0, recCount - (cSent + cDelivered + cRead));
       }
 
+      // Populate daily activity from recipients
       (cmp.recipients || []).forEach((r) => {
+        if (r.sentAt) {
+          const sKey = new Date(r.sentAt).toISOString().slice(0, 10);
+          if (dayMap.has(sKey)) {
+            const entry = dayMap.get(sKey)!;
+            entry.sent++;
+            if (r.status === "DELIVERED" || r.status === "READ") entry.delivered++;
+            if (r.status === "READ") entry.read++;
+          }
+        }
+
         if (r.status === "FAILED") {
           const err = (r.errorMessage || "").toLowerCase();
-          if (err.includes("not registered on whatsapp")) {
+          if (err.includes("not registered") || err.includes("non-whatsapp")) {
             notAWhatsAppNumber++;
           } else if (err.includes("invalid") || err.includes("format")) {
             invalidNumber++;
@@ -114,30 +199,121 @@ export class AnalyticsService {
       });
     });
 
-    let totalSubscribers = 0;
+    // Database counts
+    let totalContacts = 0;
+    let unsubscribedCount = 0;
+    let templatesCount = 0;
+    let autoReplyCount = 0;
+    let welcomeMessageCount = 0;
+    let incomingReplies = 0;
+
     try {
-      const contactCount = await this.db.sql`
-        SELECT COUNT(*)::int as count FROM contacts WHERE organization_id = ${orgId || 'org-demo'}
+      const [cRes, uRes, tRes, aRes, wRes, msgRes] = await Promise.all([
+        this.db.sql`SELECT COUNT(*)::int as count FROM contacts WHERE organization_id = ${orgId}`,
+        this.db.sql`SELECT COUNT(*)::int as count FROM unsubscribers WHERE organization_id = ${orgId}`,
+        this.db.sql`SELECT COUNT(*)::int as count FROM broadcast_templates WHERE organization_id = ${orgId}`,
+        this.db.sql`SELECT COUNT(*)::int as count FROM auto_reply_rules WHERE organization_id = ${orgId} AND enabled = true`,
+        this.db.sql`SELECT COUNT(*)::int as count FROM welcome_message_logs WHERE organization_id = ${orgId}`,
+        this.db.sql`SELECT COUNT(*)::int as count FROM chat_messages WHERE organization_id = ${orgId} AND direction = 'INCOMING'`,
+      ]);
+
+      totalContacts = cRes[0]?.count || 0;
+      unsubscribedCount = uRes[0]?.count || 0;
+      templatesCount = tRes[0]?.count || 0;
+      autoReplyCount = aRes[0]?.count || 0;
+      welcomeMessageCount = wRes[0]?.count || 0;
+      incomingReplies = msgRes[0]?.count || 0;
+    } catch (dbErr: any) {
+      this.logger.warn(`Error querying database counts in analytics: ${dbErr.message}`);
+    }
+
+    // Daily replies from chat messages
+    try {
+      const replyRows = await this.db.sql`
+        SELECT DATE(created_at)::text as day, COUNT(*)::int as count
+        FROM chat_messages
+        WHERE organization_id = ${orgId}
+          AND direction = 'INCOMING'
+          AND created_at >= NOW() - INTERVAL '7 days'
+        GROUP BY DATE(created_at)
       `;
-      totalSubscribers = contactCount[0]?.count || 0;
+      (replyRows || []).forEach((row: any) => {
+        if (row.day && dayMap.has(row.day)) {
+          dayMap.get(row.day)!.replies += (row.count || 0);
+        }
+      });
     } catch {}
 
-    const isConnected = sessionStatus.status === "CONNECTED";
+    const dailyTrends: DailyActivityPoint[] = Array.from(dayMap.entries()).map(([dateStr, metrics]) => {
+      const d = new Date(dateStr + "T00:00:00Z");
+      const label = d.toLocaleDateString("en-US", { weekday: "short", month: "numeric", day: "numeric" });
+      return {
+        date: dateStr,
+        label,
+        sent: metrics.sent,
+        delivered: metrics.delivered,
+        read: metrics.read,
+        replies: metrics.replies,
+      };
+    });
+
+    const recentCampaigns: RecentCampaignSummary[] = campaigns.slice(0, 5).map((c) => ({
+      id: c.id,
+      name: c.name,
+      status: c.status,
+      targetAudienceType: c.targetAudienceType || "ALL",
+      totalRecipients: c.totalRecipients || 0,
+      sentCount: c.sentCount || 0,
+      deliveredCount: c.deliveredCount || 0,
+      readCount: c.readCount || 0,
+      failedCount: c.failedCount || 0,
+      scheduledAt: c.scheduledAt ? new Date(c.scheduledAt).toISOString() : new Date().toISOString(),
+      createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+    }));
+
+    const connectedCount = instances.filter((i) => i.status === "CONNECTED").length;
+    const activeInst = instances.find((i) => i.status === "CONNECTED") || instances[0];
+    const isConnected = sessionStatus.status === "CONNECTED" || connectedCount > 0;
+
+    const deliveryRate = sentMessages > 0 ? Math.round((deliveredMessages / sentMessages) * 100) : 0;
+    const readRate = deliveredMessages > 0 ? Math.round((readMessages / deliveredMessages) * 100) : 0;
+    const activeSubscribers = Math.max(0, totalContacts - unsubscribedCount);
 
     return {
-      devicesCount: isConnected ? 1 : 0,
+      devicesCount: connectedCount > 0 ? connectedCount : (isConnected ? 1 : 0),
       devicesStatus: isConnected ? "CONNECTED" : "DISCONNECTED",
-      autoReplyCount: 2,
-      welcomeMessageCount: 0,
-      templatesCount: 1,
-      totalCampaigns: campaigns.length,
+      activeInstanceName: activeInst?.instanceName || "Primary WhatsApp Outlet",
+      activePhoneNumber: sessionStatus.phoneNumber || activeInst?.phoneNumber || null,
+      instancesList: instances.map((i) => ({
+        id: i.id,
+        instanceName: i.instanceName || "Outlet",
+        phoneNumber: i.phoneNumber,
+        status: i.status,
+        connectedAt: i.connectedAt ? new Date(i.connectedAt).toISOString() : null,
+      })),
 
+      totalContacts,
+      activeSubscribers,
+      unsubscribedCount,
+      totalSubscribers: totalContacts,
+
+      totalCampaigns: campaigns.length,
       totalMessages,
-      pendingMessages,
-      autoReplyMessages: 3,
-      welcomeMessages: 0,
       sentMessages,
+      deliveredMessages,
+      readMessages,
+      failedMessages,
+      pendingMessages,
       pausedMessages,
+      deliveryRate,
+      readRate,
+
+      incomingReplies,
+      autoReplyMessages: incomingReplies > 0 ? incomingReplies : 0,
+      autoReplyCount,
+      welcomeMessageCount,
+      welcomeMessages: welcomeMessageCount,
+      templatesCount,
 
       errorWhileSending,
       invalidNumber,
@@ -146,7 +322,8 @@ export class AnalyticsService {
       instanceNotFound,
       notAWhatsAppNumber,
 
-      totalSubscribers,
+      dailyTrends,
+      recentCampaigns,
     };
   }
 }

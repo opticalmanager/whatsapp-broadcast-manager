@@ -80,13 +80,13 @@ export function LandingPage() {
       <header className="sticky top-0 z-50 backdrop-blur-md bg-white/90 dark:bg-[#070b14]/90 border-b border-slate-200/80 dark:border-slate-800 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           
-          {/* Logo Branding */}
+          {/* Logo Branding with Official Radar Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-xl bg-[#25D366] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-              <svg className="w-4.5 h-4.5 fill-current" viewBox="0 0 24 24">
-                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.634.075-1.745-.386-1.423-.59-2.34-2.033-2.41-2.128-.071-.095-.572-.76-.572-1.448 0-.687.362-1.026.49-1.168.129-.142.28-.178.373-.178.094 0 .188.002.27.006.088.004.204-.033.319.243.12.288.409 1.002.445 1.076.036.074.06.16.012.256-.048.096-.072.155-.144.238-.073.083-.153.185-.219.249-.073.072-.149.15-.064.296.085.145.378.623.81 1.008.558.497 1.029.65 1.174.722.146.073.232.064.318-.036.087-.1.373-.435.474-.585.1-.15.201-.125.337-.075.136.05 1.007.474 1.18.56.173.087.288.13.33.203.043.074.043.43-.101.835z"/>
-              </svg>
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="WhatsApp Broadcast Manager Logo" 
+              className="w-8 h-8 rounded-full shadow-xs object-cover group-hover:scale-105 transition-transform" 
+            />
             <div className="flex items-center gap-1.5">
               <span className="font-extrabold text-sm tracking-tight text-slate-900 dark:text-white">
                 WhatsApp Broadcast Manager
@@ -662,11 +662,11 @@ export function LandingPage() {
       <footer className="py-10 bg-white dark:bg-[#070b14] border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-[#25D366] text-white flex items-center justify-center">
-              <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
-                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.312.045-.634.075-1.745-.386-1.423-.59-2.34-2.033-2.41-2.128-.071-.095-.572-.76-.572-1.448 0-.687.362-1.026.49-1.168.129-.142.28-.178.373-.178.094 0 .188.002.27.006.088.004.204-.033.319.243.12.288.409 1.002.445 1.076.036.074.06.16.012.256-.048.096-.072.155-.144.238-.073.083-.153.185-.219.249-.073.072-.149.15-.064.296.085.145.378.623.81 1.008.558.497 1.029.65 1.174.722.146.073.232.064.318-.036.087-.1.373-.435.474-.585.1-.15.201-.125.337-.075.136.05 1.007.474 1.18.56.173.087.288.13.33.203.043.074.043.43-.101.835z"/>
-              </svg>
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="WhatsApp Broadcast Manager Logo" 
+              className="w-6 h-6 rounded-full shadow-xs object-cover" 
+            />
             <span className="font-bold text-slate-800 dark:text-white">WhatsApp Broadcast Manager</span>
           </div>
 

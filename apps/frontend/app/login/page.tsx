@@ -53,7 +53,7 @@ export default function LoginPage() {
             Welcome Back
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-            OpticalManager Broadcast Engine
+            WhatsApp Broadcast Manager
           </p>
         </div>
 
