@@ -370,8 +370,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.sql`CREATE INDEX IF NOT EXISTS idx_contacts_org ON public.contacts (organization_id);`;
       await this.sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_contacts_org_phone ON public.contacts (organization_id, phone);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_audiences_org ON public.audience_segments (organization_id);`;
-      await this.sql`CREATE INDEX IF NOT EXISTS idx_aud_members_aud_contact ON public.audience_members (audience_id, contact_id);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_campaigns_org ON public.campaigns (organization_id);`;
+      await this.sql`ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS quoted_message_id VARCHAR(255);`.catch(() => {});
+      await this.sql`ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS quoted_content TEXT;`.catch(() => {});
+      await this.sql`ALTER TABLE public.chat_messages ADD COLUMN IF NOT EXISTS quoted_sender VARCHAR(255);`.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_chat_msg_conv_created ON public.chat_messages (conversation_id, created_at DESC);`.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_chat_msg_phone_created ON public.chat_messages (phone, created_at DESC);`.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_chat_conv_org_updated ON public.chat_conversations (organization_id, last_message_at DESC);`.catch(() => {});
       // 13. Self-Healing Data Cleanup for Production Accuracy
       await this.sql`
         UPDATE public.campaign_recipients

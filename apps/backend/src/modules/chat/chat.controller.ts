@@ -49,13 +49,14 @@ export class ChatController {
   async getMessages(
     @Param("id") conversationId: string,
     @Query("limit") limit?: string,
+    @Query("before") before?: string,
     @Query("campaignId") campaignId?: string,
     @Headers("authorization") authHeader?: string
   ) {
     const session = this.extractSession(authHeader);
-    const limitNum = limit ? parseInt(limit, 10) : 100;
-    const data = await this.chatService.getMessages(conversationId, session.organizationId, limitNum, campaignId);
-    return { success: true, data };
+    const limitNum = limit ? parseInt(limit, 10) : 30;
+    const result = await this.chatService.getMessages(conversationId, session.organizationId, limitNum, before, campaignId);
+    return { success: true, data: result.messages, hasMore: result.hasMore };
   }
 
   @Post("send")
@@ -68,6 +69,9 @@ export class ChatController {
       text?: string;
       mediaUrl?: string;
       messageType?: string;
+      quotedMessageId?: string;
+      quotedContent?: string;
+      quotedSender?: string;
     },
     @Headers("authorization") authHeader?: string
   ) {

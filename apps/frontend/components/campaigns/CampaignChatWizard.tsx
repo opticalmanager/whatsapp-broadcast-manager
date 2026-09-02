@@ -22,6 +22,7 @@ import {
   MessageCircle,
   Vote,
   Sparkles,
+  Reply,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import { toast } from "sonner";
@@ -64,6 +65,9 @@ interface ChatMessage {
   createdAt: string;
   campaignName?: string;
   isCampaignBroadcast?: boolean;
+  quotedMessageId?: string;
+  quotedContent?: string;
+  quotedSender?: string;
 }
 
 interface WhatsAppInstance {
@@ -161,6 +165,13 @@ export function CampaignChatWizard({
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
 
+  // Replying / Tagging State
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+
+  // Pagination & Load Older Messages State
+  const [hasMoreOlder, setHasMoreOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+
   // Local File Upload from Computer
   const [selectedFile, setSelectedFile] = useState<{ name: string; dataUrl: string; isImage: boolean } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -243,12 +254,12 @@ export function CampaignChatWizard({
     }
   };
 
-  // 3. Fetch Message History for Active Conversation (Strictly scoped to active chat)
+  // 3. Fetch Message History for Active Conversation (Scoped to latest 30 messages for low server load)
   const fetchMessages = async (conversationId: string, showLoading = false) => {
     if (!conversationId) return;
     if (showLoading) setLoadingMessages(true);
     try {
-      const res = await fetch(`${backendUrl}/api/v1/chat/conversations/${conversationId}/messages?campaignId=${campaignId}`, {
+      const res = await fetch(`${backendUrl}/api/v1/chat/conversations/${conversationId}/messages?limit=30&campaignId=${campaignId}`, {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
@@ -257,6 +268,7 @@ export function CampaignChatWizard({
           // GUARD: Only apply messages if the user is still viewing this exact conversation!
           if (activeChatIdRef.current === conversationId) {
             setMessages(json.data);
+            setHasMoreOlder(Boolean(json.hasMore));
           }
         }
       }
@@ -265,6 +277,33 @@ export function CampaignChatWizard({
       if (activeChatIdRef.current === conversationId && showLoading) {
         setLoadingMessages(false);
       }
+    }
+  };
+
+  // 3b. Load Earlier Messages on demand
+  const handleLoadOlderMessages = async () => {
+    if (!activeChat || loadingOlder || messages.length === 0) return;
+    setLoadingOlder(true);
+    try {
+      const oldestDate = messages[0]?.createdAt;
+      const res = await fetch(
+        `${backendUrl}/api/v1/chat/conversations/${activeChat.id}/messages?limit=30&before=${encodeURIComponent(oldestDate)}&campaignId=${campaignId}`,
+        { headers: getAuthHeaders() }
+      );
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const existingIds = new Set(messages.map((m) => m.id));
+          const newBatch = json.data.filter((m: ChatMessage) => !existingIds.has(m.id));
+          setMessages((prev) => [...newBatch, ...prev]);
+          setHasMoreOlder(Boolean(json.hasMore));
+        } else {
+          setHasMoreOlder(false);
+        }
+      }
+    } catch {}
+    finally {
+      setLoadingOlder(false);
     }
   };
 
@@ -408,6 +447,8 @@ export function CampaignChatWizard({
         ? selectedInstanceId 
         : currentChat.instanceId || instances.find((i) => i.status === "CONNECTED")?.id;
 
+    const replyTarget = replyingTo;
+
     // Optimistic message add
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const optimisticMsg: ChatMessage = {
@@ -422,6 +463,9 @@ export function CampaignChatWizard({
       content: textToSend,
       mediaUrl: mediaToSend,
       status: "SENT",
+      quotedMessageId: replyTarget ? (replyTarget.messageId || replyTarget.id) : undefined,
+      quotedContent: replyTarget ? (replyTarget.content || (replyTarget.mediaUrl ? "Attachment" : undefined)) : undefined,
+      quotedSender: replyTarget ? (replyTarget.direction === "OUTGOING" ? "You" : (currentChat.contactName || "Customer")) : undefined,
       sentAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
@@ -429,6 +473,7 @@ export function CampaignChatWizard({
     setMessages((prev) => [...prev, optimisticMsg]);
     setInputText("");
     setSelectedFile(null);
+    setReplyingTo(null);
     setShowQuickReplies(false);
 
     try {
@@ -444,6 +489,9 @@ export function CampaignChatWizard({
           instanceId: targetInstanceId,
           text: textToSend,
           mediaUrl: mediaToSend,
+          quotedMessageId: replyTarget ? (replyTarget.messageId || replyTarget.id) : undefined,
+          quotedContent: replyTarget ? (replyTarget.content || (replyTarget.mediaUrl ? "Attachment" : undefined)) : undefined,
+          quotedSender: replyTarget ? (replyTarget.direction === "OUTGOING" ? "You" : (currentChat.contactName || "Customer")) : undefined,
         }),
       });
 
@@ -751,68 +799,120 @@ export function CampaignChatWizard({
                     <p className="text-[11px] text-slate-400">Type a response below to reply directly to this customer.</p>
                   </div>
                 ) : (
-                  messages.map((msg, idx) => {
-                    const isOutgoing = msg.direction === "OUTGOING";
-                    const isFirst = idx === 0 || formatDateHeader(messages[idx - 1]?.createdAt) !== formatDateHeader(msg.createdAt);
+                  <>
+                    {/* Load Earlier Messages Banner */}
+                    {hasMoreOlder && (
+                      <div className="flex justify-center my-2">
+                        <button
+                          onClick={handleLoadOlderMessages}
+                          disabled={loadingOlder}
+                          className="px-3.5 py-1.5 rounded-full bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-semibold shadow-2xs flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {loadingOlder ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                          ) : (
+                            <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                          )}
+                          <span>Load earlier messages</span>
+                        </button>
+                      </div>
+                    )}
 
-                    return (
-                      <React.Fragment key={msg.id || idx}>
-                        {isFirst && (
-                          <div className="flex justify-center my-2">
-                            <span className="px-2.5 py-0.5 rounded-full bg-slate-200/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 text-[9px] font-bold uppercase tracking-wider">
-                              {formatDateHeader(msg.createdAt)}
-                            </span>
-                          </div>
-                        )}
+                    {messages.map((msg, idx) => {
+                      const isOutgoing = msg.direction === "OUTGOING";
+                      const isFirst = idx === 0 || formatDateHeader(messages[idx - 1]?.createdAt) !== formatDateHeader(msg.createdAt);
 
-                        <div className={`flex ${isOutgoing ? "justify-end" : "justify-start"}`}>
-                          <div
-                            className={`max-w-[80%] rounded-2xl p-2.5 space-y-1 shadow-2xs ${
-                              isOutgoing
-                                ? "bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-xs"
-                                : "bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white rounded-tl-xs border border-slate-100 dark:border-slate-800"
-                            }`}
-                          >
-                            {msg.mediaUrl && (
-                              <div className="rounded-xl overflow-hidden mb-1 border border-black/5 dark:border-white/5">
-                                {msg.mediaUrl.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(msg.mediaUrl) ? (
-                                  <img
-                                    src={msg.mediaUrl}
-                                    alt="Attachment"
-                                    className="max-h-52 w-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="p-2.5 bg-slate-100 dark:bg-slate-800 flex items-center gap-2 rounded-lg">
-                                    <FileText className="w-5 h-5 text-emerald-600" />
-                                    <span className="text-xs font-bold truncate">Attachment Document</span>
-                                  </div>
+                      return (
+                        <React.Fragment key={msg.id || idx}>
+                          {isFirst && (
+                            <div className="flex justify-center my-2">
+                              <span className="px-2.5 py-0.5 rounded-full bg-slate-200/90 dark:bg-slate-800/90 text-slate-600 dark:text-slate-300 text-[9px] font-bold uppercase tracking-wider">
+                                {formatDateHeader(msg.createdAt)}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className={`flex items-end gap-1.5 group ${isOutgoing ? "justify-end" : "justify-start"}`}>
+                            {!isOutgoing && (
+                              <button
+                                onClick={() => setReplyingTo(msg)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 hover:text-emerald-600 cursor-pointer shadow-2xs mb-1"
+                                title="Reply to this message"
+                              >
+                                <Reply className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            <div
+                              className={`max-w-[80%] rounded-2xl p-2.5 space-y-1 shadow-2xs relative ${
+                                isOutgoing
+                                  ? "bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white rounded-tr-xs"
+                                  : "bg-white dark:bg-[#1e293b] text-slate-900 dark:text-white rounded-tl-xs border border-slate-100 dark:border-slate-800"
+                              }`}
+                            >
+                              {/* Quoted / Tagged Message Banner */}
+                              {(msg.quotedContent || msg.quotedMessageId) && (
+                                <div className="mb-1.5 px-2.5 py-1.5 rounded-lg bg-black/5 dark:bg-black/30 border-l-4 border-emerald-500 text-xs flex flex-col select-none">
+                                  <span className="font-bold text-emerald-700 dark:text-emerald-400 text-[11px]">
+                                    {msg.quotedSender || (isOutgoing ? "Customer" : "You")}
+                                  </span>
+                                  <span className="line-clamp-2 text-slate-700 dark:text-slate-300 text-[11px] mt-0.5">
+                                    {msg.quotedContent || "Referenced message"}
+                                  </span>
+                                </div>
+                              )}
+
+                              {msg.mediaUrl && (
+                                <div className="rounded-xl overflow-hidden mb-1 border border-black/5 dark:border-white/5">
+                                  {msg.mediaUrl.startsWith("data:image/") || /\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(msg.mediaUrl) ? (
+                                    <img
+                                      src={msg.mediaUrl}
+                                      alt="Attachment"
+                                      className="max-h-52 w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="p-2.5 bg-slate-100 dark:bg-slate-800 flex items-center gap-2 rounded-lg">
+                                      <FileText className="w-5 h-5 text-emerald-600" />
+                                      <span className="text-xs font-bold truncate">Attachment Document</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {msg.campaignName && (
+                                <div className="flex items-center gap-1 px-1.5 py-0.5 mb-1 rounded bg-purple-100/80 dark:bg-purple-950/60 text-purple-800 dark:text-purple-200 text-[9px] font-bold w-fit">
+                                  <span>📢</span>
+                                  <span>{msg.campaignName}</span>
+                                </div>
+                              )}
+                              {msg.content && (
+                                <p className="text-xs font-normal whitespace-pre-wrap leading-relaxed select-text">
+                                  {msg.content}
+                                </p>
+                              )}
+
+                              <div className="flex items-center justify-end gap-1 pt-0.5 text-[9px] font-mono text-slate-500 dark:text-slate-300/80">
+                                <span>{formatTime(msg.createdAt || msg.sentAt)}</span>
+                                {isOutgoing && (
+                                  <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
                                 )}
                               </div>
-                            )}
-
-                            {msg.campaignName && (
-                              <div className="flex items-center gap-1 px-1.5 py-0.5 mb-1 rounded bg-purple-100/80 dark:bg-purple-950/60 text-purple-800 dark:text-purple-200 text-[9px] font-bold w-fit">
-                                <span>📢</span>
-                                <span>{msg.campaignName}</span>
-                              </div>
-                            )}
-                            {msg.content && (
-                              <p className="text-xs font-normal whitespace-pre-wrap leading-relaxed select-text">
-                                {msg.content}
-                              </p>
-                            )}
-
-                            <div className="flex items-center justify-end gap-1 pt-0.5 text-[9px] font-mono text-slate-500 dark:text-slate-300/80">
-                              <span>{formatTime(msg.createdAt || msg.sentAt)}</span>
-                              {isOutgoing && (
-                                <CheckCheck className="w-3.5 h-3.5 text-blue-500" />
-                              )}
                             </div>
+
+                            {isOutgoing && (
+                              <button
+                                onClick={() => setReplyingTo(msg)}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-emerald-100 dark:hover:bg-emerald-950/60 hover:text-emerald-600 cursor-pointer shadow-2xs mb-1"
+                                title="Reply to this message"
+                              >
+                                <Reply className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
-                        </div>
-                      </React.Fragment>
-                    );
-                  })
+                        </React.Fragment>
+                      );
+                    })}
+                  </>
                 )}
                 {showScrollBottomBtn && (
                       <button
@@ -859,6 +959,28 @@ export function CampaignChatWizard({
                       </button>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Replying Banner */}
+              {replyingTo && (
+                <div className="px-3.5 py-2 bg-slate-100 dark:bg-[#1a2234] border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 animate-in slide-in-from-bottom-2">
+                  <div className="flex items-center gap-2 min-w-0 border-l-4 border-emerald-500 pl-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        Replying to {replyingTo.direction === "OUTGOING" ? "You" : (activeChat?.contactName && activeChat.contactName !== "Customer" ? activeChat.contactName : formatPhoneDisplay(activeChat?.phone || ""))}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-md">
+                        {replyingTo.content || (replyingTo.mediaUrl ? "📷 Attachment" : "Message")}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
               )}
 

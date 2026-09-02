@@ -1,5 +1,39 @@
 [
   {
+    "id": "cmp-1788335362632",
+    "organizationId": "org-68ff663e674769f3",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mth6ammj_jwnd",
+    "name": "Campaign 09/02, 01:19 PMyttf",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T07:49:22.632Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788335362599",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "3EB08112AE8F68019784CA",
+        "status": "READ",
+        "sentAt": "2026-09-02T07:49:26.841Z",
+        "deliveredAt": "2026-09-02T07:49:30.167Z",
+        "readAt": "2026-09-02T07:50:15.218Z",
+        "replyText": "🚨 HIRING – Voice Process \n\n🎯 Experience: 2+ Years in GDS\n🔹 Sabre Experience Mandatory\n• Refunds\n• Ticketing\n• Exchanges\n\n💰 Salary: Up to ₹55K CTC*\n🎁 Performance Linked Incentive: ₹7K\n*Depends on Ops Round\n\n🕐 5 Days Working | Rotational Week Off\n\nInterview Rounds:\nHR → GDS → Ops → Client → Typing\n\n📞 Contact: Janvi - 8447621626",
+        "repliedAt": "2026-09-02T08:02:12.531Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} ",
+    "mediaUrl": null,
+    "createdAt": "2026-09-02T07:49:22.954Z",
+    "contentType": "text",
+    "messageType": "Text"
+  },
+  {
     "id": "cmp-1788334147474",
     "organizationId": "org-68ff663e674769f3",
     "shopId": "shop-main",
@@ -1871,49 +1905,5 @@
     ],
     "messageText": "Hello {{customer_name}},\n\nExclusive Festival Offer from {{shop_name}}! Upgrade your eyewear this season with 20% OFF on premium prescription lenses & frames.\n\nUse code {{voucher_code}} at checkout!",
     "createdAt": "2026-08-29T14:36:36.661Z"
-  },
-  {
-    "id": "cmp-1788335362632",
-    "organizationId": "org-68ff663e674769f3",
-    "shopId": "shop-main",
-    "whatsappNumberId": "inst_mth6ammj_jwnd",
-    "templateId": "tpl-custom",
-    "name": "Campaign 09/02, 01:19 PMyttf",
-    "targetAudienceType": "Paste",
-    "audienceNames": [
-      "Selected Audiences"
-    ],
-    "scheduledAt": "2026-09-02T07:49:22.632Z",
-    "status": "COMPLETED",
-    "totalRecipients": 1,
-    "sentCount": 1,
-    "deliveredCount": 1,
-    "readCount": 1,
-    "failedCount": 0,
-    "recipients": [
-      {
-        "id": "pst_0_1788335362599",
-        "phone": "918178962366",
-        "name": "Recipient 1",
-        "status": "READ",
-        "messageId": "3EB08112AE8F68019784CA",
-        "sentAt": "2026-09-02T07:49:26.511Z",
-        "deliveredAt": "2026-09-02T07:49:26.511Z",
-        "readAt": "2026-09-02T07:49:42.148Z",
-        "replyText": "Okay",
-        "repliedAt": "2026-09-02T07:50:14.900Z"
-      }
-    ],
-    "messageText": "{Hello|Hi|Hey|Dear} ",
-    "createdAt": "2026-09-02T07:49:22.632Z",
-    "warmupRamp": true,
-    "batchSize": 5,
-    "batchPause": 60,
-    "sendFromInstances": [
-      "inst_mth6ammj_jwnd"
-    ],
-    "textWithMediaMode": "caption",
-    "contentType": "text",
-    "messageType": "Text"
   }
 ]

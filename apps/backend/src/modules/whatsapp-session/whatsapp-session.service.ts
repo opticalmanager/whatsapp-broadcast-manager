@@ -1401,6 +1401,22 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
             // Persist to Supabase Database
             try {
+              let quotedContent: string | null = null;
+              let quotedSender: string | null = null;
+              const ctxInfo = msg.message?.extendedTextMessage?.contextInfo || 
+                              msg.message?.interactiveResponseMessage?.contextInfo || 
+                              msg.message?.templateButtonReplyMessage?.contextInfo ||
+                              msg.message?.buttonsResponseMessage?.contextInfo;
+              if (ctxInfo?.quotedMessage) {
+                const qMsg = ctxInfo.quotedMessage;
+                quotedContent = qMsg.conversation || 
+                                qMsg.extendedTextMessage?.text || 
+                                qMsg.imageMessage?.caption || 
+                                qMsg.documentMessage?.caption || 
+                                (qMsg.imageMessage ? "📷 Photo" : qMsg.documentMessage ? "📄 Document" : null);
+                quotedSender = ctxInfo.participant ? (ctxInfo.participant.includes('@lid') ? "You" : `+${ctxInfo.participant.split('@')[0].replace(/\D/g, '')}`) : "You";
+              }
+
               const conversationId = `conv_${orgId}_${cleanPhone.slice(-10)}`;
               const messageId = `msg_in_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
 
@@ -1409,10 +1425,12 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                 INSERT INTO chat_messages (
                   id, conversation_id, organization_id, instance_id, phone, message_id,
                   direction, sender_name, message_type, content, status,
+                  quoted_message_id, quoted_content, quoted_sender,
                   sent_at, delivered_at, created_at
                 ) VALUES (
                   ${messageId}, ${conversationId}, ${orgId}, ${numberId}, ${cleanPhone}, ${msg.key?.id || null},
                   'INCOMING', ${resolvedContactName}, ${responseType}, ${responseValue}, 'DELIVERED',
+                  ${quotedMsgId || null}, ${quotedContent || null}, ${quotedSender || null},
                   NOW(), NOW(), NOW()
                 )
               `;
@@ -1452,6 +1470,9 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                 messageType: responseType,
                 content: responseValue,
                 status: "DELIVERED",
+                quotedMessageId: quotedMsgId || undefined,
+                quotedContent: quotedContent || undefined,
+                quotedSender: quotedSender || undefined,
                 sentAt: new Date(),
                 deliveredAt: new Date(),
                 createdAt: new Date(),

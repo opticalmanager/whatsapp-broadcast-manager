@@ -41,6 +41,9 @@ export interface ChatMessage {
   status: "SENT" | "DELIVERED" | "READ" | "FAILED";
   campaignName?: string;
   isCampaignBroadcast?: boolean;
+  quotedMessageId?: string;
+  quotedContent?: string;
+  quotedSender?: string;
   sentAt?: Date;
   deliveredAt?: Date;
   readAt?: Date;
@@ -214,11 +217,18 @@ export class ChatService {
     }
   }
 
-  async getMessages(conversationId: string, orgId: string, limit = 100, campaignId?: string): Promise<ChatMessage[]> {
+  async getMessages(
+    conversationId: string,
+    orgId: string,
+    limit = 30,
+    before?: string,
+    campaignId?: string
+  ): Promise<{ messages: ChatMessage[]; hasMore: boolean }> {
     try {
       const cleanPhone10 = (conversationId || "").replace(/\D/g, "").slice(-10);
+      const queryLimit = Math.min(Math.max(limit, 10), 100);
 
-      // 1. Fetch direct chat messages for this contact
+      // 1. Fetch direct chat messages for this contact (reverse order for pagination)
       const chatRows = await this.db.sql`
         SELECT 
           cm.*,
@@ -233,11 +243,15 @@ export class ChatService {
         WHERE (cm.conversation_id = ${conversationId}
            OR RIGHT(REGEXP_REPLACE(cm.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
            OR cm.conversation_id LIKE ${'%' + cleanPhone10})
-        ORDER BY cm.created_at ASC
-        LIMIT ${limit}
+        ${before ? this.db.sql`AND cm.created_at < ${before}::timestamptz` : this.db.sql``}
+        ORDER BY cm.created_at DESC
+        LIMIT ${queryLimit + 1}
       `;
 
-      // 2. Fetch campaign broadcasts sent to this phone so original broadcast text & media appear above replies
+      const hasMore = chatRows.length > queryLimit;
+      const slicedChatRows = hasMore ? chatRows.slice(0, queryLimit) : chatRows;
+
+      // 2. Fetch campaign broadcasts sent to this phone so original broadcast appears in timeline
       const campaignBroadcasts = await this.db.sql`
         SELECT 
           cr.id as recipient_id,
@@ -257,12 +271,13 @@ export class ChatService {
         FROM campaign_recipients cr
         JOIN campaigns c ON c.id = cr.campaign_id
         WHERE RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
-        ORDER BY cr.created_at ASC
-        LIMIT 50
+        ${before ? this.db.sql`AND COALESCE(cr.sent_at, cr.created_at) < ${before}::timestamptz` : this.db.sql``}
+        ORDER BY COALESCE(cr.sent_at, cr.created_at) DESC
+        LIMIT 20
       `;
 
-      const existingMsgIds = new Set(chatRows.map((m: any) => m.message_id).filter(Boolean));
-      const merged: any[] = [...chatRows];
+      const existingMsgIds = new Set(slicedChatRows.map((m: any) => m.message_id).filter(Boolean));
+      const merged: any[] = [...slicedChatRows];
 
       for (const cb of campaignBroadcasts || []) {
         if (!cb.message_id || !existingMsgIds.has(cb.message_id)) {
@@ -288,10 +303,13 @@ export class ChatService {
 
       merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
-      return merged.slice(-limit).map((r) => this.mapMessage(r));
+      return {
+        messages: merged.map((r) => this.mapMessage(r)),
+        hasMore,
+      };
     } catch (err: any) {
       this.logger.warn(`Error fetching messages for ${conversationId}: ${err.message}`);
-      return [];
+      return { messages: [], hasMore: false };
     }
   }
 
@@ -304,6 +322,9 @@ export class ChatService {
       text?: string;
       mediaUrl?: string;
       messageType?: string;
+      quotedMessageId?: string;
+      quotedContent?: string;
+      quotedSender?: string;
     }
   ): Promise<{ success: boolean; message: ChatMessage }> {
     const effectiveOrg = orgId || "org-demo";
@@ -348,6 +369,9 @@ export class ChatService {
       content: textToSend,
       mediaUrl: payload.mediaUrl,
       status: "DELIVERED",
+      quotedMessageId: payload.quotedMessageId,
+      quotedContent: payload.quotedContent,
+      quotedSender: payload.quotedSender,
       sentAt: new Date(),
       deliveredAt: new Date(),
       createdAt: new Date(),
@@ -358,10 +382,12 @@ export class ChatService {
         INSERT INTO chat_messages (
           id, conversation_id, organization_id, instance_id, phone, message_id,
           direction, sender_name, message_type, content, media_url, status,
+          quoted_message_id, quoted_content, quoted_sender,
           sent_at, delivered_at, created_at
         ) VALUES (
           ${msgRecord.id}, ${msgRecord.conversationId}, ${msgRecord.organizationId}, ${msgRecord.instanceId}, ${msgRecord.phone}, ${msgRecord.messageId},
           ${msgRecord.direction}, ${msgRecord.senderName}, ${msgRecord.messageType}, ${msgRecord.content}, ${msgRecord.mediaUrl || null}, ${msgRecord.status},
+          ${msgRecord.quotedMessageId || null}, ${msgRecord.quotedContent || null}, ${msgRecord.quotedSender || null},
           NOW(), NOW(), NOW()
         )
       `;
@@ -502,6 +528,9 @@ export class ChatService {
       status: r.status || "DELIVERED",
       campaignName: r.campaign_name || undefined,
       isCampaignBroadcast: Boolean(r.is_campaign_broadcast),
+      quotedMessageId: r.quoted_message_id || undefined,
+      quotedContent: r.quoted_content || undefined,
+      quotedSender: r.quoted_sender || undefined,
       sentAt: r.sent_at ? new Date(r.sent_at) : undefined,
       deliveredAt: r.delivered_at ? new Date(r.delivered_at) : undefined,
       readAt: r.read_at ? new Date(r.read_at) : undefined,
