@@ -78,9 +78,8 @@ export class BroadcastGateway implements OnGatewayConnection, OnGatewayDisconnec
     const roomName = `org:${orgId}`;
     if (this.server) {
       this.server.to(roomName).emit("qr_code", payload);
-      this.server.emit("qr_code", payload); // Direct broadcast to all active listeners
     }
-    this.logger.log(`Emitted QR code to room ${roomName} & broadcast for ${payload.numberId}`);
+    this.logger.log(`Emitted QR code to room ${roomName} for ${payload.numberId}`);
   }
 
   emitSessionConnected(
@@ -91,7 +90,6 @@ export class BroadcastGateway implements OnGatewayConnection, OnGatewayDisconnec
     const roomName = `org:${orgId}`;
     if (this.server) {
       this.server.to(roomName).emit("session_connected", payload);
-      this.server.emit("session_connected", payload);
     }
   }
 
@@ -103,7 +101,6 @@ export class BroadcastGateway implements OnGatewayConnection, OnGatewayDisconnec
     const roomName = `org:${orgId}`;
     if (this.server) {
       this.server.to(roomName).emit("status_changed", payload);
-      this.server.emit("status_changed", payload);
     }
   }
 
@@ -111,7 +108,6 @@ export class BroadcastGateway implements OnGatewayConnection, OnGatewayDisconnec
     const roomName = `org:${orgId}`;
     if (this.server) {
       this.server.to(roomName).emit("chat_message_received", payload);
-      this.server.emit("chat_message_received", payload);
     }
   }
 
@@ -119,7 +115,6 @@ export class BroadcastGateway implements OnGatewayConnection, OnGatewayDisconnec
     const roomName = `org:${orgId}`;
     if (this.server) {
       this.server.to(roomName).emit("conversation_updated", payload);
-      this.server.emit("conversation_updated", payload);
     }
   }
 }
