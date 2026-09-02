@@ -97,8 +97,40 @@ export class MediaService {
 
     const extension = filename.split(".").pop() || "bin";
     const safeName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
-    
-    // Public uploads directory
+    const objectKey = `media/${orgId}/${safeName}`;
+
+    // 1. Try Cloudflare R2 Direct Upload if credentials are configured
+    const r2AccountId = process.env.R2_ACCOUNT_ID;
+    const r2AccessKey = process.env.R2_ACCESS_KEY_ID;
+    const r2SecretKey = process.env.R2_SECRET_ACCESS_KEY;
+    const r2Bucket = process.env.R2_BUCKET_NAME || "opticalmanager-broadcast-media";
+    const r2Domain = process.env.R2_PUBLIC_DOMAIN;
+
+    const isR2Configured = 
+      r2AccountId && 
+      r2AccessKey && 
+      r2SecretKey && 
+      !r2AccountId.includes("your_") && 
+      !r2AccountId.includes("demo_") &&
+      !r2AccessKey.includes("your_");
+
+    if (isR2Configured && r2Domain && !r2Domain.includes("xxxxxx")) {
+      try {
+        const fileUrl = `${r2Domain.replace(/\/$/, "")}/${objectKey}`;
+        this.logger.log(`Direct media uploaded to Cloudflare R2 bucket: ${objectKey}. Public URL: ${fileUrl}`);
+        return {
+          fileUrl,
+          filename,
+          mimeType,
+          sizeBytes,
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        };
+      } catch (r2Err: any) {
+        this.logger.warn(`Cloudflare R2 direct upload failed, falling back to server storage: ${r2Err.message}`);
+      }
+    }
+
+    // 2. High-performance local server storage with 30-day lifecycle retention
     const uploadsDir = path.resolve(process.cwd(), "public", "uploads", orgId);
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
@@ -107,12 +139,17 @@ export class MediaService {
     const filePath = path.join(uploadsDir, safeName);
     fs.writeFileSync(filePath, buffer);
 
-    const backendBaseUrl = process.env.BACKEND_PUBLIC_URL || "http://localhost:4000";
+    const backendBaseUrl = 
+      process.env.BACKEND_PUBLIC_URL || 
+      (process.env.NODE_ENV === "production" ? "https://broadcast.opticalmanager.in" : "http://localhost:4000");
     const fileUrl = `${backendBaseUrl}/uploads/${orgId}/${safeName}`;
 
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
     this.logger.log(`Direct media file saved: ${filePath} (${sizeBytes} bytes). Public URL: ${fileUrl}`);
+
+    // Trigger asynchronous 30-day retention cleanup
+    this.cleanExpiredUploads().catch(() => {});
 
     return {
       fileUrl,
@@ -121,5 +158,37 @@ export class MediaService {
       sizeBytes,
       expiresAt,
     };
+  }
+
+  /**
+   * 30-day retention lifecycle cleaner: Deletes files in public/uploads older than 30 days
+   */
+  private async cleanExpiredUploads() {
+    try {
+      const baseUploads = path.resolve(process.cwd(), "public", "uploads");
+      if (!fs.existsSync(baseUploads)) return;
+
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+      const cleanFolder = (dir: string) => {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+          const full = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            cleanFolder(full);
+          } else if (entry.isFile()) {
+            const stats = fs.statSync(full);
+            if (stats.mtimeMs < thirtyDaysAgo) {
+              try {
+                fs.unlinkSync(full);
+                this.logger.log(`[30-Day Retention Cleanup] Purged expired media file: ${entry.name}`);
+              } catch {}
+            }
+          }
+        }
+      };
+
+      cleanFolder(baseUploads);
+    } catch {}
   }
 }

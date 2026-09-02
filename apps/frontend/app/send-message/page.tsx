@@ -173,6 +173,7 @@ function CampaignsStudioInner() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [textWithMediaMode, setTextWithMediaMode] = useState<"caption" | "separate">("caption");
   const [publicMediaUrl, setPublicMediaUrl] = useState<string>("");
+  const [templateMediaUrl, setTemplateMediaUrl] = useState<string>("");
 
   // Poll Builder State (for Poll & Poll With Media)
   const [pollQuestion, setPollQuestion] = useState<string>("Would you like to schedule an eye checkup this week?");
@@ -399,6 +400,8 @@ function CampaignsStudioInner() {
       setMessageType("Text");
       setMediaFormat("NONE");
       setPublicMediaUrl("");
+      setTemplateMediaUrl("");
+      setAttachedFiles([]);
       return;
     }
 
@@ -408,6 +411,7 @@ function CampaignsStudioInner() {
       setMessageText(dbTpl.bodyText);
       const tplMedia = (dbTpl as any).mediaType || (dbTpl.mediaUrl ? "IMAGE" : "NONE");
       setMediaFormat(tplMedia);
+
       if (tplMedia === "POLL") {
         setMessageType("Poll");
         const q = dbTpl.variables?.find((v: any) => v.key === "poll_question")?.fallback;
@@ -418,12 +422,33 @@ function CampaignsStudioInner() {
         }
         const mult = dbTpl.variables?.find((v: any) => v.key === "poll_multiple")?.fallback;
         if (mult) setPollMultipleAnswers(mult === "true");
+        setTemplateMediaUrl("");
+        setAttachedFiles([]);
       } else if (tplMedia === "IMAGE" || tplMedia === "DOCUMENT" || tplMedia === "VIDEO" || dbTpl.mediaUrl) {
         setMessageType("Text With Media");
-        if (dbTpl.mediaUrl) setPublicMediaUrl(dbTpl.mediaUrl);
+        if (dbTpl.mediaUrl) {
+          setTemplateMediaUrl(dbTpl.mediaUrl);
+          setAttachedFiles([
+            {
+              id: "tpl-media-" + dbTpl.id,
+              name: `${dbTpl.title} ${tplMedia === "DOCUMENT" ? "Document" : tplMedia === "VIDEO" ? "Video" : "Image"}`,
+              size: "Template Media",
+              type: tplMedia === "DOCUMENT" ? "application/pdf" : tplMedia === "VIDEO" ? "video/mp4" : "image/jpeg",
+              url: dbTpl.mediaUrl,
+            },
+          ]);
+        } else {
+          setTemplateMediaUrl("");
+          setAttachedFiles([]);
+        }
       } else {
         setMessageType("Text");
+        setTemplateMediaUrl("");
+        setAttachedFiles([]);
       }
+
+      // DO NOT overwrite publicMediaUrl input box with backend/template URL; keep it clean for manual entry
+      setPublicMediaUrl("");
       toast.success(`Applied template: "${dbTpl.title}"`);
       return;
     }
@@ -704,7 +729,7 @@ function CampaignsStudioInner() {
         };
 
         setAttachedFiles((prev) => [...prev, newAttach].slice(0, 5));
-        setPublicMediaUrl(finalMediaUrl);
+        setTemplateMediaUrl("");
         setMediaFormat(file.type.startsWith("image/") ? "IMAGE" : file.type.includes("pdf") ? "DOCUMENT" : file.type.startsWith("video/") ? "VIDEO" : "IMAGE");
         setMessageType("Text With Media");
         toast.success(`Attached ${file.name}`);
@@ -973,7 +998,7 @@ function CampaignsStudioInner() {
       const payload: any = {
         name: campaignName.trim(),
         messageText,
-        mediaUrl: publicMediaUrl || (attachedFiles[0]?.url ? attachedFiles[0].url : undefined),
+        mediaUrl: publicMediaUrl.trim() || (attachedFiles[0]?.url ? attachedFiles[0].url : undefined) || (templateMediaUrl.trim() ? templateMediaUrl : undefined),
         sendFromInstances: selectedInstanceIds.length > 0 ? selectedInstanceIds : undefined,
         recipients: finalRecipients,
         targetAudienceType: recipientTab,
@@ -1676,13 +1701,46 @@ function CampaignsStudioInner() {
             ) : (
               <div className="max-w-xs ml-auto bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-3.5 rounded-2xl rounded-tr-xs shadow-xs space-y-2.5">
                 
-                {/* Attachment in Bubble */}
-                {attachedFiles[0] && (
-                  <div className="p-2 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2 text-xs font-medium">
-                    <FileText className="w-4 h-4 text-emerald-700 dark:text-emerald-300" />
-                    <span className="truncate">{attachedFiles[0].name}</span>
-                  </div>
-                )}
+                {/* Media Attachment in WhatsApp Preview Bubble */}
+                {(() => {
+                  const mediaPreview = publicMediaUrl.trim() || attachedFiles[0]?.url || templateMediaUrl;
+                  if (!mediaPreview) return null;
+
+                  const isImage = 
+                    mediaPreview.startsWith("data:image") ||
+                    mediaPreview.includes("blob:") ||
+                    /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaPreview) ||
+                    mediaPreview.includes("unsplash.com") ||
+                    mediaPreview.includes("r2.dev") ||
+                    mediaPreview.includes("/uploads/") ||
+                    mediaFormat === "IMAGE";
+
+                  if (isImage) {
+                    return (
+                      <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 shadow-2xs">
+                        <img
+                          src={mediaPreview}
+                          alt="Message Media Banner"
+                          className="w-full max-h-48 object-cover"
+                          onError={(e) => {
+                            // If direct render fails, fallback to document badge
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-2.5 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2.5 text-xs font-medium border border-emerald-900/10">
+                      <FileText className="w-5 h-5 text-emerald-700 dark:text-emerald-300 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-bold text-[11px]">{attachedFiles[0]?.name || "Document Attachment"}</p>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-300 uppercase">{attachedFiles[0]?.size || "PDF / Media"}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Message Text Preview */}
                 {previewResolvedText && (
