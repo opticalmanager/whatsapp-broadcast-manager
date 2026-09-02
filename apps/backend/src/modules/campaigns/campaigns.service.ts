@@ -324,6 +324,25 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         `.catch(() => {});
       }
     }
+
+    // Direct database update across any campaign where this phone number was sent a broadcast
+    this.db.sql`
+      UPDATE campaign_recipients
+      SET 
+        status = 'READ',
+        read_at = COALESCE(read_at, NOW()),
+        delivered_at = COALESCE(delivered_at, NOW()),
+        poll_vote = COALESCE(${event.type === 'POLL_VOTE' ? (event.value || 'Voted') : null}, poll_vote),
+        poll_voted_at = CASE WHEN ${event.type === 'POLL_VOTE'} THEN NOW() ELSE poll_voted_at END,
+        reply_text = ${event.value},
+        replied_at = NOW(),
+        button_clicked = COALESCE(${event.type === 'BUTTON' ? (event.buttonTitle || event.buttonId || event.value) : null}, button_clicked),
+        button_clicked_at = CASE WHEN ${event.type === 'BUTTON'} THEN NOW() ELSE button_clicked_at END
+      WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanJidPhone10}
+        AND (status IN ('SENT', 'DELIVERED', 'READ') OR sent_at IS NOT NULL)
+    `.catch((err) => {
+      this.logger.debug(`Direct DB reply update note: ${err.message}`);
+    });
   }
 
   handleReceiptUpdate(msgId: string, remoteJid: string, status: number) {

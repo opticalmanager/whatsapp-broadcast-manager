@@ -199,19 +199,7 @@ export class ChatService {
     try {
       const cleanPhone10 = (conversationId || "").replace(/\D/g, "").slice(-10);
 
-      let campStartTime: Date | null = null;
-      if (campaignId) {
-        try {
-          const campRows = await this.db.sql`
-            SELECT created_at, scheduled_at FROM campaigns WHERE id = ${campaignId} LIMIT 1
-          `;
-          if (campRows && campRows.length > 0) {
-            campStartTime = new Date(new Date(campRows[0].scheduled_at || campRows[0].created_at).getTime() - 2 * 60 * 1000);
-          }
-        } catch {}
-      }
-
-      // 1. Fetch direct chat messages (if campaignId is specified, ONLY fetch messages from campaign creation onwards!)
+      // 1. Fetch direct chat messages for this contact
       const chatRows = await this.db.sql`
         SELECT 
           cm.*,
@@ -224,9 +212,8 @@ export class ChatService {
           ) as campaign_name
         FROM chat_messages cm
         WHERE (cm.conversation_id = ${conversationId}
-           OR RIGHT(cm.phone, 10) = ${cleanPhone10}
+           OR RIGHT(REGEXP_REPLACE(cm.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
            OR cm.conversation_id LIKE ${'%' + cleanPhone10})
-          ${campStartTime ? this.db.sql`AND cm.created_at >= ${campStartTime}` : this.db.sql``}
         ORDER BY cm.created_at ASC
         LIMIT ${limit}
       `;
