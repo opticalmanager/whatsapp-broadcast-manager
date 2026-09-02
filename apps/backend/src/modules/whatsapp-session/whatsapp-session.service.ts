@@ -323,14 +323,15 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       const liveState = this.sessionStates.get(r.id);
       const cachedQr = this.lastQrCache.get(r.id);
       const socket = this.sessions.get(r.id);
-
-      let effectiveStatus = r.status;
+      let effectiveStatus: "CONNECTED" | "DISCONNECTED" | "LOGGED_OUT" | "INITIALIZING" | "GENERATING_QR" = "DISCONNECTED";
       if (liveState === "CONNECTED" && socket?.user?.id) {
         effectiveStatus = "CONNECTED";
       } else if (cachedQr) {
         effectiveStatus = "GENERATING_QR";
       } else if (liveState === "INITIALIZING") {
         effectiveStatus = "INITIALIZING";
+      } else if (r.status === "LOGGED_OUT") {
+        effectiveStatus = "LOGGED_OUT";
       }
 
       // Warmup Calculations

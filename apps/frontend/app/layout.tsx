@@ -6,8 +6,16 @@ import { AppLayoutContent } from "@/components/shell/AppLayoutContent";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "OpticalManager Broadcast | Marketing Automation SaaS",
-  description: "Dedicated WhatsApp marketing automation and multi-number engine for Optical Stores",
+  title: "WhatsApp Broadcast Manager | 100% Cloud Bulk Messaging",
+  description: "Send bulk WhatsApp messages to multiple contacts in 3 simple steps with 100% cloud delivery and smart anti-ban protection.",
+  icons: {
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default async function RootLayout({

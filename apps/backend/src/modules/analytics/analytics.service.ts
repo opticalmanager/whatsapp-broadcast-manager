@@ -42,6 +42,8 @@ export interface RecentCampaignSummary {
 export interface DashboardMetrics {
   // Account & Devices
   devicesCount: number;
+  totalInstances: number;
+  connectedInstancesCount: number;
   devicesStatus: "CONNECTED" | "DISCONNECTED";
   activeInstanceName: string;
   activePhoneNumber: string | null;
@@ -271,19 +273,22 @@ export class AnalyticsService {
       createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
     }));
 
+    const totalInstances = instances.length;
     const connectedCount = instances.filter((i) => i.status === "CONNECTED").length;
-    const activeInst = instances.find((i) => i.status === "CONNECTED") || instances[0];
-    const isConnected = sessionStatus.status === "CONNECTED" || connectedCount > 0;
+    const activeInst = instances.find((i) => i.status === "CONNECTED");
+    const isConnected = connectedCount > 0;
 
     const deliveryRate = sentMessages > 0 ? Math.round((deliveredMessages / sentMessages) * 100) : 0;
     const readRate = deliveredMessages > 0 ? Math.round((readMessages / deliveredMessages) * 100) : 0;
     const activeSubscribers = Math.max(0, totalContacts - unsubscribedCount);
 
     return {
-      devicesCount: connectedCount > 0 ? connectedCount : (isConnected ? 1 : 0),
+      devicesCount: totalInstances,
+      totalInstances,
+      connectedInstancesCount: connectedCount,
       devicesStatus: isConnected ? "CONNECTED" : "DISCONNECTED",
-      activeInstanceName: activeInst?.instanceName || "Primary WhatsApp Outlet",
-      activePhoneNumber: sessionStatus.phoneNumber || activeInst?.phoneNumber || null,
+      activeInstanceName: activeInst?.instanceName || (instances[0]?.instanceName || "WhatsApp Instance"),
+      activePhoneNumber: activeInst?.phoneNumber || null,
       instancesList: instances.map((i) => ({
         id: i.id,
         instanceName: i.instanceName || "Outlet",
