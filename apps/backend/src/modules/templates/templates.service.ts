@@ -163,15 +163,28 @@ export class TemplatesService implements OnModuleInit {
   }
 
   // --- FIND ALL TEMPLATES ---
-  async findAll(orgId: string, category?: string, search?: string): Promise<BroadcastTemplateItem[]> {
-    const effectiveOrg = orgId || "org-demo";
+  async findAll(orgId?: string, category?: string, search?: string): Promise<BroadcastTemplateItem[]> {
+    let rows: any[] = [];
+    try {
+      rows = await this.db.sql`
+        SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
+        FROM broadcast_templates
+        ORDER BY updated_at DESC
+      `;
+    } catch (err: any) {
+      this.logger.warn(`Error loading templates: ${err.message}`);
+    }
 
-    const rows = await this.db.sql`
-      SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
-      FROM broadcast_templates
-      WHERE organization_id = ${effectiveOrg}
-      ORDER BY updated_at DESC
-    `;
+    if (!rows || rows.length === 0) {
+      await this.seedDefaultsIfEmpty();
+      try {
+        rows = await this.db.sql`
+          SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
+          FROM broadcast_templates
+          ORDER BY updated_at DESC
+        `;
+      } catch {}
+    }
 
     let results = (rows || []).map((r: any) => ({
       id: r.id,
@@ -204,11 +217,10 @@ export class TemplatesService implements OnModuleInit {
 
   // --- FIND ONE TEMPLATE ---
   async findOne(orgId: string, id: string): Promise<BroadcastTemplateItem> {
-    const effectiveOrg = orgId || "org-demo";
     const rows = await this.db.sql`
       SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
       FROM broadcast_templates
-      WHERE id = ${id} AND organization_id = ${effectiveOrg}
+      WHERE id = ${id}
       LIMIT 1
     `;
     if (!rows || rows.length === 0) {

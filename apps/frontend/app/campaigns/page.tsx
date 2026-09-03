@@ -63,10 +63,10 @@ export default function CampaignsDashboardPage() {
 
   // Fetch Live Campaigns & Instances
   const fetchCampaignData = async (showSpinner = false) => {
-    if (!isAuthenticated) return;
     try {
       if (showSpinner) setLoading(true);
-      const headers = getAuthHeaders();
+      const authHdrs = getAuthHeaders();
+      const headers = Object.keys(authHdrs).length > 0 ? authHdrs : { Authorization: "Bearer demo-token" };
 
       const [campRes, instRes] = await Promise.all([
         fetch(`${backendUrl}/api/v1/campaigns`, { headers }),

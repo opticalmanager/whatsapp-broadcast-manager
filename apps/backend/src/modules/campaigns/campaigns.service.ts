@@ -130,12 +130,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   private async loadFromDatabase() {
     try {
       const rows = await this.db.sql`
-        SELECT * FROM campaigns WHERE created_at IS NOT NULL AND created_at > '2026-01-01' ORDER BY created_at DESC LIMIT 50
+        SELECT * FROM campaigns WHERE created_at IS NOT NULL ORDER BY created_at DESC LIMIT 100
       `;
 
       if (rows && rows.length > 0) {
         for (const r of rows) {
-          if (!r.created_at || new Date(r.created_at).getFullYear() < 2026) continue;
           const recRows = await this.db.sql`
             SELECT * FROM campaign_recipients WHERE campaign_id = ${r.id} ORDER BY created_at ASC
           `;
@@ -572,15 +571,9 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     return this.findAll(orgId);
   }
 
-  findAll(orgId: string): CampaignItem[] {
-    const effectiveOrg = orgId || "org-demo";
-    const list = Array.from(this.campaignsStore.values()).filter(
-      (c) =>
-        c.createdAt &&
-        new Date(c.createdAt).getFullYear() >= 2026 &&
-        c.organizationId === effectiveOrg
-    );
-    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  findAll(orgId?: string): CampaignItem[] {
+    const list = Array.from(this.campaignsStore.values()).filter((c) => Boolean(c && c.id));
+    return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   }
 
   findOne(id: string): CampaignItem {

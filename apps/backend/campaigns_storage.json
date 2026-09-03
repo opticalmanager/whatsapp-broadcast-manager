@@ -1,5 +1,38 @@
 [
   {
+    "id": "cmp-1788354088842",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "inst_mtk3qiyc_crgx",
+    "name": "noida opticals",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-02T13:01:28.842Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 1,
+    "readCount": 1,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1788354087373",
+        "phone": "918130638354",
+        "name": "Recipient 1",
+        "messageId": "3EB0D519846FBF9BE79463",
+        "status": "READ",
+        "sentAt": "2026-09-02T13:01:33.802Z",
+        "deliveredAt": "2026-09-02T13:01:34.789Z",
+        "readAt": "2026-09-02T13:04:25.128Z",
+        "replyText": "बाय",
+        "repliedAt": "2026-09-02T13:14:25.769Z"
+      }
+    ],
+    "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}} how are your mood?",
+    "mediaUrl": "https://broadcast.opticalmanager.in/uploads/org-f7c924751158c061/1788353795393_2l6nf.jpg",
+    "createdAt": "2026-09-02T13:01:28.904Z",
+    "contentType": "media"
+  },
+  {
     "id": "cmp-1788349536357",
     "organizationId": "org-f7c924751158c061",
     "shopId": "shop-main",
@@ -648,8 +681,8 @@
         "sentAt": "2026-09-02T11:42:56.852Z",
         "deliveredAt": "2026-09-02T11:42:59.206Z",
         "readAt": "2026-09-02T11:43:01.462Z",
-        "replyText": "Pravah is hiring Forward Deployed Engineer\n\nFor 2023, 2024, 2025 grads\nLocation: Multiple\n\nhttps://jobs.ashbyhq.com/pravah/1e002f56-0b3c-4908-9bee-fb94215bfead\n\n👉WhatsApp Channel: https://whatsapp.com/channel/0029VaI5CV93AzNUiZ5Tt226\n\n👉Telegram Link: https://t.me/addlist/4q2PYC0pH_VjZDk5\n\nLike for more job opportunities ❤️",
-        "repliedAt": "2026-09-02T13:10:13.881Z"
+        "replyText": "In the previous post, we learned about Strings and how Python handles text. Now let's move to another fundamental data structure that you'll use constantly in Python, Data Science, and AI.\n\n*📖 Phase 1: Programming Fundamentals*\n\n*📌 Topic 15: Lists*\n\nA List is an ordered and mutable collection of items in Python.\n\nLists allow you to store multiple values inside a single variable.\n\nFor example, instead of creating separate variables for every fruit:\nfruit1 = \"Apple\"\nfruit2 = \"Banana\"\nfruit3 = \"Mango\"\n\nYou can use a list:\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\n*Why Do We Need Lists?*\n\nLists are useful for:\n- Storing multiple values\n- Managing collections of data\n- Iterating through items\n- Adding and removing elements\n- Sorting and organizing data\n- Working with datasets\n\n*1. Creating a List*\n\nLists are created using square brackets [].\nnumbers = [10, 20, 30, 40, 50]\n\nA list can contain different data types:\ndata = [\"Python\", 25, 3.14, True]\n\nAlthough Python allows mixed data types, it's usually better to keep a list logically consistent.\n\n*2. Accessing List Elements*\n\nLists use zero-based indexing, just like strings.\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\nprint(fruits[0])\nprint(fruits[1])\nprint(fruits[2])\n\nOutput:\nApple\nBanana\nMango\n\nThe indexes are: Apple 0, Banana 1, Mango 2\n\n*3. Negative Indexing*\n\nYou can access elements from the end using negative indexes.\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\nprint(fruits[-1])\nprint(fruits[-2])\n\nOutput:\nMango\nBanana\n\n-1 always refers to the last element.\n\n*4. List Slicing*\n\nYou can extract a portion of a list using slicing.\n\nnumbers = [10, 20, 30, 40, 50]\n\nprint(numbers[1:4])\n\nOutput:\n[20, 30, 40]\n\nJust like strings, the ending index is excluded.\n\n*5. Lists Are Mutable*\n\nOne of the biggest differences between lists and strings is that lists are mutable.\n\nThis means you can change their elements.\n\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\nfruits[1] = \"Orange\"\n\nprint(fruits)\n\nOutput:\n['Apple', 'Orange', 'Mango']\n\n*6. Adding Elements*\n\nappend() Adds an item to the end of the list.\n\nfruits = [\"Apple\", \"Banana\"]\n\nfruits.append(\"Mango\")\n\nprint(fruits)\n\nOutput: ['Apple', 'Banana', 'Mango']\n\ninsert() Adds an item at a specific position.\n\nfruits = [\"Apple\", \"Mango\"]\n\nfruits.insert(1, \"Banana\")\n\nprint(fruits)\n\nOutput: \n['Apple', 'Banana', 'Mango']\n\n*7. Removing Elements*\n\nremove() Removes the first matching value.\n\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\nfruits.remove(\"Banana\")\n\nprint(fruits)\n\nOutput: ['Apple', 'Mango']\n\npop() Removes an element using its index and returns that element.\n\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\nremoved = fruits.pop(1)\n\nprint(removed)\nprint(fruits)\n\nOutput:\nBanana\n['Apple', 'Mango']\n\nIf no index is provided, pop() removes the last element.\n\n*8. Finding the Length*\n\nUse len() to find the number of elements.\n\nnumbers = [10, 20, 30, 40]\nprint(len(numbers))\n\nOutput: 4\n\n*9. Checking if an Element Exists*\n\nUse in to check whether an item exists.\n\nfruits = [\"Apple\", \"Banana\", \"Mango\"]\n\nprint(\"Mango\" in fruits)\n\nOutput: True\n\n*10. Looping Through a List*\n\nLists are commonly used with loops.\n\nnumbers = [10, 20, 30]\n\nfor number in numbers:\n    print(number)\n\nOutput: 10, 20, 30\n\n*11. Sorting a List*\n\nYou can sort a list using sort().\n\nnumbers = [50, 10, 40, 20, 30]\n\nnumbers.sort()\n\nprint(numbers)\n\nOutput: [10, 20, 30, 40, 50]\n\nFor descending order:\nnumbers.sort(reverse=True)\n\n*12. Useful List Methods*\n\nSome commonly used methods are:\n\n- append() Add an item to the end\n- insert() Add an item at a specific position\n- remove() Remove a specific value\n- pop() Remove an item by index\n- sort() Sort the list\n- reverse() Reverse the list\n- count() Count occurrences\n- index() Find the position of an item\n- clear() Remove all items\n\n*13. Lists in AI and Data Science*\n\nLists are extremely important when working with data.\n\nFor example, you might have model predictions:\n\npredictions = [0.92, 0.76, 0.81, 0.65]\n\nOr a collection of text inputs:\n\ndocuments = [\n    \"Python is easy to learn\",\n    \"Machine Learning uses data\",\n    \"AI is transforming technology\"\n]\n\nLater, when you learn NumPy, Pandas, Machine Learning, and NLP, you'll encounter collections of data constantly.\n\n*Lists vs Strings*\n\n- Stores: List = Multiple items, String = Characters/text\n- Mutable: List = ✅ Yes, String = ❌ No\n- Indexing: ✅ Yes both\n- Slicing: ✅ Yes both\n- Uses: List = [], String = Quotes\n\n*Common Beginner Mistakes*\n\n❌ Forgetting that indexing starts from 0\n❌ Confusing remove() with pop()\n❌ Trying to access an index that doesn't exist\n❌ Modifying a list while iterating over it without understanding the consequences\n\n*Best Practices*\n\n✅ Use meaningful list names\n✅ Keep related data together\n✅ Use list methods instead of manually rebuilding lists when appropriate\n✅ Choose the right data structure depending on your requirements\n\n*Key Takeaways*\n\n- Lists store multiple items in an ordered collection\n- Lists are mutable\n- Python lists support indexing and slicing\n- append() adds an item to the end\n- insert() adds an item at a specific position\n- remove() removes a value\n- pop() removes an item by index\n- Lists are heavily used in Python, Data Science, and AI\n\n*➡️ Double Tap ❤️ For More*",
+        "repliedAt": "2026-09-03T03:10:33.465Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}\nOptical shop chalana easy hai. Lekin Manage karna?\n\nCustomer → Billing → Transactions → Follow-up → Records\n\nAb sab kuch \"ek hi software\" mein.\n\nIntroducing Optical Manager 🚀\n\nYour Optical Shop. Your Customers. One Smart Manager.\n\nDemo ke liye “DEMO” reply karein.",
@@ -681,8 +714,8 @@
         "sentAt": "2026-09-02T11:36:31.756Z",
         "deliveredAt": "2026-09-02T11:38:03.009Z",
         "readAt": "2026-09-02T11:43:37.070Z",
-        "replyText": "**WE ARE HIRING!**  \n**INTERNATIONAL VOICE PROCESS**  \n**JOIN OUR TEAM!**\n\n**Sector 144, Greater Noida | WFO**  \n**6+ months international voice experience – mandatory**  \n**UG / Grad / PG**  \n**Up to ₹36K CTC**  \n**5 days | Rotational shifts & week-offs**  \n**Cab allowance ₹3,600**  \n\n\n**Great people, great opportunities!**  \n**Start your career with us!**\n\nContact - 8700985779",
-        "repliedAt": "2026-09-02T12:29:14.155Z"
+        "replyText": "Pravah is hiring Forward Deployed Engineer\n\nFor 2023, 2024, 2025 grads\nLocation: Multiple\n\nhttps://jobs.ashbyhq.com/pravah/1e002f56-0b3c-4908-9bee-fb94215bfead\n\n👉WhatsApp Channel: https://whatsapp.com/channel/0029VaI5CV93AzNUiZ5Tt226\n\n👉Telegram Link: https://t.me/addlist/4q2PYC0pH_VjZDk5\n\nLike for more job opportunities ❤️",
+        "repliedAt": "2026-09-02T13:10:13.782Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} \n\nhii, how can i help you today",
