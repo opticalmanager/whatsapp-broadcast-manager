@@ -15,6 +15,7 @@ export interface ContactItem {
   metadata?: Record<string, any>;
   createdAt: Date;
   updatedAt: Date;
+  serialNumber?: number;
 }
 
 function parseTagsArray(rawTags: any): string[] {
@@ -118,14 +119,14 @@ export class ContactsService {
         rawTags.push(defaultTag.trim());
       }
 
-      const contactId = "cnt_" + crypto.createHash("md5").update((orgId || "org-demo") + ":" + normalized).digest("hex").slice(0, 16);
+      const contactId = "cnt_" + crypto.createHash("md5").update(orgId + ":" + normalized).digest("hex").slice(0, 16);
 
       try {
         await this.db.sql`
-          INSERT INTO contacts (id, organization_id, shop_id, phone, name, email, city, dob, tags, updated_at)
+          INSERT INTO contacts (id, organization_id, shop_id, phone, name, email, city, dob, tags, created_at, updated_at)
           VALUES (
             ${contactId},
-            ${orgId || "org-demo"},
+            ${orgId},
             ${shopId || "main-outlet"},
             ${normalized},
             ${name},
@@ -133,6 +134,7 @@ export class ContactsService {
             ${city},
             ${dob},
             ${JSON.stringify(rawTags)}::jsonb,
+            NOW(),
             NOW()
           )
           ON CONFLICT (organization_id, phone)
@@ -169,48 +171,141 @@ export class ContactsService {
     };
   }
 
-  async findAll(orgId: string, query?: { search?: string; tag?: string; limit?: number; offset?: number }) {
-    const effectiveOrg = orgId || "org-demo";
-    const limit = Math.min(query?.limit || 100, 1000);
+  async findAll(orgId: string, query?: { search?: string; tag?: string; limit?: number; offset?: number; fromSerial?: number; toSerial?: number }) {
+    if (!orgId) {
+      throw new BadRequestException("Organization ID is required.");
+    }
+    const effectiveOrg = orgId;
+    const limit = Math.min(query?.limit || 500, 10000);
     const offset = query?.offset || 0;
     const search = query?.search ? `%${query.search.trim()}%` : null;
     const tag = query?.tag && query.tag !== "ALL" && query.tag !== "All tags" ? query.tag.trim() : null;
+    const fromSerial = query?.fromSerial != null && !isNaN(Number(query.fromSerial)) ? Number(query.fromSerial) : null;
+    const toSerial = query?.toSerial != null && !isNaN(Number(query.toSerial)) ? Number(query.toSerial) : null;
 
     let rows;
-    if (search && tag) {
+    if (search && tag && fromSerial && toSerial) {
       rows = await this.db.sql`
-        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
-        FROM contacts
-        WHERE organization_id = ${effectiveOrg}
-          AND (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
           AND tags @> ${JSON.stringify([tag])}::jsonb
-        ORDER BY updated_at DESC
+          AND serial_number >= ${fromSerial} AND serial_number <= ${toSerial}
+        ORDER BY serial_number ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (search && fromSerial && toSerial) {
+      rows = await this.db.sql`
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
+          AND serial_number >= ${fromSerial} AND serial_number <= ${toSerial}
+        ORDER BY serial_number ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (tag && fromSerial && toSerial) {
+      rows = await this.db.sql`
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE tags @> ${JSON.stringify([tag])}::jsonb
+          AND serial_number >= ${fromSerial} AND serial_number <= ${toSerial}
+        ORDER BY serial_number ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (fromSerial && toSerial) {
+      rows = await this.db.sql`
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE serial_number >= ${fromSerial} AND serial_number <= ${toSerial}
+        ORDER BY serial_number ASC
+        LIMIT ${limit} OFFSET ${offset}
+      `;
+    } else if (search && tag) {
+      rows = await this.db.sql`
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
+          AND tags @> ${JSON.stringify([tag])}::jsonb
+        ORDER BY serial_number ASC
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else if (search) {
       rows = await this.db.sql`
-        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
-        FROM contacts
-        WHERE organization_id = ${effectiveOrg}
-          AND (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
-        ORDER BY updated_at DESC
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE (name ILIKE ${search} OR phone ILIKE ${search} OR city ILIKE ${search} OR dob ILIKE ${search})
+        ORDER BY serial_number ASC
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else if (tag) {
       rows = await this.db.sql`
-        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
-        FROM contacts
-        WHERE organization_id = ${effectiveOrg}
-          AND tags @> ${JSON.stringify([tag])}::jsonb
-        ORDER BY updated_at DESC
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        WHERE tags @> ${JSON.stringify([tag])}::jsonb
+        ORDER BY serial_number ASC
         LIMIT ${limit} OFFSET ${offset}
       `;
     } else {
       rows = await this.db.sql`
-        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags, created_at as "createdAt", updated_at as "updatedAt"
-        FROM contacts
-        WHERE organization_id = ${effectiveOrg}
-        ORDER BY updated_at DESC
+        WITH numbered_contacts AS (
+          SELECT id, organization_id, shop_id, phone, name, email, city, dob, tags, metadata, created_at, updated_at,
+            ROW_NUMBER() OVER (ORDER BY created_at ASC, id ASC)::int AS serial_number
+          FROM contacts
+          WHERE organization_id = ${effectiveOrg}
+        )
+        SELECT id, organization_id as "organizationId", shop_id as "shopId", phone, name, email, city, dob, tags,
+          created_at as "createdAt", updated_at as "updatedAt", serial_number as "serialNumber"
+        FROM numbered_contacts
+        ORDER BY serial_number ASC
         LIMIT ${limit} OFFSET ${offset}
       `;
     }
@@ -222,6 +317,7 @@ export class ContactsService {
 
     const sanitizedRows = (rows || []).map((r) => ({
       ...r,
+      serialNumber: r.serialNumber != null ? Number(r.serialNumber) : undefined,
       tags: parseTagsArray(r.tags),
     }));
 

@@ -133,13 +133,17 @@ export class ContactsController {
     @Query("search") search?: string,
     @Query("tag") tag?: string,
     @Query("limit") limit?: string,
-    @Query("offset") offset?: string
+    @Query("offset") offset?: string,
+    @Query("fromSerial") fromSerial?: string,
+    @Query("toSerial") toSerial?: string
   ) {
     return this.contactsService.findAll(orgId, {
       search,
       tag,
-      limit: limit ? parseInt(limit, 10) : 100,
+      limit: limit ? parseInt(limit, 10) : 500,
       offset: offset ? parseInt(offset, 10) : 0,
+      fromSerial: fromSerial ? parseInt(fromSerial, 10) : undefined,
+      toSerial: toSerial ? parseInt(toSerial, 10) : undefined,
     });
   }
 

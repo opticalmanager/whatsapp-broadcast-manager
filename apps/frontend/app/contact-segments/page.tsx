@@ -84,6 +84,7 @@ interface ContactItem {
   dob?: string;
   tags?: string[];
   addedAt?: string;
+  serialNumber?: number;
 }
 
 interface DiscoveredLocation {
@@ -179,7 +180,7 @@ export default function ContactSegmentsPage() {
       }
 
       // Contacts & Locality Discovery
-      const contactsRes = await fetch(`${BACKEND_URL}/api/v1/contacts?limit=500`, { headers: getAuthHeaders() });
+      const contactsRes = await fetch(`${BACKEND_URL}/api/v1/contacts?limit=10000`, { headers: getAuthHeaders() });
       if (contactsRes.ok) {
         const cJson = await contactsRes.json();
         if (cJson.success && Array.isArray(cJson.data)) {
@@ -783,6 +784,43 @@ function CreateSegmentModal({
   // Mode 2: Manual Selection State
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [contactSearchQuery, setContactSearchQuery] = useState("");
+  const [serialFrom, setSerialFrom] = useState<string>("");
+  const [serialTo, setSerialTo] = useState<string>("");
+
+  const handleApplySerialRange = () => {
+    const from = parseInt(serialFrom, 10);
+    const to = parseInt(serialTo, 10);
+    if (isNaN(from) || isNaN(to)) {
+      toast.error("Please enter valid serial numbers for From and To.");
+      return;
+    }
+    if (from < 1 || to < from) {
+      toast.error("From serial must be at least 1 and To serial must be greater than or equal to From.");
+      return;
+    }
+
+    const matchingIds: string[] = [];
+    allContacts.forEach((c, index) => {
+      const sNo = c.serialNumber != null ? c.serialNumber : index + 1;
+      if (sNo >= from && sNo <= to) {
+        matchingIds.push(c.id);
+      }
+    });
+
+    if (matchingIds.length === 0) {
+      toast.error(`No contacts found in serial range #${from} to #${to}.`);
+      return;
+    }
+
+    setSelectedContactIds(new Set(matchingIds));
+    toast.success(`Selected ${matchingIds.length} contact(s) from serial #${from} to #${to}.`);
+  };
+
+  const handleClearSerialRange = () => {
+    setSerialFrom("");
+    setSerialTo("");
+    setSelectedContactIds(new Set());
+  };
 
   // Mode 3: Paste Numbers (Button Chips State)
   const [phoneChips, setPhoneChips] = useState<PhoneChipItem[]>([]);
@@ -1201,6 +1239,51 @@ function CreateSegmentModal({
                 </div>
               </div>
 
+              {/* Range Selector by Serial Number */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300 font-bold">
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">Select by Serial Range:</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                    <span className="text-[10px] text-slate-400 font-semibold">From #</span>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={serialFrom}
+                      onChange={(e) => setSerialFrom(e.target.value)}
+                      className="w-14 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-white focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1">
+                    <span className="text-[10px] text-slate-400 font-semibold">To #</span>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder={String(allContacts.length || 100)}
+                      value={serialTo}
+                      onChange={(e) => setSerialTo(e.target.value)}
+                      className="w-14 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-white focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleApplySerialRange}
+                    className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                  >
+                    Select Range
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearSerialRange}
+                    className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
               <div className="max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead className="sticky top-0 bg-slate-100 dark:bg-slate-950 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1213,6 +1296,7 @@ function CreateSegmentModal({
                           className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-0 cursor-pointer"
                         />
                       </th>
+                      <th className="py-2 px-2.5 w-12 text-center">#</th>
                       <th className="py-2 px-3">Name</th>
                       <th className="py-2 px-3">Phone</th>
                       <th className="py-2 px-3">City / Address</th>
@@ -1220,8 +1304,9 @@ function CreateSegmentModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredDbContacts.map((c) => {
+                    {filteredDbContacts.map((c, idx) => {
                       const isChecked = selectedContactIds.has(c.id);
+                      const sNo = c.serialNumber != null ? c.serialNumber : idx + 1;
                       return (
                         <tr
                           key={c.id}
@@ -1237,6 +1322,9 @@ function CreateSegmentModal({
                               onChange={() => {}}
                               className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-0 cursor-pointer"
                             />
+                          </td>
+                          <td className="py-2 px-2.5 text-center font-mono font-bold text-[11px] text-slate-500 dark:text-slate-400">
+                            #{sNo}
                           </td>
                           <td className="py-2 px-3 font-semibold">{c.name || "Customer"}</td>
                           <td className="py-2 px-3 font-mono">{formatPhoneDisplay(c.phone)}</td>
@@ -1434,6 +1522,7 @@ function SegmentMembersDrawer({
             <table className="w-full text-left border-collapse text-xs">
               <thead className="sticky top-0 bg-slate-50 dark:bg-slate-950 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
                 <tr>
+                  <th className="py-2.5 px-2.5 w-12 text-center">#</th>
                   <th className="py-2.5 px-3">Name</th>
                   <th className="py-2.5 px-3">Phone</th>
                   <th className="py-2.5 px-3">City / Address</th>
@@ -1441,8 +1530,11 @@ function SegmentMembersDrawer({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {members.map((m) => (
+                {members.map((m, idx) => (
                   <tr key={m.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                    <td className="py-2.5 px-2.5 text-center font-mono font-bold text-[11px] text-slate-400">
+                      #{m.serialNumber || (idx + 1)}
+                    </td>
                     <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">
                       {m.name || "Customer"}
                     </td>

@@ -223,6 +223,37 @@ function CampaignsStudioInner() {
   const [contactsSearch, setContactsSearch] = useState<string>("");
   const [selectedDbContactIds, setSelectedDbContactIds] = useState<string[]>([]);
   const [contactsLoading, setContactsLoading] = useState<boolean>(false);
+  const [contactsSerialFrom, setContactsSerialFrom] = useState<string>("");
+  const [contactsSerialTo, setContactsSerialTo] = useState<string>("");
+
+  const handleApplyContactsSerialRange = () => {
+    const from = parseInt(contactsSerialFrom, 10);
+    const to = parseInt(contactsSerialTo, 10);
+    if (isNaN(from) || isNaN(to)) {
+      toast.error("Please enter valid serial numbers for From and To.");
+      return;
+    }
+    if (from < 1 || to < from) {
+      toast.error("From serial must be at least 1 and To serial must be greater than or equal to From.");
+      return;
+    }
+
+    const matchingIds: string[] = [];
+    allDbContacts.forEach((c, index) => {
+      const sNo = c.serialNumber != null ? c.serialNumber : index + 1;
+      if (sNo >= from && sNo <= to) {
+        matchingIds.push(c.id);
+      }
+    });
+
+    if (matchingIds.length === 0) {
+      toast.error(`No contacts found in serial range #${from} to #${to}.`);
+      return;
+    }
+
+    setSelectedDbContactIds(matchingIds);
+    toast.success(`Selected ${matchingIds.length} contact(s) from serial #${from} to #${to}.`);
+  };
 
   // Left Panel - 3. Template & 8 WhatsApp Message Types matching Image 1
   const [dbTemplates, setDbTemplates] = useState<any[]>([]);
@@ -406,7 +437,7 @@ function CampaignsStudioInner() {
       // 3. Load DB Contacts
       try {
         setContactsLoading(true);
-        const res = await fetch(`${backendUrl}/api/v1/contacts?limit=100`, { headers });
+        const res = await fetch(`${backendUrl}/api/v1/contacts?limit=10000`, { headers });
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
@@ -1390,19 +1421,83 @@ function CampaignsStudioInner() {
                           setSelectedDbContactIds(allDbContacts.map((c) => c.id));
                         }
                       }}
-                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+                      className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                     >
-                      {selectedDbContactIds.length === allDbContacts.length ? "Deselect All" : "Select All"}
+                      {selectedDbContactIds.length === allDbContacts.length && allDbContacts.length > 0 ? "Deselect All" : "Select All"}
                     </button>
+                  </div>
+
+                  {/* Serial Range Selection: Exactly as requested ("under serach bar show from and to (uner that user can add serial number then it get slected and then sent capign to them)") */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider">
+                        Select by Serial Range:
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        ({selectedDbContactIds.length} of {allDbContacts.length} selected)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1">
+                        <span className="text-[10px] text-slate-400 font-semibold">From #</span>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="1"
+                          value={contactsSerialFrom}
+                          onChange={(e) => setContactsSerialFrom(e.target.value)}
+                          className="w-14 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-white focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-2 py-1">
+                        <span className="text-[10px] text-slate-400 font-semibold">To #</span>
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder={String(allDbContacts.length || 100)}
+                          value={contactsSerialTo}
+                          onChange={(e) => setContactsSerialTo(e.target.value)}
+                          className="w-14 bg-transparent text-xs font-mono font-bold text-slate-800 dark:text-white focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleApplyContactsSerialRange}
+                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                      >
+                        Select Range
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setContactsSerialFrom("");
+                          setContactsSerialTo("");
+                          setSelectedDbContactIds([]);
+                        }}
+                        className="px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
                   </div>
 
                   <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800">
                     <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-slate-100 dark:bg-slate-950 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="p-2.5 w-8"></th>
+                          <th className="p-2.5 w-12 text-center">#</th>
+                          <th className="p-2.5">Name</th>
+                          <th className="p-2.5">Phone</th>
+                          <th className="p-2.5">City</th>
+                        </tr>
+                      </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {allDbContacts
                           .filter((c) => (c.name || "").toLowerCase().includes(contactsSearch.toLowerCase()) || (c.phone || "").includes(contactsSearch))
-                          .map((c) => {
+                          .map((c, idx) => {
                             const isSelected = selectedDbContactIds.includes(c.id);
+                            const sNo = c.serialNumber != null ? c.serialNumber : idx + 1;
                             return (
                               <tr
                                 key={c.id}
@@ -1411,15 +1506,20 @@ function CampaignsStudioInner() {
                                     isSelected ? prev.filter((id) => id !== c.id) : [...prev, c.id]
                                   );
                                 }}
-                                className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                                className={`cursor-pointer transition-colors ${
+                                  isSelected ? "bg-emerald-50/60 dark:bg-emerald-950/30" : "hover:bg-slate-50 dark:hover:bg-slate-900/50"
+                                }`}
                               >
                                 <td className="p-2.5 w-8">
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
                                     onChange={() => {}}
-                                    className="rounded text-emerald-600"
+                                    className="rounded text-emerald-600 cursor-pointer"
                                   />
+                                </td>
+                                <td className="p-2.5 w-12 text-center font-mono font-bold text-[11px] text-slate-500 dark:text-slate-400">
+                                  #{sNo}
                                 </td>
                                 <td className="p-2.5 font-bold text-slate-800 dark:text-white">{c.name || "Customer"}</td>
                                 <td className="p-2.5 font-mono text-slate-500">{c.phone}</td>

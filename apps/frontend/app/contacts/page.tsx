@@ -53,6 +53,7 @@ interface Contact {
   tags?: string[];
   createdAt?: string;
   updatedAt?: string;
+  serialNumber?: number;
 }
 
 export function normalizeTags(rawTags: any): string[] {
@@ -702,6 +703,7 @@ export default function ContactsManagerPage() {
                       className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
                     />
                   </th>
+                  <th className="py-3 px-3 w-14 text-center">#</th>
                   <th className="py-3 px-4">Name</th>
                   <th className="py-3 px-4">Phone</th>
                   <th className="py-3 px-4">City</th>
@@ -711,11 +713,12 @@ export default function ContactsManagerPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
-                {contacts.map((c) => {
+                {contacts.map((c, index) => {
                   const countryCode = getCountryCode(c.phone);
                   const avatarColor = getAvatarColor(c.phone);
                   const isChecked = selectedContactIds.has(c.id);
                   const contactTags = normalizeTags(c.tags);
+                  const sNo = c.serialNumber != null ? c.serialNumber : index + 1;
 
                   return (
                     <tr
@@ -732,6 +735,13 @@ export default function ContactsManagerPage() {
                           onChange={() => handleToggleSelectOne(c.id)}
                           className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-0 cursor-pointer"
                         />
+                      </td>
+
+                      {/* Serial Number */}
+                      <td className="py-3 px-3 text-center">
+                        <span className="font-mono font-bold text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700/60">
+                          #{sNo}
+                        </span>
                       </td>
 
                       {/* Name with Country Code Circle Badge */}
@@ -924,6 +934,7 @@ export default function ContactsManagerPage() {
                                   {countryCode}
                                 </div>
                                 <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                  {c.serialNumber ? <span className="font-mono text-[10px] text-slate-400 mr-1.5 font-bold">#{c.serialNumber}</span> : null}
                                   {c.name || "Customer"}
                                 </h4>
                               </div>
