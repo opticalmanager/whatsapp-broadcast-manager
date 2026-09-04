@@ -1,6 +1,8 @@
-import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, Headers, UnauthorizedException } from "@nestjs/common";
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards } from "@nestjs/common";
 import { ContactsService } from "./contacts.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg, CurrentUser } from "../auth/decorators/tenant.decorator";
+import { BroadcastSessionPayload } from "../auth/auth.service";
 import { IsNotEmpty, IsString, IsOptional, IsArray } from "class-validator";
 
 export class BulkUpsertContactsDto {
@@ -108,37 +110,31 @@ export class MoveTagDto {
   oldTag?: string;
 }
 
+@UseGuards(TenantAuthGuard)
 @Controller("contacts")
 export class ContactsController {
   constructor(
-    private readonly contactsService: ContactsService,
-    private readonly authService: AuthService
+    private readonly contactsService: ContactsService
   ) {}
 
-  private getOrgId(authHeader?: string): { orgId: string; shopId: string } {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new UnauthorizedException("Missing authentication token.");
-    }
-    const token = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const session = this.authService.validateSsoToken(token);
-    return { orgId: session.organizationId, shopId: session.shopId || "main-outlet" };
-  }
-
   @Post("upload-csv")
-  uploadCsv(@Body() dto: UploadCsvDto, @Headers("authorization") authHeader?: string) {
-    const { orgId, shopId } = this.getOrgId(authHeader);
+  uploadCsv(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() user: BroadcastSessionPayload,
+    @Body() dto: UploadCsvDto
+  ) {
+    const shopId = user.shopId || "main-outlet";
     return this.contactsService.uploadCsv(orgId, shopId, dto.csvData, dto.defaultTag);
   }
 
   @Get()
   findAll(
+    @CurrentOrg() orgId: string,
     @Query("search") search?: string,
     @Query("tag") tag?: string,
     @Query("limit") limit?: string,
-    @Query("offset") offset?: string,
-    @Headers("authorization") authHeader?: string
+    @Query("offset") offset?: string
   ) {
-    const { orgId } = this.getOrgId(authHeader);
     return this.contactsService.findAll(orgId, {
       search,
       tag,
@@ -148,56 +144,77 @@ export class ContactsController {
   }
 
   @Get("tags")
-  getTags(@Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  getTags(@CurrentOrg() orgId: string) {
     return this.contactsService.getTags(orgId);
   }
 
   @Post()
-  create(@Body() dto: CreateContactDto, @Headers("authorization") authHeader?: string) {
-    const { orgId, shopId } = this.getOrgId(authHeader);
+  create(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() user: BroadcastSessionPayload,
+    @Body() dto: CreateContactDto
+  ) {
+    const shopId = user.shopId || "main-outlet";
     return this.contactsService.create(orgId, shopId, dto);
   }
 
   @Put(":id")
-  update(@Param("id") id: string, @Body() dto: UpdateContactDto, @Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  update(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string,
+    @Body() dto: UpdateContactDto
+  ) {
     return this.contactsService.update(orgId, id, dto);
   }
 
   @Patch(":id/tag")
-  updateTag(@Param("id") id: string, @Body() dto: MoveTagDto, @Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  updateTag(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string,
+    @Body() dto: MoveTagDto
+  ) {
     return this.contactsService.updateContactTag(orgId, id, dto.newTag, dto.oldTag);
   }
 
   @Delete(":id")
-  delete(@Param("id") id: string, @Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  delete(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
     return this.contactsService.delete(orgId, id);
   }
 
   @Post("bulk-tag")
-  bulkTag(@Body() dto: BulkTagDto, @Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  bulkTag(
+    @CurrentOrg() orgId: string,
+    @Body() dto: BulkTagDto
+  ) {
     return this.contactsService.bulkTag(orgId, dto.contactIds, dto.tag);
   }
 
   @Post("bulk-remove-tag")
-  bulkRemoveTag(@Body() dto: BulkTagDto, @Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  bulkRemoveTag(
+    @CurrentOrg() orgId: string,
+    @Body() dto: BulkTagDto
+  ) {
     return this.contactsService.bulkRemoveTag(orgId, dto.contactIds, dto.tag);
   }
 
   @Post("bulk-delete")
-  bulkDelete(@Body() dto: BulkDeleteDto, @Headers("authorization") authHeader?: string) {
-    const { orgId } = this.getOrgId(authHeader);
+  bulkDelete(
+    @CurrentOrg() orgId: string,
+    @Body() dto: BulkDeleteDto
+  ) {
     return this.contactsService.bulkDelete(orgId, dto.contactIds);
   }
 
   @Post("bulk-upsert")
-  bulkUpsert(@Body() dto: BulkUpsertContactsDto, @Headers("authorization") authHeader?: string) {
-    const { orgId, shopId } = this.getOrgId(authHeader);
+  bulkUpsert(
+    @CurrentOrg() orgId: string,
+    @CurrentUser() user: BroadcastSessionPayload,
+    @Body() dto: BulkUpsertContactsDto
+  ) {
+    const shopId = user.shopId || "main-outlet";
     return this.contactsService.bulkUpsertContacts(orgId, shopId, dto.contacts, dto.createAudienceName);
   }
 }

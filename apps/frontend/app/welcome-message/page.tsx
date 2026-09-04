@@ -72,7 +72,7 @@ export default function WelcomeMessagePage() {
   const [clearing, setClearing] = useState<boolean>(false);
 
   const [settings, setSettings] = useState<WelcomeMessageSettings>({
-    organizationId: "org-demo",
+    organizationId: user?.organizationId || "",
     instanceId: "ALL",
     enabled: false,
     frequency: "FIRST_TIME_EVER",

@@ -52,7 +52,7 @@ interface WhatsAppInstance {
 
 export default function CampaignsDashboardPage() {
   const router = useRouter();
-  const { user: authUser, getAuthHeaders, isAuthenticated } = useAuth();
+  const { user: authUser, getAuthHeaders, isAuthenticated, isLoading } = useAuth();
   const backendUrl = getBackendUrl();
 
   const [campaigns, setCampaigns] = useState<CampaignItem[]>([]);
@@ -64,13 +64,15 @@ export default function CampaignsDashboardPage() {
   // Fetch Live Campaigns & Instances
   const fetchCampaignData = async (showSpinner = false) => {
     try {
-      if (showSpinner) setLoading(true);
       const authHdrs = getAuthHeaders();
-      const headers = Object.keys(authHdrs).length > 0 ? authHdrs : { Authorization: "Bearer demo-token" };
+      if (!authHdrs || Object.keys(authHdrs).length === 0) {
+        return;
+      }
+      if (showSpinner) setLoading(true);
 
       const [campRes, instRes] = await Promise.all([
-        fetch(`${backendUrl}/api/v1/campaigns`, { headers }),
-        fetch(`${backendUrl}/api/v1/whatsapp-numbers/instances`, { headers })
+        fetch(`${backendUrl}/api/v1/campaigns`, { headers: authHdrs }),
+        fetch(`${backendUrl}/api/v1/whatsapp-numbers/instances`, { headers: authHdrs })
       ]);
 
       if (campRes.ok) {
@@ -94,11 +96,13 @@ export default function CampaignsDashboardPage() {
   };
 
   useEffect(() => {
-    fetchCampaignData(true);
-    // Poll every 3 seconds for live progress
-    const interval = setInterval(() => fetchCampaignData(false), 3000);
-    return () => clearInterval(interval);
-  }, [isAuthenticated]);
+    if (!isLoading && isAuthenticated) {
+      fetchCampaignData(true);
+      // Poll every 3 seconds for live progress
+      const interval = setInterval(() => fetchCampaignData(false), 3000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated, isLoading]);
 
   // Top Metrics Calculation (matching Image 2)
   const todaySentCount = useMemo(() => {

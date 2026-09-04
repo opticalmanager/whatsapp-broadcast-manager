@@ -1,7 +1,8 @@
-import { Controller, Post, Body, Headers, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { MediaService } from "./media.service";
-import { AuthService } from "../auth/auth.service";
-import { IsNotEmpty, IsString, IsOptional } from "class-validator";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
+import { IsNotEmpty, IsString } from "class-validator";
 
 export class UploadUrlDto {
   @IsString()
@@ -27,30 +28,21 @@ export class DirectUploadDto {
   base64Data: string;
 }
 
+@UseGuards(TenantAuthGuard)
 @Controller("media")
 export class MediaController {
   constructor(
-    private readonly mediaService: MediaService,
-    private readonly authService: AuthService
+    private readonly mediaService: MediaService
   ) {}
-
-  private extractSession(authHeader?: string) {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return { organizationId: "org-demo", role: "OWNER" };
-    }
-    const token = authHeader.replace("Bearer ", "");
-    return this.authService.validateSsoToken(token);
-  }
 
   @Post("upload-url")
   @HttpCode(HttpStatus.OK)
   getUploadUrl(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: UploadUrlDto
   ) {
-    const session = this.extractSession(authHeader);
     const result = this.mediaService.generatePresignedUploadUrl(
-      session.organizationId,
+      orgId,
       dto.filename,
       dto.mimeType
     );
@@ -64,12 +56,11 @@ export class MediaController {
   @Post("upload-direct")
   @HttpCode(HttpStatus.OK)
   async uploadDirect(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: DirectUploadDto
   ) {
-    const session = this.extractSession(authHeader);
     const result = await this.mediaService.uploadDirect(
-      session.organizationId,
+      orgId,
       dto.filename,
       dto.mimeType,
       dto.base64Data
@@ -81,3 +72,4 @@ export class MediaController {
     };
   }
 }
+

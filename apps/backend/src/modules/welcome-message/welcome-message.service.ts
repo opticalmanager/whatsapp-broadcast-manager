@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, BadRequestException } from "@nestjs/common";
 import { DatabaseService } from "../../database/database.service";
 import { WhatsAppSessionManagerService } from "../whatsapp-session/whatsapp-session.service";
 import { AutoReplyService } from "../auto-reply/auto-reply.service";
@@ -419,21 +419,18 @@ export class WelcomeMessageService implements OnModuleInit {
       this.logger.warn(`Error querying welcome logs from DB: ${err.message}`);
     }
 
-    if (!instanceId || instanceId === "ALL") return this.welcomeLogsStore;
-    return this.welcomeLogsStore.filter((l) => l.instanceId === instanceId);
+    const inMem = this.welcomeLogsStore.filter((l) => (l as any).orgId === effectiveOrg);
+    if (!instanceId || instanceId === "ALL") return inMem;
+    return inMem.filter((l) => l.instanceId === instanceId);
   }
 
   async resetHistory(orgId?: string): Promise<boolean> {
-    this.welcomeHistoryStore.clear();
-    this.welcomeLogsStore = [];
+    if (!orgId) throw new BadRequestException("Organization ID is required.");
+    this.welcomeLogsStore = this.welcomeLogsStore.filter((l) => (l as any).orgId !== orgId);
     this.saveToDisk();
 
     try {
-      if (orgId) {
-        await this.db.sql`DELETE FROM welcome_message_logs WHERE organization_id = ${orgId}`;
-      } else {
-        await this.db.sql`DELETE FROM welcome_message_logs`;
-      }
+      await this.db.sql`DELETE FROM welcome_message_logs WHERE organization_id = ${orgId}`;
     } catch {}
 
     return true;

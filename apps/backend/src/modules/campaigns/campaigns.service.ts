@@ -480,7 +480,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
   autoResumePendingCampaigns(targetOrgId?: string) {
     for (const cmp of this.campaignsStore.values()) {
-      if (targetOrgId && cmp.organizationId && cmp.organizationId !== targetOrgId && cmp.organizationId !== 'org-demo') {
+      if (targetOrgId && cmp.organizationId && cmp.organizationId !== targetOrgId) {
         continue;
       }
 
@@ -530,7 +530,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         const activeNumberId =
           item.whatsappNumberId ||
           this.baileysService.getActiveSessionNumberId(orgId) ||
-          `num-${(orgId || "org-demo").slice(0, 8)}`;
+          `num-${(orgId || "tenant").slice(0, 8)}`;
 
         const recs: RecipientRecord[] = (item.recipients || []).map((r: any, idx: number) => ({
           id: r.id || `rc-sync-${idx}`,
@@ -542,7 +542,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
         const newCmp: CampaignItem = {
           id: item.id,
-          organizationId: orgId || "org-demo",
+          organizationId: orgId,
           shopId: item.shopId || "shop-main",
           whatsappNumberId: activeNumberId,
           templateId: item.templateId || "tpl-custom",
@@ -571,32 +571,36 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     return this.findAll(orgId);
   }
 
-  findAll(orgId?: string): CampaignItem[] {
-    const list = Array.from(this.campaignsStore.values()).filter((c) => Boolean(c && c.id));
+  findAll(orgId: string): CampaignItem[] {
+    const targetOrg = (orgId || "").trim();
+    if (!targetOrg) return [];
+    const list = Array.from(this.campaignsStore.values()).filter(
+      (c) => Boolean(c && c.id && c.organizationId === targetOrg)
+    );
     return list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
   }
 
-  findOne(id: string): CampaignItem {
+  findOne(orgId: string, id: string): CampaignItem {
     const cmp = this.campaignsStore.get(id);
-    if (!cmp) {
+    if (!cmp || cmp.organizationId !== orgId) {
       throw new NotFoundException(`Campaign with ID ${id} not found.`);
     }
     return cmp;
   }
 
-  getRecipients(campaignId: string): RecipientRecord[] {
+  getRecipients(orgId: string, campaignId: string): RecipientRecord[] {
     const cmp = this.campaignsStore.get(campaignId);
-    if (cmp && cmp.recipients && cmp.recipients.length > 0) {
-      return cmp.recipients;
+    if (!cmp || cmp.organizationId !== orgId) {
+      throw new NotFoundException(`Campaign ${campaignId} not found.`);
     }
-    return [];
+    return cmp.recipients || [];
   }
 
-  async getCampaignReport(campaignId: string) {
+  async getCampaignReport(orgId: string, campaignId: string) {
     let cmp = this.campaignsStore.get(campaignId) as any;
     if (!cmp) {
       try {
-        const rows = await this.db.sql`SELECT * FROM campaigns WHERE id = ${campaignId} LIMIT 1`;
+        const rows = await this.db.sql`SELECT * FROM campaigns WHERE id = ${campaignId} AND organization_id = ${orgId} LIMIT 1`;
         if (rows && rows.length > 0) {
           const r = rows[0];
           const parseJson = (val: any) => {
@@ -637,7 +641,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    if (!cmp) {
+    if (!cmp || cmp.organizationId !== orgId) {
       throw new NotFoundException(`Campaign with ID ${campaignId} not found.`);
     }
 
@@ -711,7 +715,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const connectedSession = this.baileysService.getSessionStatus(cmp.whatsappNumberId);
+    const connectedSession = this.baileysService.getSessionStatus(cmp.organizationId, cmp.whatsappNumberId);
     let senderInstance = "Shop Main";
     if (connectedSession?.phoneNumber) {
       const name = connectedSession.displayName || "Shop Main";
@@ -991,7 +995,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async addRecipientsToSenderList(orgId: string, campaignId: string, filterType: "ALL" | "FAILED" | "NON_WHATSAPP" | "DELIVERED", targetName?: string) {
-    const report = await this.getCampaignReport(campaignId);
+    const report = await this.getCampaignReport(orgId, campaignId);
     let filtered = report.recipients;
 
     if (filterType === "FAILED") {
@@ -1008,7 +1012,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       try {
         await this.db.sql`
           INSERT INTO contacts (organization_id, phone, name, tags, updated_at)
-          VALUES (${orgId || 'org-demo'}, ${rec.phone}, ${rec.name || 'Customer'}, ARRAY[${defaultAudienceName}]::text[], NOW())
+          VALUES (${orgId}, ${rec.phone}, ${rec.name || 'Customer'}, ARRAY[${defaultAudienceName}]::text[], NOW())
           ON CONFLICT (organization_id, phone) DO UPDATE SET
             name = COALESCE(EXCLUDED.name, contacts.name),
             tags = array_append(contacts.tags, ${defaultAudienceName}),
@@ -1025,8 +1029,8 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async retryRecipient(campaignId: string, recipientId: string) {
-    const cmp = this.findOne(campaignId);
+  async retryRecipient(orgId: string, campaignId: string, recipientId: string) {
+    const cmp = this.findOne(orgId, campaignId);
     const rec = (cmp.recipients || []).find((r) => r.id === recipientId || r.phone === recipientId);
     if (!rec) {
       throw new NotFoundException(`Recipient ${recipientId} not found in campaign ${campaignId}.`);
@@ -1082,13 +1086,13 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
-  async retryFailedRecipients(campaignId: string) {
-    const cmp = this.findOne(campaignId);
+  async retryFailedRecipients(orgId: string, campaignId: string) {
+    const cmp = this.findOne(orgId, campaignId);
     const failedRecs = (cmp.recipients || []).filter(r => r.status === "FAILED");
     let successCount = 0;
 
     for (const rec of failedRecs) {
-      const res = await this.retryRecipient(campaignId, rec.id);
+      const res = await this.retryRecipient(orgId, campaignId, rec.id);
       if (res.success) successCount++;
     }
 
@@ -1128,7 +1132,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     const activeNumberId =
       payload.whatsappNumberId ||
       this.baileysService.getActiveSessionNumberId(orgId) ||
-      `num-${(orgId || "org-demo").slice(0, 8)}`;
+      `num-${(orgId || "tenant").slice(0, 8)}`;
 
     const recipientsList: RecipientRecord[] = rawRecipients.map((r, i) => ({
       id: r.id || `rc-${Date.now()}-${i}`,
@@ -1151,7 +1155,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
     const newCampaign: CampaignItem & Record<string, any> = {
       id: `cmp-${Date.now()}`,
-      organizationId: orgId || "org-demo",
+      organizationId: orgId,
       shopId: payload.shopId || "shop-main",
       whatsappNumberId: activeNumberId,
       templateId: payload.templateId || "tpl-custom",
@@ -1664,26 +1668,26 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async pauseCampaign(id: string): Promise<CampaignItem> {
-    const cmp = this.findOne(id);
+  async pauseCampaign(orgId: string, id: string): Promise<CampaignItem> {
+    const cmp = this.findOne(orgId, id);
     cmp.status = "PAUSED";
     this.saveToDisk();
     try {
-      await this.db.sql`UPDATE campaigns SET status = 'PAUSED', updated_at = NOW() WHERE id = ${id}`;
+      await this.db.sql`UPDATE campaigns SET status = 'PAUSED', updated_at = NOW() WHERE id = ${id} AND organization_id = ${orgId}`;
     } catch {}
-    this.logger.log(`Paused campaign ${id}`);
+    this.logger.log(`Paused campaign ${id} for org ${orgId}`);
     return cmp;
   }
 
-  async resumeCampaign(id: string, fallbackData?: any): Promise<CampaignItem> {
+  async resumeCampaign(orgId: string, id: string, fallbackData?: any): Promise<CampaignItem> {
     let cmp = this.campaignsStore.get(id);
 
-    if (!cmp && fallbackData) {
-      this.syncFromFrontend(fallbackData.organizationId || "org-demo", [fallbackData]);
+    if (!cmp && fallbackData && fallbackData.organizationId === orgId) {
+      this.syncFromFrontend(orgId, [fallbackData]);
       cmp = this.campaignsStore.get(id);
     }
 
-    if (!cmp) {
+    if (!cmp || cmp.organizationId !== orgId) {
       throw new NotFoundException(`Campaign with ID ${id} not found.`);
     }
 
@@ -1696,9 +1700,9 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     cmp.status = "PROCESSING";
     this.saveToDisk();
     try {
-      await this.db.sql`UPDATE campaigns SET status = 'PROCESSING', updated_at = NOW() WHERE id = ${id}`;
+      await this.db.sql`UPDATE campaigns SET status = 'PROCESSING', updated_at = NOW() WHERE id = ${id} AND organization_id = ${orgId}`;
     } catch {}
-    this.logger.log(`Resumed campaign ${id} (${cmp.name})`);
+    this.logger.log(`Resumed campaign ${id} (${cmp.name}) for org ${orgId}`);
 
     if (!this.activeDispatches.has(id)) {
       this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
@@ -1709,17 +1713,18 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     return cmp;
   }
 
-  async deleteCampaign(id: string): Promise<boolean> {
-    const exists = this.campaignsStore.has(id);
-    if (exists) {
-      this.campaignsStore.delete(id);
-      this.saveToDisk();
-      try {
-        await this.db.sql`DELETE FROM campaigns WHERE id = ${id}`;
-      } catch {}
-      this.logger.log(`Deleted campaign ${id}`);
-      return true;
+  async deleteCampaign(orgId: string, id: string): Promise<boolean> {
+    const cmp = this.campaignsStore.get(id);
+    if (!cmp || cmp.organizationId !== orgId) {
+      throw new NotFoundException(`Campaign with ID ${id} not found.`);
     }
-    return false;
+
+    this.campaignsStore.delete(id);
+    this.saveToDisk();
+    try {
+      await this.db.sql`DELETE FROM campaigns WHERE id = ${id} AND organization_id = ${orgId}`;
+    } catch {}
+    this.logger.log(`Deleted campaign ${id} for org ${orgId}`);
+    return true;
   }
 }

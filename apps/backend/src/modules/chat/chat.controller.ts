@@ -6,38 +6,29 @@ import {
   Body,
   Param,
   Query,
-  Headers,
-  UnauthorizedException,
+  UseGuards,
 } from "@nestjs/common";
 import { ChatService } from "./chat.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 
+@UseGuards(TenantAuthGuard)
 @Controller("chat")
 export class ChatController {
   constructor(
-    private readonly chatService: ChatService,
-    private readonly authService: AuthService
+    private readonly chatService: ChatService
   ) {}
-
-  private extractSession(authHeader?: string) {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new UnauthorizedException("Missing authentication token.");
-    }
-    const token = authHeader.replace("Bearer ", "");
-    return this.authService.validateSsoToken(token);
-  }
 
   @Get("conversations")
   async getConversations(
+    @CurrentOrg() orgId: string,
     @Query("filter") filter?: string,
     @Query("search") search?: string,
     @Query("instanceId") instanceId?: string,
-    @Query("campaignId") campaignId?: string,
-    @Headers("authorization") authHeader?: string
+    @Query("campaignId") campaignId?: string
   ) {
-    const session = this.extractSession(authHeader);
     const data = await this.chatService.getConversations(
-      session.organizationId,
+      orgId,
       filter,
       search,
       instanceId,
@@ -48,20 +39,20 @@ export class ChatController {
 
   @Get("conversations/:id/messages")
   async getMessages(
+    @CurrentOrg() orgId: string,
     @Param("id") conversationId: string,
     @Query("limit") limit?: string,
     @Query("before") before?: string,
-    @Query("campaignId") campaignId?: string,
-    @Headers("authorization") authHeader?: string
+    @Query("campaignId") campaignId?: string
   ) {
-    const session = this.extractSession(authHeader);
     const limitNum = limit ? parseInt(limit, 10) : 30;
-    const result = await this.chatService.getMessages(conversationId, session.organizationId, limitNum, before, campaignId);
+    const result = await this.chatService.getMessages(conversationId, orgId, limitNum, before, campaignId);
     return { success: true, data: result.messages, hasMore: result.hasMore };
   }
 
   @Post("send")
   async sendMessage(
+    @CurrentOrg() orgId: string,
     @Body()
     body: {
       conversationId?: string;
@@ -73,41 +64,37 @@ export class ChatController {
       quotedMessageId?: string;
       quotedContent?: string;
       quotedSender?: string;
-    },
-    @Headers("authorization") authHeader?: string
+    }
   ) {
-    const session = this.extractSession(authHeader);
-    const result = await this.chatService.sendMessage(session.organizationId, body);
+    const result = await this.chatService.sendMessage(orgId, body);
     return result;
   }
 
   @Post("conversations/:id/mark-read")
   async markRead(
-    @Param("id") conversationId: string,
-    @Headers("authorization") authHeader?: string
+    @CurrentOrg() orgId: string,
+    @Param("id") conversationId: string
   ) {
-    const session = this.extractSession(authHeader);
-    const success = await this.chatService.markConversationRead(conversationId, session.organizationId);
+    const success = await this.chatService.markConversationRead(conversationId, orgId);
     return { success };
   }
 
   @Post("conversations/:id/clear")
   async clearConversation(
-    @Param("id") conversationId: string,
-    @Headers("authorization") authHeader?: string
+    @CurrentOrg() orgId: string,
+    @Param("id") conversationId: string
   ) {
-    const session = this.extractSession(authHeader);
-    const success = await this.chatService.clearConversation(conversationId, session.organizationId);
+    const success = await this.chatService.clearConversation(conversationId, orgId);
     return { success };
   }
 
   @Delete("clear-all")
   async clearAll(
-    @Query("instanceId") instanceId?: string,
-    @Headers("authorization") authHeader?: string
+    @CurrentOrg() orgId: string,
+    @Query("instanceId") instanceId?: string
   ) {
-    const session = this.extractSession(authHeader);
-    const success = await this.chatService.clearAll(session.organizationId, instanceId);
+    const success = await this.chatService.clearAll(orgId, instanceId);
     return { success };
   }
 }
+

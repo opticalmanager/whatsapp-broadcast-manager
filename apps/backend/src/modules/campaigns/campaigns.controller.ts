@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Delete, Body, Param, Headers, HttpCode, HttpStatus, UnauthorizedException } from "@nestjs/common";
+import { Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { CampaignsService } from "./campaigns.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 import { IsNotEmpty, IsString, IsArray, IsOptional, IsBoolean, IsNumber } from "class-validator";
 
 export class CreateCampaignDto {
@@ -141,29 +142,24 @@ export class CreateCampaignDto {
 }
 
 @Controller("campaigns")
+@UseGuards(TenantAuthGuard)
 export class CampaignsController {
-  constructor(
-    private readonly campaignsService: CampaignsService,
-    private readonly authService: AuthService
-  ) {}
-
-  private extractSession(authHeader?: string) {
-    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : "demo-token";
-    return this.authService.validateSsoToken(token);
-  }
+  constructor(private readonly campaignsService: CampaignsService) {}
 
   @Get()
-  findAll(@Headers("authorization") authHeader?: string) {
-    const session = this.extractSession(authHeader);
+  findAll(@CurrentOrg() orgId: string) {
     return {
       success: true,
-      data: this.campaignsService.findAll(session.organizationId),
+      data: this.campaignsService.findAll(orgId),
     };
   }
 
   @Get(":id/report")
-  async getReport(@Param("id") id: string) {
-    const report = await this.campaignsService.getCampaignReport(id);
+  async getReport(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
+    const report = await this.campaignsService.getCampaignReport(orgId, id);
     return {
       success: true,
       data: report,
@@ -172,36 +168,42 @@ export class CampaignsController {
 
   @Post(":id/add-to-sender-list")
   async addToSenderList(
+    @CurrentOrg() orgId: string,
     @Param("id") id: string,
-    @Body() body: { filterType?: "ALL" | "FAILED" | "NON_WHATSAPP" | "DELIVERED"; audienceName?: string },
-    @Headers("authorization") authHeader?: string
+    @Body() body: { filterType?: "ALL" | "FAILED" | "NON_WHATSAPP" | "DELIVERED"; audienceName?: string }
   ) {
-    const session = this.extractSession(authHeader);
     const filter = body.filterType || "ALL";
-    const result = await this.campaignsService.addRecipientsToSenderList(session.organizationId, id, filter, body.audienceName);
+    const result = await this.campaignsService.addRecipientsToSenderList(orgId, id, filter, body.audienceName);
     return result;
   }
 
   @Post(":id/retry-recipient/:recipientId")
   @HttpCode(HttpStatus.OK)
   async retryRecipient(
+    @CurrentOrg() orgId: string,
     @Param("id") id: string,
     @Param("recipientId") recipientId: string
   ) {
-    const result = await this.campaignsService.retryRecipient(id, recipientId);
+    const result = await this.campaignsService.retryRecipient(orgId, id, recipientId);
     return result;
   }
 
   @Post(":id/retry-failed")
   @HttpCode(HttpStatus.OK)
-  async retryFailed(@Param("id") id: string) {
-    const result = await this.campaignsService.retryFailedRecipients(id);
+  async retryFailed(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
+    const result = await this.campaignsService.retryFailedRecipients(orgId, id);
     return result;
   }
 
   @Get(":id")
-  findOne(@Param("id") id: string) {
-    const campaign = this.campaignsService.findOne(id);
+  findOne(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
+    const campaign = this.campaignsService.findOne(orgId, id);
     return {
       success: true,
       data: campaign,
@@ -211,11 +213,10 @@ export class CampaignsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: CreateCampaignDto
   ) {
-    const session = this.extractSession(authHeader);
-    const campaign = await this.campaignsService.createAndLaunch(session.organizationId, dto);
+    const campaign = await this.campaignsService.createAndLaunch(orgId, dto);
     return {
       success: true,
       message: "Campaign launched successfully.",
@@ -226,11 +227,10 @@ export class CampaignsController {
   @Post("sync")
   @HttpCode(HttpStatus.OK)
   async syncCampaigns(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() body: { items: any[] }
   ) {
-    const session = this.extractSession(authHeader);
-    const updatedList = this.campaignsService.syncFromFrontend(session.organizationId, body.items || []);
+    const updatedList = this.campaignsService.syncFromFrontend(orgId, body.items || []);
     return {
       success: true,
       message: "Campaigns synced and pending broadcasts resumed.",
@@ -240,8 +240,11 @@ export class CampaignsController {
 
   @Post(":id/pause")
   @HttpCode(HttpStatus.OK)
-  async pause(@Param("id") id: string) {
-    const campaign = await this.campaignsService.pauseCampaign(id);
+  async pause(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
+    const campaign = await this.campaignsService.pauseCampaign(orgId, id);
     return {
       success: true,
       message: `Campaign ${id} paused.`,
@@ -252,10 +255,11 @@ export class CampaignsController {
   @Post(":id/resume")
   @HttpCode(HttpStatus.OK)
   async resume(
+    @CurrentOrg() orgId: string,
     @Param("id") id: string,
     @Body() fallbackData?: any
   ) {
-    const campaign = await this.campaignsService.resumeCampaign(id, fallbackData);
+    const campaign = await this.campaignsService.resumeCampaign(orgId, id, fallbackData);
     return {
       success: true,
       message: `Campaign ${id} resumed.`,
@@ -265,8 +269,11 @@ export class CampaignsController {
 
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
-  async remove(@Param("id") id: string) {
-    const deleted = await this.campaignsService.deleteCampaign(id);
+  async remove(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
+    const deleted = await this.campaignsService.deleteCampaign(orgId, id);
     return {
       success: true,
       deleted,

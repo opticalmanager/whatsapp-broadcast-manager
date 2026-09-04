@@ -69,6 +69,7 @@ async function compressImageFile(
 
 import React, { useState } from "react";
 import { getBackendUrl } from "@/lib/backend-url";
+import { useAuth } from "@/lib/auth-context";
 import { X, Plus, Sparkles, Image as ImageIcon, FileText, Video, MessageSquare, Loader2 } from "lucide-react";
 import { WhatsAppPreview } from "./WhatsAppPreview";
 import { toast } from "sonner";
@@ -80,6 +81,7 @@ interface TemplateEditorModalProps {
 }
 
 export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEditorModalProps) {
+  const { getAuthHeaders } = useAuth();
   const [title, setTitle] = useState("");
   const [bodyText, setBodyText] = useState("");
   const [mediaType, setMediaType] = useState<"NONE" | "IMAGE" | "DOCUMENT" | "VIDEO">("NONE");
@@ -94,18 +96,19 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
     if (!file) return;
     setUploading(true);
     setCompressStat(null);
-    try {
-      let finalBase64 = "";
-      let filename = file.name;
-      let mimeType = file.type || "image/jpeg";
 
-      if (file.type.startsWith("image/")) {
+    try {
+      const filename = file.name;
+      const mimeType = file.type || "image/jpeg";
+
+      let finalBase64 = "";
+
+      // Compress images before upload to ensure fast uploads & reliable CDN delivery
+      if (file.type.startsWith("image/") && !file.type.includes("svg")) {
+        const compressed = await compressImageFile(file, 1280, 0.82);
+        finalBase64 = compressed.base64;
         setMediaType("IMAGE");
-        const comp = await compressImageFile(file);
-        finalBase64 = comp.base64;
-        mimeType = "image/jpeg";
-        filename = file.name.replace(/\.[^/.]+$/, ".jpg");
-        setCompressStat(`⚡ ${comp.originalKB}KB → ${comp.compressedKB}KB`);
+        setCompressStat(`${compressed.originalKB}KB → ${compressed.compressedKB}KB`);
       } else {
         finalBase64 = await new Promise((res, rej) => {
           const reader = new FileReader();
@@ -124,7 +127,7 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer demo-token",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({ filename, mimeType, base64Data: finalBase64 }),
       });
@@ -169,7 +172,7 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer demo-token",
+          ...getAuthHeaders(),
         },
         body: JSON.stringify({
           title,

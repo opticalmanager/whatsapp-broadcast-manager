@@ -64,7 +64,7 @@ export default function AutoReplyKeyMarkerPage() {
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>("ALL");
   const [settings, setSettings] = useState<AutoReplySettings>({
-    organizationId: "org-demo",
+    organizationId: user?.organizationId || "",
     instanceId: "ALL",
     botEngineEnabled: true,
     minDelaySec: 0.8,

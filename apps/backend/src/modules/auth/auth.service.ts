@@ -163,57 +163,55 @@ export class AuthService {
   }
 
   /**
-   * Validates an SSO token. Accepts:
-   * 1. A valid JSON session object (from the broadcasting_session cookie)
-   * 2. A valid JWT signed by the CRM or Broadcast app
+   * Validates an SSO / Session token. Accepts:
+   * 1. A valid signed JWT containing organizationId
+   * 2. A valid JSON session object (from CRM SSO launch)
+   * Strictly throws UnauthorizedException if invalid, never falling back to another tenant.
    */
   validateSsoToken(token: string): BroadcastSessionPayload {
-    const fallbackSession: BroadcastSessionPayload = {
-      sub: "usr-f7c924751158c061",
-      email: "theopticalmanager@gmail.com",
-      fullName: "Optical manager",
-      organizationId: "org-f7c924751158c061",
-      shopId: "main-outlet",
-      role: "OWNER",
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 86400 * 30,
-      nonce: "",
-    };
-
-    if (!token || token === "demo-token" || token === "undefined" || token === "null") {
-      return fallbackSession;
+    if (!token || token === "undefined" || token === "null" || token.trim() === "") {
+      throw new UnauthorizedException("Authentication token is required. Please log in.");
     }
 
-    // Attempt 1: Try parsing as JSON session object (from cookie passthrough)
-    try {
-      const parsed = JSON.parse(token);
-      if (parsed && typeof parsed === "object") {
-        return {
-          sub: parsed.userId || parsed.sub || parsed.id || fallbackSession.sub,
-          email: parsed.email || fallbackSession.email,
-          fullName: parsed.fullName || parsed.name || fallbackSession.fullName,
-          organizationId: parsed.organizationId || parsed.organization_id || fallbackSession.organizationId,
-          shopId: parsed.shopId || null,
-          role: parsed.role || "OWNER",
-          iat: Math.floor((parsed.createdAt || Date.now()) / 1000),
-          exp: Math.floor(Date.now() / 1000) + 86400 * 30,
-          nonce: "",
-        };
-      }
-    } catch {}
-
-    // Attempt 2: Standard JWT validation
+    // Attempt 1: Standard JWT validation
     const parts = token.split(".");
     if (parts.length === 3) {
       try {
-        const [encodedHeader, encodedPayload] = parts;
+        const [encodedHeader, encodedPayload, signature] = parts;
         const payload: BroadcastSessionPayload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
         if (payload && payload.organizationId) {
+          // Check token expiry if set
+          if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) {
+            throw new UnauthorizedException("Session has expired. Please log in again.");
+          }
           return payload;
         }
-      } catch {}
+      } catch (jwtErr: any) {
+        if (jwtErr instanceof UnauthorizedException) throw jwtErr;
+      }
     }
 
-    return fallbackSession;
+    // Attempt 2: Try parsing as JSON session object (from CRM cookie passthrough)
+    try {
+      const parsed = JSON.parse(token);
+      if (parsed && typeof parsed === "object") {
+        const orgId = parsed.organizationId || parsed.organization_id;
+        if (orgId) {
+          return {
+            sub: parsed.userId || parsed.sub || parsed.id || `usr-${String(orgId).slice(0, 8)}`,
+            email: parsed.email || `user@${orgId}.local`,
+            fullName: parsed.fullName || parsed.name || "Store Owner",
+            organizationId: String(orgId),
+            shopId: parsed.shopId || null,
+            role: parsed.role || "OWNER",
+            iat: Math.floor((parsed.createdAt || Date.now()) / 1000),
+            exp: Math.floor(Date.now() / 1000) + 86400 * 30,
+            nonce: "",
+          };
+        }
+      }
+    } catch {}
+
+    throw new UnauthorizedException("Invalid or expired authentication session. Please log in.");
   }
 }

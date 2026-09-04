@@ -62,24 +62,16 @@ export class CrmIntegrationService implements OnModuleInit, OnModuleDestroy {
    * Fetches real active shops belonging to the given organization ID from CRM DB.
    */
   async getShops(orgId?: string): Promise<Array<{ id: string; name: string; phone?: string; city?: string }>> {
-    if (!this.sql) return [];
+    if (!this.sql || !this.isValidUuid(orgId)) return [];
 
     try {
-      const validOrg = this.isValidUuid(orgId) ? orgId!.trim() : null;
-
-      const rows = validOrg
-        ? await this.sql`
-            SELECT id, name, phone, address 
-            FROM shops 
-            WHERE is_active = true AND organization_id = ${validOrg}::uuid
-            LIMIT 50
-          `
-        : await this.sql`
-            SELECT id, name, phone, address 
-            FROM shops 
-            WHERE is_active = true 
-            LIMIT 50
-          `;
+      const validOrg = orgId!.trim();
+      const rows = await this.sql`
+        SELECT id, name, phone, address 
+        FROM shops 
+        WHERE is_active = true AND organization_id = ${validOrg}::uuid
+        LIMIT 50
+      `;
 
       if (rows && rows.length > 0) {
         return rows.map((r: any) => ({
@@ -100,21 +92,23 @@ export class CrmIntegrationService implements OnModuleInit, OnModuleDestroy {
    * Returns real customer tag counts calculated directly from CRM DB.
    */
   async getCrmTags(orgId?: string): Promise<CrmTagItem[]> {
-    if (!this.sql) return [];
+    if (!this.sql || !this.isValidUuid(orgId)) {
+      return [
+        { name: "VIP", count: 0, color: "blue" },
+        { name: "PROGRESSIVE", count: 0, color: "emerald" },
+        { name: "CONTACT_LENS_USER", count: 0, color: "indigo" },
+        { name: "HIGH_POWER", count: 0, color: "rose" },
+        { name: "DUE_FOR_RETEST", count: 0, color: "amber" },
+      ];
+    }
 
     try {
-      const validOrg = this.isValidUuid(orgId) ? orgId!.trim() : null;
-
-      const totalCust = validOrg
-        ? await this.sql`
-            SELECT COUNT(*)::int as cnt 
-            FROM customers 
-            WHERE organization_id = ${validOrg}::uuid
-          `
-        : await this.sql`
-            SELECT COUNT(*)::int as cnt 
-            FROM customers
-          `;
+      const validOrg = orgId!.trim();
+      const totalCust = await this.sql`
+        SELECT COUNT(*)::int as cnt 
+        FROM customers 
+        WHERE organization_id = ${validOrg}::uuid
+      `;
 
       const count = totalCust[0]?.cnt || 0;
       return [
@@ -144,30 +138,19 @@ export class CrmIntegrationService implements OnModuleInit, OnModuleDestroy {
     orgId: string,
     filter: { tag?: string; city?: string; shopId?: string }
   ): Promise<CrmRecipientRecord[]> {
-    if (!this.sql) return [];
+    if (!this.sql || !this.isValidUuid(orgId)) return [];
 
     try {
       const queryTerm = filter?.tag?.trim();
-      const validOrg = this.isValidUuid(orgId) ? orgId.trim() : null;
+      const validOrg = orgId.trim();
 
-      let rows: any[] = [];
-
-      if (validOrg) {
-        rows = await this.sql`
-          SELECT c.id, c.full_name as name, c.phone, c.city, s.name as shop_name 
-          FROM customers c 
-          LEFT JOIN shops s ON c.shop_id = s.id 
-          WHERE c.organization_id = ${validOrg}::uuid
-          LIMIT 100
-        `;
-      } else {
-        rows = await this.sql`
-          SELECT c.id, c.full_name as name, c.phone, c.city, s.name as shop_name 
-          FROM customers c 
-          LEFT JOIN shops s ON c.shop_id = s.id 
-          LIMIT 100
-        `;
-      }
+      const rows = await this.sql`
+        SELECT c.id, c.full_name as name, c.phone, c.city, s.name as shop_name 
+        FROM customers c 
+        LEFT JOIN shops s ON c.shop_id = s.id 
+        WHERE c.organization_id = ${validOrg}::uuid
+        LIMIT 100
+      `;
 
       if (rows && rows.length > 0) {
         let results = rows.map((r: any) => ({

@@ -7,15 +7,16 @@ import {
   Delete,
   Body,
   Param,
-  Headers,
   UnauthorizedException,
   HttpCode,
   HttpStatus,
   Logger,
+  UseGuards,
 } from "@nestjs/common";
 import { IsString, IsNotEmpty, IsOptional } from "class-validator";
 import { WhatsAppSessionManagerService } from "./whatsapp-session.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 
 export class CreateInstanceDto {
   @IsString()
@@ -59,33 +60,24 @@ export class SendTestMessageDto {
   instanceId?: string;
 }
 
+@UseGuards(TenantAuthGuard)
 @Controller("whatsapp-numbers")
 export class WhatsAppNumbersController {
   private readonly logger = new Logger(WhatsAppNumbersController.name);
 
   constructor(
-    private readonly sessionManager: WhatsAppSessionManagerService,
-    private readonly authService: AuthService
+    private readonly sessionManager: WhatsAppSessionManagerService
   ) {}
 
-  private extractSession(authHeader?: string) {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new UnauthorizedException("Missing authentication token.");
-    }
-    const token = authHeader.replace("Bearer ", "");
-    return this.authService.validateSsoToken(token);
-  }
-
   @Get()
-  async listNumbers(@Headers("authorization") authHeader?: string) {
-    const session = this.extractSession(authHeader);
-    const liveStatus = this.sessionManager.getSessionStatus();
+  async listNumbers(@CurrentOrg() orgId: string) {
+    const liveStatus = this.sessionManager.getSessionStatus(orgId);
 
     return {
       success: true,
       data: {
         numberId: liveStatus.numberId,
-        organizationId: session.organizationId,
+        organizationId: orgId,
         shopId: "shop-main",
         phoneNumber: liveStatus.phoneNumber,
         displayName: liveStatus.displayName || "Optical Store WhatsApp Outlet",
@@ -96,9 +88,8 @@ export class WhatsAppNumbersController {
   }
 
   @Get("instances")
-  async listInstances(@Headers("authorization") authHeader?: string) {
-    const session = this.extractSession(authHeader);
-    const instances = await this.sessionManager.getInstances(session.organizationId);
+  async listInstances(@CurrentOrg() orgId: string) {
+    const instances = await this.sessionManager.getInstances(orgId);
 
     return {
       success: true,
@@ -109,12 +100,11 @@ export class WhatsAppNumbersController {
   @Post("instances")
   @HttpCode(HttpStatus.CREATED)
   async createInstance(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: CreateInstanceDto
   ) {
-    const session = this.extractSession(authHeader);
     const instance = await this.sessionManager.createInstance(
-      session.organizationId,
+      orgId,
       dto.instanceName,
       dto.notes,
       dto.accountMaturityType || "MATURED"
@@ -129,12 +119,11 @@ export class WhatsAppNumbersController {
 
   @Put("instances/:id")
   async updateInstance(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") instanceId: string,
     @Body() dto: UpdateInstanceDto
   ) {
-    const session = this.extractSession(authHeader);
-    const updated = await this.sessionManager.updateInstance(instanceId, session.organizationId, dto);
+    const updated = await this.sessionManager.updateInstance(instanceId, orgId, dto);
 
     return {
       success: updated,
@@ -145,14 +134,13 @@ export class WhatsAppNumbersController {
   @Patch("instances/:id/delay-settings")
   @Put("instances/:id/delay-settings")
   async updateDelaySettings(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") instanceId: string,
     @Body() body: { minDelaySeconds: number; maxDelaySeconds: number }
   ) {
-    const session = this.extractSession(authHeader);
     const result = await this.sessionManager.updateDelaySettings(
       instanceId,
-      session.organizationId,
+      orgId,
       body.minDelaySeconds,
       body.maxDelaySeconds
     );
@@ -166,11 +154,10 @@ export class WhatsAppNumbersController {
 
   @Delete("instances/:id")
   async deleteInstance(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") instanceId: string
   ) {
-    const session = this.extractSession(authHeader);
-    const deleted = await this.sessionManager.deleteInstance(instanceId, session.organizationId);
+    const deleted = await this.sessionManager.deleteInstance(instanceId, orgId);
 
     return {
       success: deleted,
@@ -181,11 +168,10 @@ export class WhatsAppNumbersController {
   @Post("instances/:id/logout")
   @HttpCode(HttpStatus.OK)
   async logoutInstance(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") instanceId: string
   ) {
-    const session = this.extractSession(authHeader);
-    await this.sessionManager.logoutSession(instanceId, session.organizationId, "shop-main");
+    await this.sessionManager.logoutSession(instanceId, orgId, "shop-main");
 
     return {
       success: true,
@@ -195,11 +181,10 @@ export class WhatsAppNumbersController {
 
   @Get("instances/:id/qr")
   async getInstanceQr(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") instanceId: string
   ) {
-    const session = this.extractSession(authHeader);
-    const instances = await this.sessionManager.getInstances(session.organizationId);
+    const instances = await this.sessionManager.getInstances(orgId);
     const inst = instances.find((i) => i.id === instanceId);
     return {
       success: true,
@@ -215,11 +200,16 @@ export class WhatsAppNumbersController {
   @Post("instances/:id/reconnect")
   @HttpCode(HttpStatus.OK)
   async reconnectInstance(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") instanceId: string
   ) {
-    const session = this.extractSession(authHeader);
-    this.sessionManager.initSession(instanceId, session.organizationId, "shop-main", true).catch(() => {});
+    const instances = await this.sessionManager.getInstances(orgId);
+    const inst = instances.find((i) => i.id === instanceId);
+    if (!inst) {
+      throw new UnauthorizedException(`Instance ${instanceId} does not belong to your organization.`);
+    }
+
+    this.sessionManager.initSession(instanceId, orgId, "shop-main", true).catch(() => {});
 
     // Wait up to 6 seconds for QR code to be ready and return it directly
     const qrBase64 = await this.sessionManager.waitForQrCode(instanceId, 6000);
@@ -238,16 +228,15 @@ export class WhatsAppNumbersController {
   @Post("send-test")
   @HttpCode(HttpStatus.OK)
   async sendTestMessage(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: SendTestMessageDto
   ) {
-    const session = this.extractSession(authHeader);
     const result = await this.sessionManager.sendTextMessage(
       dto.instanceId,
       dto.recipientPhoneNumber,
       dto.messageText,
       undefined,
-      session.organizationId
+      orgId
     );
 
     return {

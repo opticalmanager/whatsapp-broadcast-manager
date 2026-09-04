@@ -104,8 +104,8 @@ export class AnalyticsService {
     private readonly db: DatabaseService
   ) {}
 
-  getCampaignRecipients(campaignId: string): RecipientAuditItem[] {
-    const realRecipients = this.campaignsService.getRecipients(campaignId);
+  getCampaignRecipients(orgId: string, campaignId: string): RecipientAuditItem[] {
+    const realRecipients = this.campaignsService.getRecipients(orgId, campaignId);
     if (realRecipients && realRecipients.length > 0) {
       return realRecipients.map((r) => ({
         id: r.id,
@@ -124,7 +124,7 @@ export class AnalyticsService {
 
   async getDashboardMetrics(orgId: string): Promise<DashboardMetrics> {
     const campaigns = this.campaignsService.findAll(orgId);
-    const sessionStatus = this.baileysService.getSessionStatus();
+    const sessionStatus = this.baileysService.getSessionStatus(orgId);
     const instances = await this.baileysService.getInstances(orgId);
 
     let totalMessages = 0;
@@ -213,7 +213,7 @@ export class AnalyticsService {
       const [cRes, uRes, tRes, aRes, wRes, msgRes] = await Promise.all([
         this.db.sql`SELECT COUNT(*)::int as count FROM contacts WHERE organization_id = ${orgId}`,
         this.db.sql`SELECT COUNT(*)::int as count FROM unsubscribers WHERE organization_id = ${orgId}`,
-        this.db.sql`SELECT COUNT(*)::int as count FROM broadcast_templates WHERE organization_id = ${orgId}`,
+        this.db.sql`SELECT COUNT(*)::int as count FROM broadcast_templates WHERE organization_id = ${orgId} OR organization_id = 'system'`,
         this.db.sql`SELECT COUNT(*)::int as count FROM auto_reply_rules WHERE organization_id = ${orgId} AND enabled = true`,
         this.db.sql`SELECT COUNT(*)::int as count FROM welcome_message_logs WHERE organization_id = ${orgId}`,
         this.db.sql`SELECT COUNT(*)::int as count FROM chat_messages WHERE organization_id = ${orgId} AND direction = 'INCOMING'`,

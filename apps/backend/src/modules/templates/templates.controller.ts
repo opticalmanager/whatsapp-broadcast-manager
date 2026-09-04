@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, Headers, HttpCode, HttpStatus, UnauthorizedException } from "@nestjs/common";
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards } from "@nestjs/common";
 import { TemplatesService } from "./templates.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 import { IsNotEmpty, IsString, IsEnum, IsOptional } from "class-validator";
 
 export class CreateTemplateDto {
@@ -40,26 +41,20 @@ export class CreateTemplateDto {
   variables?: Array<{ key: string; description: string; fallback?: string }>;
 }
 
+@UseGuards(TenantAuthGuard)
 @Controller("templates")
 export class TemplatesController {
   constructor(
-    private readonly templatesService: TemplatesService,
-    private readonly authService: AuthService
+    private readonly templatesService: TemplatesService
   ) {}
-
-  private extractSession(authHeader?: string) {
-    const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.replace("Bearer ", "") : "demo-token";
-    return this.authService.validateSsoToken(token);
-  }
 
   @Get()
   async findAll(
-    @Headers("authorization") authHeader?: string,
+    @CurrentOrg() orgId: string,
     @Query("category") category?: string,
     @Query("search") search?: string
   ) {
-    const session = this.extractSession(authHeader);
-    const data = await this.templatesService.findAll(session.organizationId, category, search);
+    const data = await this.templatesService.findAll(orgId, category, search);
     return {
       success: true,
       data,
@@ -68,11 +63,10 @@ export class TemplatesController {
 
   @Get(":id")
   async findOne(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") id: string
   ) {
-    const session = this.extractSession(authHeader);
-    const data = await this.templatesService.findOne(session.organizationId, id);
+    const data = await this.templatesService.findOne(orgId, id);
     return {
       success: true,
       data,
@@ -82,11 +76,10 @@ export class TemplatesController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: CreateTemplateDto
   ) {
-    const session = this.extractSession(authHeader);
-    const template = await this.templatesService.create(session.organizationId, {
+    const template = await this.templatesService.create(orgId, {
       title: dto.title,
       bodyText: dto.bodyText,
       category: dto.category || "GENERAL",
@@ -106,12 +99,11 @@ export class TemplatesController {
 
   @Put(":id")
   async update(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") id: string,
     @Body() dto: Partial<CreateTemplateDto>
   ) {
-    const session = this.extractSession(authHeader);
-    const template = await this.templatesService.update(session.organizationId, id, dto);
+    const template = await this.templatesService.update(orgId, id, dto);
     return {
       success: true,
       message: "Template updated successfully.",
@@ -121,11 +113,10 @@ export class TemplatesController {
 
   @Post(":id/duplicate")
   async duplicate(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") id: string
   ) {
-    const session = this.extractSession(authHeader);
-    const template = await this.templatesService.duplicate(session.organizationId, id);
+    const template = await this.templatesService.duplicate(orgId, id);
     return {
       success: true,
       message: "Template duplicated successfully.",
@@ -136,11 +127,10 @@ export class TemplatesController {
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   async remove(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") id: string
   ) {
-    const session = this.extractSession(authHeader);
-    await this.templatesService.delete(session.organizationId, id);
+    await this.templatesService.delete(orgId, id);
     return {
       success: true,
       message: `Template ${id} removed successfully.`,

@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Body, Headers, HttpCode, HttpStatus, Logger } from "@nestjs/common";
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, Logger, UseGuards } from "@nestjs/common";
 import { CrmIntegrationService } from "./crm-integration.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 import { IsOptional, IsString } from "class-validator";
 
 export class FetchRecipientsFilterDto {
@@ -17,36 +18,19 @@ export class FetchRecipientsFilterDto {
   shopId?: string;
 }
 
+@UseGuards(TenantAuthGuard)
 @Controller("audience")
 export class AudienceController {
   private readonly logger = new Logger(AudienceController.name);
 
   constructor(
-    private readonly crmService: CrmIntegrationService,
-    private readonly authService: AuthService
+    private readonly crmService: CrmIntegrationService
   ) {}
 
-  private extractSession(authHeader?: string): { organizationId: string; role: string } {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      this.logger.warn("No Authorization header provided. Querying without org filter.");
-      return { organizationId: "", role: "OWNER" };
-    }
-    const token = authHeader.replace("Bearer ", "");
-    try {
-      const session = this.authService.validateSsoToken(token);
-      this.logger.log(`Session resolved: orgId=${session.organizationId}, email=${session.email}`);
-      return session;
-    } catch (err: any) {
-      this.logger.warn(`Session validation failed: ${err.message}. Querying without org filter.`);
-      return { organizationId: "", role: "OWNER" };
-    }
-  }
-
   @Get("shops")
-  async getShops(@Headers("authorization") authHeader?: string) {
-    const session = this.extractSession(authHeader);
-    this.logger.log(`GET /shops — orgId="${session.organizationId}"`);
-    const shops = await this.crmService.getShops(session.organizationId);
+  async getShops(@CurrentOrg() orgId: string) {
+    this.logger.log(`GET /shops — orgId="${orgId}"`);
+    const shops = await this.crmService.getShops(orgId);
     this.logger.log(`GET /shops — returned ${shops.length} shops`);
     return {
       success: true,
@@ -55,9 +39,8 @@ export class AudienceController {
   }
 
   @Get("crm-tags")
-  async getCrmTags(@Headers("authorization") authHeader?: string) {
-    const session = this.extractSession(authHeader);
-    const tags = await this.crmService.getCrmTags(session.organizationId);
+  async getCrmTags(@CurrentOrg() orgId: string) {
+    const tags = await this.crmService.getCrmTags(orgId);
     return {
       success: true,
       data: tags,
@@ -67,12 +50,11 @@ export class AudienceController {
   @Post("fetch-crm-recipients")
   @HttpCode(HttpStatus.OK)
   async fetchRecipients(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Body() dto: FetchRecipientsFilterDto
   ) {
-    const session = this.extractSession(authHeader);
-    this.logger.log(`POST /fetch-crm-recipients — orgId="${session.organizationId}", filter=${JSON.stringify(dto)}`);
-    const recipients = await this.crmService.fetchCrmRecipients(session.organizationId, dto);
+    this.logger.log(`POST /fetch-crm-recipients — orgId="${orgId}", filter=${JSON.stringify(dto)}`);
+    const recipients = await this.crmService.fetchCrmRecipients(orgId, dto);
     this.logger.log(`POST /fetch-crm-recipients — returned ${recipients.length} recipients`);
     return {
       success: true,
@@ -81,3 +63,4 @@ export class AudienceController {
     };
   }
 }
+

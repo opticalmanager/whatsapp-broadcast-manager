@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, BadRequestException, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException, OnModuleInit } from "@nestjs/common";
 import { DatabaseService } from "../../database/database.service";
 import * as crypto from "crypto";
 
@@ -47,10 +47,10 @@ export class TemplatesService implements OnModuleInit {
     try { return JSON.parse(v); } catch { return []; }
   }
 
-  // --- SEED DEFAULT HIGH QUALITY TEMPLATES IF DATABASE HAS NO TEMPLATES ---
+  // --- SEED DEFAULT HIGH QUALITY TEMPLATES IF DATABASE HAS NO SYSTEM TEMPLATES ---
   public async seedDefaultsIfEmpty() {
     try {
-      const countRes = await this.db.sql`SELECT COUNT(*)::int as count FROM broadcast_templates`;
+      const countRes = await this.db.sql`SELECT COUNT(*)::int as count FROM broadcast_templates WHERE organization_id = 'system'`;
       const count = countRes[0]?.count || 0;
 
       if (count === 0) {
@@ -140,7 +140,7 @@ export class TemplatesService implements OnModuleInit {
             INSERT INTO broadcast_templates (id, organization_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at)
             VALUES (
               ${id},
-              'org-demo',
+              'system',
               ${t.title},
               ${t.bodyText},
               ${t.category || 'GENERAL'},
@@ -163,27 +163,21 @@ export class TemplatesService implements OnModuleInit {
   }
 
   // --- FIND ALL TEMPLATES ---
-  async findAll(orgId?: string, category?: string, search?: string): Promise<BroadcastTemplateItem[]> {
+  async findAll(orgId: string, category?: string, search?: string): Promise<BroadcastTemplateItem[]> {
+    if (!orgId) {
+      throw new UnauthorizedException("Organization ID is required.");
+    }
+    await this.seedDefaultsIfEmpty();
     let rows: any[] = [];
     try {
       rows = await this.db.sql`
         SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
         FROM broadcast_templates
+        WHERE organization_id = ${orgId} OR organization_id = 'system'
         ORDER BY updated_at DESC
       `;
     } catch (err: any) {
       this.logger.warn(`Error loading templates: ${err.message}`);
-    }
-
-    if (!rows || rows.length === 0) {
-      await this.seedDefaultsIfEmpty();
-      try {
-        rows = await this.db.sql`
-          SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
-          FROM broadcast_templates
-          ORDER BY updated_at DESC
-        `;
-      } catch {}
     }
 
     let results = (rows || []).map((r: any) => ({
@@ -217,10 +211,13 @@ export class TemplatesService implements OnModuleInit {
 
   // --- FIND ONE TEMPLATE ---
   async findOne(orgId: string, id: string): Promise<BroadcastTemplateItem> {
+    if (!orgId) {
+      throw new UnauthorizedException("Organization ID is required.");
+    }
     const rows = await this.db.sql`
       SELECT id, organization_id, shop_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
       FROM broadcast_templates
-      WHERE id = ${id}
+      WHERE id = ${id} AND (organization_id = ${orgId} OR organization_id = 'system')
       LIMIT 1
     `;
     if (!rows || rows.length === 0) {
@@ -247,6 +244,9 @@ export class TemplatesService implements OnModuleInit {
 
   // --- CREATE TEMPLATE ---
   async create(orgId: string, data: CreateTemplateInput): Promise<BroadcastTemplateItem> {
+    if (!orgId) {
+      throw new UnauthorizedException("Organization ID is required.");
+    }
     if (!data.title || !data.title.trim()) {
       throw new BadRequestException("Template title is required.");
     }
@@ -254,7 +254,6 @@ export class TemplatesService implements OnModuleInit {
       throw new BadRequestException("Template message body is required.");
     }
 
-    const effectiveOrg = orgId || "org-demo";
     const id = "tpl_" + Date.now().toString(36) + "_" + crypto.randomBytes(3).toString("hex");
     const category = data.category || "GENERAL";
     const mediaType = data.mediaType || "NONE";
@@ -275,7 +274,7 @@ export class TemplatesService implements OnModuleInit {
         id, organization_id, title, body_text, category, media_type, media_url, button_text, button_url, icon, variables, created_at, updated_at
       ) VALUES (
         ${id},
-        ${effectiveOrg},
+        ${orgId},
         ${data.title.trim()},
         ${data.bodyText.trim()},
         ${category},
@@ -290,13 +289,18 @@ export class TemplatesService implements OnModuleInit {
       )
     `;
 
-    return this.findOne(effectiveOrg, id);
+    return this.findOne(orgId, id);
   }
 
   // --- UPDATE TEMPLATE ---
   async update(orgId: string, id: string, data: Partial<CreateTemplateInput>): Promise<BroadcastTemplateItem> {
-    const effectiveOrg = orgId || "org-demo";
-    await this.findOne(effectiveOrg, id);
+    if (!orgId) {
+      throw new UnauthorizedException("Organization ID is required.");
+    }
+    const existing = await this.findOne(orgId, id);
+    if (existing.organizationId === "system") {
+      throw new BadRequestException("System templates cannot be modified directly. Please duplicate to create a customizable copy.");
+    }
 
     let varsJson = null;
     if (data.bodyText) {
@@ -324,14 +328,17 @@ export class TemplatesService implements OnModuleInit {
         icon = COALESCE(${data.icon || null}, icon),
         variables = COALESCE(${varsJson ? varsJson : null}::jsonb, variables),
         updated_at = NOW()
-      WHERE id = ${id} AND organization_id = ${effectiveOrg}
+      WHERE id = ${id} AND organization_id = ${orgId}
     `;
 
-    return this.findOne(effectiveOrg, id);
+    return this.findOne(orgId, id);
   }
 
   // --- DUPLICATE TEMPLATE ---
   async duplicate(orgId: string, id: string): Promise<BroadcastTemplateItem> {
+    if (!orgId) {
+      throw new UnauthorizedException("Organization ID is required.");
+    }
     const orig = await this.findOne(orgId, id);
     return this.create(orgId, {
       title: orig.title + " (Copy)",
@@ -348,10 +355,16 @@ export class TemplatesService implements OnModuleInit {
 
   // --- DELETE TEMPLATE ---
   async delete(orgId: string, id: string) {
-    const effectiveOrg = orgId || "org-demo";
+    if (!orgId) {
+      throw new UnauthorizedException("Organization ID is required.");
+    }
+    const existing = await this.findOne(orgId, id);
+    if (existing.organizationId === "system") {
+      throw new BadRequestException("System templates cannot be deleted.");
+    }
     await this.db.sql`
       DELETE FROM broadcast_templates
-      WHERE id = ${id} AND organization_id = ${effectiveOrg}
+      WHERE id = ${id} AND organization_id = ${orgId}
     `;
     return { success: true, message: "Template deleted successfully." };
   }

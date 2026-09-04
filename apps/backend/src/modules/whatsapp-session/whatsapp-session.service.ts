@@ -148,6 +148,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
         `;
 
         for (const sess of dbSessions || []) {
+          this.sessionOrgMap.set(sess.id, sess.organization_id);
           const authFolder = sess.auth_dir_key || this.getAuthFolderPath(sess.id, sess.organization_id);
           const credsPath = path.join(authFolder, "creds.json");
 
@@ -293,24 +294,34 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
 
   async getInstances(orgId: string): Promise<InstanceRecord[]> {
+    if (!orgId) {
+      throw new BadRequestException("Organization ID is required.");
+    }
     let rows: any[] = [];
     try {
       rows = await this.db.sql`
         SELECT * FROM whatsapp_sessions 
-        WHERE organization_id = ${orgId || 'org-demo'} 
+        WHERE organization_id = ${orgId} 
         ORDER BY created_at ASC
       `;
     } catch (err: any) {
       this.logger.warn(`Error fetching instances: ${err.message}`);
     }
 
+    if (rows && rows.length > 0) {
+      rows.forEach((r) => {
+        this.sessionOrgMap.set(r.id, r.organization_id);
+      });
+    }
+
     if (!rows || rows.length === 0) {
       // If no instance exists in DB yet, create a default primary instance
-      const defaultId = `inst-${(orgId || "org-demo").slice(0, 8)}`;
+      const defaultId = `inst-${orgId.slice(0, 8)}`;
+      this.sessionOrgMap.set(defaultId, orgId);
       return [{
         id: defaultId,
         instanceName: "Main Marketing Outlet",
-        organizationId: orgId || "org-demo",
+        organizationId: orgId,
         phoneNumber: null,
         displayName: "WhatsApp Outlet",
         status: this.sessionStates.get(defaultId) || (this.lastQrCache.has(defaultId) ? "GENERATING_QR" : "DISCONNECTED"),
@@ -387,9 +398,15 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     notes?: string,
     accountMaturityType: "FRESH" | "MATURED" = "MATURED"
   ): Promise<InstanceRecord> {
+    if (!orgId) {
+      throw new BadRequestException("Organization ID is required.");
+    }
     const instanceId = `inst_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
     const name = instanceName?.trim() || `WhatsApp Sender ${Date.now().toString().slice(-4)}`;
     const authFolder = this.getAuthFolderPath(instanceId, orgId);
+
+    // Register instance ownership immediately
+    this.sessionOrgMap.set(instanceId, orgId);
 
     try {
       await this.db.sql`
@@ -397,7 +414,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
           id, organization_id, instance_name, status, auth_dir_key, notes, min_delay_seconds, max_delay_seconds,
           account_maturity_type, warmup_started_at, daily_sent_count, last_sent_date, created_at, updated_at
         ) VALUES (
-          ${instanceId}, ${orgId || 'org-demo'}, ${name}, 'INITIALIZING', ${authFolder}, ${notes || ''}, 5, 30,
+          ${instanceId}, ${orgId}, ${name}, 'INITIALIZING', ${authFolder}, ${notes || ''}, 5, 30,
           ${accountMaturityType}, NOW(), 0, '', NOW(), NOW()
         )
       `;
@@ -407,14 +424,14 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     }
 
     // Immediately start pairing socket
-    this.initSession(instanceId, orgId || "org-demo", "shop-main", true).catch((err) => {
+    this.initSession(instanceId, orgId, "shop-main", true).catch((err) => {
       this.logger.error(`Failed to initialize instance socket ${instanceId}: ${err.message}`);
     });
 
     return {
       id: instanceId,
       instanceName: name,
-      organizationId: orgId || "org-demo",
+      organizationId: orgId,
       phoneNumber: null,
       displayName: null,
       status: "INITIALIZING",
@@ -543,28 +560,46 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     return active;
   }
 
-  getSessionStatus(numberId?: string): LiveSessionStatus {
-    let resolvedId = numberId || "default";
-
-    // 1. Try exact requested instance ID
-    if (numberId && this.sessionStates.get(numberId) === "CONNECTED") {
-      const socket = this.sessions.get(numberId);
-      if (socket?.user?.id) {
-        const rawNum = socket.user.id.split("@")[0].split(":")[0];
-        const formattedNum = rawNum ? (rawNum.startsWith("+") ? rawNum : `+${rawNum}`) : null;
-        return {
-          numberId,
-          phoneNumber: formattedNum,
-          displayName: socket.user.name || "Shop Main",
-          status: "CONNECTED",
-          connectedAt: this.sessionConnectedTimes.get(numberId) || Date.now(),
-        };
+  getSessionStatus(orgId?: string, numberId?: string): LiveSessionStatus {
+    let effectiveOrg = orgId;
+    let effectiveNumberId = numberId;
+    // Smart backwards-compatibility: if 1st argument is an instanceId, resolve its org
+    if (orgId && !numberId && (orgId.startsWith("inst_") || (!orgId.startsWith("org-") && this.sessionOrgMap.has(orgId)))) {
+      const mappedOrg = this.sessionOrgMap.get(orgId);
+      if (mappedOrg) {
+        effectiveOrg = mappedOrg;
+        effectiveNumberId = orgId;
       }
     }
 
-    // 2. Try any active CONNECTED instance
+    let resolvedId = effectiveNumberId || "default";
+
+    // 1. Try exact requested instance ID (must belong to requesting org if specified)
+    if (effectiveNumberId && this.sessionStates.get(effectiveNumberId) === "CONNECTED") {
+      const instanceOrg = this.sessionOrgMap.get(effectiveNumberId);
+      if (!effectiveOrg || !instanceOrg || instanceOrg === effectiveOrg) {
+        const socket = this.sessions.get(effectiveNumberId);
+        if (socket?.user?.id) {
+          const rawNum = socket.user.id.split("@")[0].split(":")[0];
+          const formattedNum = rawNum ? (rawNum.startsWith("+") ? rawNum : `+${rawNum}`) : null;
+          return {
+            numberId: effectiveNumberId,
+            phoneNumber: formattedNum,
+            displayName: socket.user.name || "Shop Main",
+            status: "CONNECTED",
+            connectedAt: this.sessionConnectedTimes.get(effectiveNumberId) || Date.now(),
+          };
+        }
+      }
+    }
+
+    // 2. Try any active CONNECTED instance strictly belonging to effectiveOrg
     for (const [id, state] of this.sessionStates.entries()) {
       if (state === "CONNECTED") {
+        const instanceOrg = this.sessionOrgMap.get(id);
+        if (effectiveOrg && instanceOrg && instanceOrg !== effectiveOrg) {
+          continue; // STRICT ISOLATION: Never return a socket belonging to another organization!
+        }
         const socket = this.sessions.get(id);
         if (socket?.user?.id) {
           const rawNum = socket.user.id.split("@")[0].split(":")[0];
@@ -580,8 +615,12 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       }
     }
 
-    // 3. Generating QR
+    // 3. Generating QR (strictly for effectiveOrg)
     for (const [id, qr] of this.lastQrCache.entries()) {
+      const instanceOrg = this.sessionOrgMap.get(id);
+      if (effectiveOrg && instanceOrg && instanceOrg !== effectiveOrg) {
+        continue;
+      }
       return {
         numberId: id,
         phoneNumber: null,

@@ -1,26 +1,18 @@
-import { Controller, Get, Param, Headers, UnauthorizedException } from "@nestjs/common";
+import { Controller, Get, Param, UseGuards } from "@nestjs/common";
 import { AnalyticsService } from "./analytics.service";
-import { AuthService } from "../auth/auth.service";
+import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
+import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 
+@UseGuards(TenantAuthGuard)
 @Controller("analytics")
 export class AnalyticsController {
   constructor(
-    private readonly analyticsService: AnalyticsService,
-    private readonly authService: AuthService
+    private readonly analyticsService: AnalyticsService
   ) {}
 
-  private extractSession(authHeader?: string) {
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      throw new UnauthorizedException("Missing authentication token.");
-    }
-    const token = authHeader.replace("Bearer ", "");
-    return this.authService.validateSsoToken(token);
-  }
-
   @Get("dashboard")
-  async getDashboardMetrics(@Headers("authorization") authHeader: string) {
-    const session = this.extractSession(authHeader);
-    const metrics = await this.analyticsService.getDashboardMetrics(session.organizationId);
+  async getDashboardMetrics(@CurrentOrg() orgId: string) {
+    const metrics = await this.analyticsService.getDashboardMetrics(orgId);
     return {
       success: true,
       data: metrics,
@@ -29,11 +21,10 @@ export class AnalyticsController {
 
   @Get("campaigns/:id/recipients")
   getCampaignRecipients(
-    @Headers("authorization") authHeader: string,
+    @CurrentOrg() orgId: string,
     @Param("id") campaignId: string
   ) {
-    this.extractSession(authHeader);
-    const recipients = this.analyticsService.getCampaignRecipients(campaignId);
+    const recipients = this.analyticsService.getCampaignRecipients(orgId, campaignId);
     return {
       success: true,
       totalRecords: recipients.length,
@@ -41,3 +32,4 @@ export class AnalyticsController {
     };
   }
 }
+
