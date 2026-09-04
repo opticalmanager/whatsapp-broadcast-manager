@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
+import { exportToExcel, exportToCsv } from "@/lib/excel-export-utils";
 
 interface UnsubscriberSettings {
   enabled: boolean;
@@ -220,33 +221,53 @@ export default function UnsubscribersPage() {
     }
   };
 
-  // 5. Export CSV
-  const handleExportCsv = () => {
+  // 5. Export Excel (.xlsx) & CSV
+  const handleExportExcel = () => {
     if (unsubscribers.length === 0) {
       toast.error("No unsubscribers to export");
       return;
     }
 
-    const headers = ["Phone", "Name", "Date Unsubscribed", "Trigger Keyword", "Source"];
+    const headers = ["Phone Number", "Contact Name", "Date Unsubscribed", "Trigger Keyword", "Source"];
     const rows = unsubscribers.map((u) => [
-      `+${u.phone}`,
+      u.phone ? `+${u.phone}` : "",
       u.name || "N/A",
       new Date(u.unsubscribedAt).toLocaleString(),
       u.triggerKeyword || "STOP",
       u.source || "AUTO_KEYWORD",
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    exportToExcel({
+      filename: `unsubscribers_${new Date().toISOString().slice(0, 10)}.xlsx`,
+      sheetName: "Unsubscribers",
+      headers,
+      rows,
+      phoneColumnIndices: [0],
+    });
+    toast.success("Unsubscribers list exported to Excel!");
+  };
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `unsubscribers_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportCsv = () => {
+    if (unsubscribers.length === 0) {
+      toast.error("No unsubscribers to export");
+      return;
+    }
+
+    const headers = ["Phone Number", "Contact Name", "Date Unsubscribed", "Trigger Keyword", "Source"];
+    const rows = unsubscribers.map((u) => [
+      u.phone ? `+${u.phone}` : "",
+      u.name || "N/A",
+      new Date(u.unsubscribedAt).toLocaleString(),
+      u.triggerKeyword || "STOP",
+      u.source || "AUTO_KEYWORD",
+    ]);
+
+    exportToCsv({
+      filename: `unsubscribers_${new Date().toISOString().slice(0, 10)}.csv`,
+      headers,
+      rows,
+      phoneColumnIndices: [0],
+    });
     toast.success("Unsubscribers list exported to CSV!");
   };
 
@@ -278,8 +299,17 @@ export default function UnsubscribersPage() {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300/80 dark:border-emerald-800/60 hover:bg-emerald-100/80 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+            title="Export as native Microsoft Excel (.xlsx) format with text phone numbers"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             <span>Export CSV</span>

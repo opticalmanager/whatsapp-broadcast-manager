@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { getBackendUrl } from "@/lib/backend-url";
+import { exportToExcel, exportToCsv } from "@/lib/excel-export-utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -38,10 +39,11 @@ import {
   Crown,
   Eye,
   CornerDownLeft,
+  FileSpreadsheet,
   Smartphone,
   AlertTriangle,
   Building,
-  Navigation
+  Navigation,
 } from "lucide-react";
 import { verifyAndFormatPhone } from "@/lib/phone-utils";
 
@@ -1442,23 +1444,43 @@ function SegmentMembersDrawer({
     fetchMembers();
   }, [fetchMembers]);
 
-  // Export CSV
+  // Export Excel / CSV
+  const handleExportExcel = () => {
+    if (members.length === 0) return;
+    const headers = ["Customer Name", "Phone Number", "City", "Date of Birth", "Tags"];
+    const rows = members.map((m) => [
+      m.name || "Customer",
+      m.phone,
+      m.city || "",
+      m.dob || "",
+      (m.tags || []).join("; ")
+    ]);
+    exportToExcel({
+      filename: `Segment_${segment.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.xlsx`,
+      sheetName: segment.name.slice(0, 31),
+      headers,
+      rows,
+      phoneColIndices: [1],
+    });
+    toast.success("Excel report (.xlsx) exported with clean phone numbers!");
+  };
+
   const handleExportCSV = () => {
     if (members.length === 0) return;
-    const header = "Name,Phone,City,DOB,Tags\n";
-    const rows = members
-      .map(
-        (m) =>
-          `"${m.name || "Customer"}","${m.phone}","${m.city || ""}","${m.dob || ""}","${(m.tags || []).join("; ")}"`
-      )
-      .join("\n");
-    const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Segment_${segment.name.replace(/\s+/g, "_")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const headers = ["Customer Name", "Phone Number", "City", "Date of Birth", "Tags"];
+    const rows = members.map((m) => [
+      m.name || "Customer",
+      m.phone,
+      m.city || "",
+      m.dob || "",
+      (m.tags || []).join("; ")
+    ]);
+    exportToCsv({
+      filename: `Segment_${segment.name.replace(/[^a-zA-Z0-9_-]/g, "_")}.csv`,
+      headers,
+      rows,
+      phoneColIndices: [1],
+    });
     toast.success("CSV exported successfully!");
   };
 
@@ -1483,7 +1505,7 @@ function SegmentMembersDrawer({
             </button>
           </div>
 
-          {/* Search & Export CSV */}
+          {/* Search & Export Buttons */}
           <div className="flex items-center gap-2">
             <div className="relative flex-1">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -1496,12 +1518,21 @@ function SegmentMembersDrawer({
               />
             </div>
             <button
+              onClick={handleExportExcel}
+              disabled={members.length === 0}
+              className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold border border-emerald-600/30 cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-40"
+              title="Download Excel (.xlsx) Spreadsheet"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Export Excel</span>
+            </button>
+            <button
               onClick={handleExportCSV}
               disabled={members.length === 0}
-              className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-40"
+              className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-700 cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-40"
+              title="Download CSV"
             >
-              <Download className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Export CSV</span>
+              <Download className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
