@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, HttpCode, HttpStatus, Headers, UnauthorizedException } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { IsNotEmpty, IsString, IsEmail, MinLength, IsOptional } from "class-validator";
+import { Transform } from "class-transformer";
 
 export class ValidateSsoDto {
   @IsString()
@@ -9,6 +10,7 @@ export class ValidateSsoDto {
 }
 
 export class SignupDto {
+  @Transform(({ value }) => (typeof value === "string" ? value.trim().toLowerCase() : value))
   @IsEmail()
   email: string;
 
@@ -26,6 +28,7 @@ export class SignupDto {
 }
 
 export class LoginDto {
+  @Transform(({ value }) => (typeof value === "string" ? value.trim().toLowerCase() : value))
   @IsEmail()
   email: string;
 

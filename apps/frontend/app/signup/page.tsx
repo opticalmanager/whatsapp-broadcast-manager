@@ -18,10 +18,11 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const router = useRouter();
   const { signup } = useAuth();
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanFullName = fullName.trim();
 
     if (password.length < 6) {
       setError("Password must be at least 6 characters long.");
@@ -33,8 +34,8 @@ export default function SignupPage() {
       return;
     }
 
-    const emailRegex = /^[^s@]+@[^s@]+.[^s@]+$/;
-    if (!emailRegex.test(email)) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
       setError("Please enter a valid email address.");
       return;
     }
@@ -42,7 +43,7 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const result = await signup(email, password, fullName);
+      const result = await signup(cleanEmail, password, cleanFullName || "Store Owner");
 
       if (!result.success) {
         throw new Error(result.error || "Failed to create account. Please try again.");

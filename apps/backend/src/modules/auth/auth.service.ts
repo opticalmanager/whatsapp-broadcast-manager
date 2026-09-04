@@ -71,9 +71,9 @@ export class AuthService {
       throw new BadRequestException("Valid email and password (min 6 chars) are required.");
     }
 
-    // Check if user already exists
+    // Check if user already exists (case-insensitive)
     const existing = await this.db.sql`
-      SELECT id FROM users WHERE email = ${email} LIMIT 1
+      SELECT id FROM users WHERE LOWER(email) = ${email} LIMIT 1
     `;
     if (existing && existing.length > 0) {
       throw new ConflictException("An account with this email already exists. Please log in.");
@@ -123,7 +123,7 @@ export class AuthService {
     const rows = await this.db.sql`
       SELECT id, email, password_hash, full_name, organization_id, shop_id, role
       FROM users
-      WHERE email = ${email}
+      WHERE LOWER(email) = ${email}
       LIMIT 1
     `;
 

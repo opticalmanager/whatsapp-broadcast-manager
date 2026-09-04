@@ -18,11 +18,11 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    const cleanEmail = email.trim().toLowerCase();
     setLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(cleanEmail, password);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to login. Please check your credentials.");
