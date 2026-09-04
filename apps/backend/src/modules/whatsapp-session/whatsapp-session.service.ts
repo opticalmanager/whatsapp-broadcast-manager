@@ -17,6 +17,7 @@ import * as path from "path";
 import * as crypto from "crypto";
 import { BroadcastGateway } from "./whatsapp.gateway";
 import { DatabaseService } from "../../database/database.service";
+import { fetchMediaWithFallback, normalizePublicMediaUrl, detectBufferMimeType } from "../media/media-url.utils";
 
 export interface LiveSessionStatus {
   numberId: string;
@@ -761,6 +762,8 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
             const mimeMatch = header.match(/data:([^;]+)/);
             if (mimeMatch) mimeType = mimeMatch[1].toLowerCase();
             buffer = Buffer.from(data, "base64");
+            const sniffed = detectBufferMimeType(buffer);
+            if (sniffed) mimeType = sniffed.mimeType;
           }
         }
 
@@ -781,68 +784,77 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
             if (fs.existsSync(cp) && fs.statSync(cp).isFile()) {
               buffer = fs.readFileSync(cp);
               rawFileName = path.basename(cp);
-              const ext = path.extname(cp).toLowerCase();
-              if (ext === ".png") mimeType = "image/png";
-              else if (ext === ".webp") mimeType = "image/webp";
-              else if (ext === ".gif") mimeType = "image/gif";
-              else if (ext === ".pdf") mimeType = "application/pdf";
-              else if (ext === ".mp4") mimeType = "video/mp4";
-              else mimeType = "image/jpeg";
+              const sniffed = detectBufferMimeType(buffer);
+              if (sniffed) {
+                mimeType = sniffed.mimeType;
+              } else {
+                const ext = path.extname(cp).toLowerCase();
+                if (ext === ".png") mimeType = "image/png";
+                else if (ext === ".webp") mimeType = "image/webp";
+                else if (ext === ".gif") mimeType = "image/gif";
+                else if (ext === ".pdf") mimeType = "application/pdf";
+                else if (ext === ".mp4") mimeType = "video/mp4";
+                else mimeType = "image/jpeg";
+              }
               this.logger.log(`Loaded media directly from local disk: ${cp} (${buffer.length} bytes)`);
               break;
             }
           }
         }
 
-        // 3. Remote HTTP / HTTPS URL (Pre-fetch buffer to avoid Baileys stream failures)
+        // 3. Remote HTTP / HTTPS URL (Resilient fetch with Google Drive fallback & magic-byte sniffing)
         if (!buffer && (rawMediaUrl.startsWith("http://") || rawMediaUrl.startsWith("https://"))) {
           this.logger.log(`Downloading media buffer from URL: ${rawMediaUrl}...`);
-          const res = await fetch(rawMediaUrl, { signal: AbortSignal.timeout(15000) });
-          if (!res.ok) {
-            throw new Error(`Failed to fetch media from URL (${res.status} ${res.statusText}): ${rawMediaUrl}`);
-          }
-          const ct = res.headers.get("content-type");
-          if (ct) mimeType = ct.toLowerCase();
-          const arrBuf = await res.arrayBuffer();
-          buffer = Buffer.from(arrBuf);
-          try {
-            const urlPath = new URL(rawMediaUrl).pathname;
-            const bName = path.basename(urlPath);
-            if (bName && bName.includes(".")) rawFileName = decodeURIComponent(bName);
-          } catch {}
+          const msgTypeLower = (opts.messageType || "").toLowerCase();
+          const preferredType = msgTypeLower.includes("video")
+            ? "VIDEO"
+            : msgTypeLower.includes("pdf") || msgTypeLower.includes("document")
+            ? "DOCUMENT"
+            : "AUTO";
+
+          const fetched = await fetchMediaWithFallback(rawMediaUrl, preferredType, 25000);
+          buffer = fetched.buffer;
+          mimeType = fetched.mimeType;
+          rawFileName = fetched.fileName;
+          isImage = fetched.isImage;
+          isVideo = fetched.isVideo;
+          isAudio = fetched.isAudio;
+          isPdf = fetched.isPdf;
         }
 
         if (!buffer || buffer.length === 0) {
           throw new Error(`Could not load media from provided source: ${rawMediaUrl.slice(0, 100)}`);
         }
 
-        // Classify Media
-        const msgTypeLower = (opts.messageType || "").toLowerCase();
-        const urlLower = rawMediaUrl.toLowerCase();
-        if (mimeType.startsWith("video/") || msgTypeLower.includes("video") || /\.(mp4|3gp|mov|avi|mkv|webm)/i.test(urlLower)) {
-          isVideo = true;
-          isImage = false;
-        } else if (mimeType.startsWith("audio/") || msgTypeLower.includes("audio") || /\.(mp3|ogg|wav|m4a|aac)/i.test(urlLower)) {
-          isAudio = true;
-          isImage = false;
-        } else if (mimeType.includes("pdf") || msgTypeLower.includes("pdf") || msgTypeLower.includes("document") || /\.pdf/i.test(urlLower)) {
-          isPdf = true;
-          isImage = false;
-        } else {
-          isImage = true;
+        // Classify Media if not already classified by fetchMediaWithFallback
+        if (!isVideo && !isAudio && !isPdf && isImage) {
+          const msgTypeLower = (opts.messageType || "").toLowerCase();
+          const urlLower = rawMediaUrl.toLowerCase();
+          if (mimeType.startsWith("video/") || msgTypeLower.includes("video") || /\.(mp4|3gp|mov|avi|mkv|webm)/i.test(urlLower)) {
+            isVideo = true;
+            isImage = false;
+          } else if (mimeType.startsWith("audio/") || msgTypeLower.includes("audio") || /\.(mp3|ogg|wav|m4a|aac)/i.test(urlLower)) {
+            isAudio = true;
+            isImage = false;
+          } else if (mimeType.includes("pdf") || msgTypeLower.includes("pdf") || msgTypeLower.includes("document") || /\.pdf/i.test(urlLower)) {
+            isPdf = true;
+            isImage = false;
+          } else {
+            isImage = true;
+          }
         }
 
         if (isImage) {
-          this.logger.log(`Dispatching Baileys image buffer (${buffer.length} bytes) to ${targetJid}`);
+          this.logger.log(`Dispatching Baileys image buffer (${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
           return await socket.sendMessage(targetJid, { image: buffer, caption: captionText, mimetype: mimeType });
         } else if (isVideo) {
-          this.logger.log(`Dispatching Baileys video buffer (${buffer.length} bytes) to ${targetJid}`);
+          this.logger.log(`Dispatching Baileys video buffer (${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
           return await socket.sendMessage(targetJid, { video: buffer, caption: captionText, mimetype: mimeType });
         } else if (isAudio) {
-          this.logger.log(`Dispatching Baileys audio buffer (${buffer.length} bytes) to ${targetJid}`);
+          this.logger.log(`Dispatching Baileys audio buffer (${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
           return await socket.sendMessage(targetJid, { audio: buffer, mimetype: mimeType || "audio/mp4" });
         } else {
-          this.logger.log(`Dispatching Baileys document buffer (${rawFileName}, ${buffer.length} bytes) to ${targetJid}`);
+          this.logger.log(`Dispatching Baileys document buffer (${rawFileName}, ${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
           return await socket.sendMessage(targetJid, {
             document: buffer,
             mimetype: mimeType || "application/pdf",

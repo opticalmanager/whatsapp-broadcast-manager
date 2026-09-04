@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, UnauthorizedException, OnModuleInit } from "@nestjs/common";
 import { DatabaseService } from "../../database/database.service";
+import { normalizePublicMediaUrl } from "../media/media-url.utils";
 import * as crypto from "crypto";
 
 export interface BroadcastTemplateItem {
@@ -188,7 +189,7 @@ export class TemplatesService implements OnModuleInit {
       bodyText: r.body_text,
       category: (r.category || "GENERAL") as any,
       mediaType: (r.media_type || "NONE") as any,
-      mediaUrl: r.media_url || undefined,
+      mediaUrl: r.media_url ? normalizePublicMediaUrl(r.media_url, r.media_type === "DOCUMENT" ? "DOCUMENT" : "IMAGE") : undefined,
       buttonText: r.button_text || undefined,
       buttonUrl: r.button_url || undefined,
       icon: r.icon || "MessageSquare",
@@ -232,7 +233,7 @@ export class TemplatesService implements OnModuleInit {
       bodyText: r.body_text,
       category: (r.category || "GENERAL") as any,
       mediaType: (r.media_type || "NONE") as any,
-      mediaUrl: r.media_url || undefined,
+      mediaUrl: r.media_url ? normalizePublicMediaUrl(r.media_url, r.media_type === "DOCUMENT" ? "DOCUMENT" : "IMAGE") : undefined,
       buttonText: r.button_text || undefined,
       buttonUrl: r.button_url || undefined,
       icon: r.icon || "MessageSquare",
@@ -279,7 +280,7 @@ export class TemplatesService implements OnModuleInit {
         ${data.bodyText.trim()},
         ${category},
         ${mediaType},
-        ${data.mediaUrl || null},
+        ${data.mediaUrl ? normalizePublicMediaUrl(data.mediaUrl, mediaType) : null},
         ${data.buttonText?.trim() || null},
         ${data.buttonUrl?.trim() || null},
         ${icon},
@@ -315,6 +316,10 @@ export class TemplatesService implements OnModuleInit {
       }
     }
 
+    const normalizedUpdateMediaUrl = data.mediaUrl
+      ? normalizePublicMediaUrl(data.mediaUrl, (data.mediaType || existing.mediaType) as any)
+      : null;
+
     await this.db.sql`
       UPDATE broadcast_templates
       SET
@@ -322,7 +327,7 @@ export class TemplatesService implements OnModuleInit {
         body_text = COALESCE(${data.bodyText?.trim() || null}, body_text),
         category = COALESCE(${data.category || null}, category),
         media_type = COALESCE(${data.mediaType || null}, media_type),
-        media_url = COALESCE(${data.mediaUrl || null}, media_url),
+        media_url = COALESCE(${normalizedUpdateMediaUrl}, media_url),
         button_text = COALESCE(${data.buttonText?.trim() || null}, button_text),
         button_url = COALESCE(${data.buttonUrl?.trim() || null}, button_url),
         icon = COALESCE(${data.icon || null}, icon),

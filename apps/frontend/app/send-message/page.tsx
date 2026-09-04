@@ -50,6 +50,13 @@ import {
 import * as XLSX from "xlsx";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
+import { 
+  normalizePublicMediaUrl, 
+  isLikelyImageUrl, 
+  isLikelyVideoUrl, 
+  isLikelyDocumentUrl, 
+  detectMediaTypeFromUrl 
+} from "@/lib/media-url-utils";
 
 interface WhatsAppInstance {
   id: string;
@@ -1121,7 +1128,10 @@ function CampaignsStudioInner() {
       const payload: any = {
         name: campaignName.trim(),
         messageText,
-        mediaUrl: publicMediaUrl.trim() || (attachedFiles[0]?.url ? attachedFiles[0].url : undefined) || (templateMediaUrl.trim() ? templateMediaUrl : undefined),
+        mediaUrl: normalizePublicMediaUrl(
+          publicMediaUrl.trim() || (attachedFiles[0]?.url ? attachedFiles[0].url : undefined) || (templateMediaUrl.trim() ? templateMediaUrl : undefined),
+          mediaFormat === "DOCUMENT" ? "DOCUMENT" : "IMAGE"
+        ) || undefined,
         sendFromInstances: selectedInstanceIds.length > 0 ? selectedInstanceIds : undefined,
         recipients: finalRecipients,
         targetAudienceType: recipientTab,
@@ -1663,8 +1673,19 @@ function CampaignsStudioInner() {
                   <input
                     type="text"
                     value={publicMediaUrl}
-                    onChange={(e) => setPublicMediaUrl(e.target.value)}
-                    placeholder="Or paste public Image / PDF / Video URL"
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const normalized = normalizePublicMediaUrl(val, mediaFormat === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
+                      setPublicMediaUrl(normalized);
+                      if (val.trim() && (mediaFormat === "NONE" || messageType === "Text")) {
+                        const detected = detectMediaTypeFromUrl(normalized);
+                        if (detected !== "NONE") {
+                          setMediaFormat(detected);
+                          setMessageType("Text With Media");
+                        }
+                      }
+                    }}
+                    placeholder="Or paste public Image / PDF / Video URL (Google Drive, Dropbox, direct link...)"
                     className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono"
                   />
                 </div>
@@ -1894,7 +1915,8 @@ function CampaignsStudioInner() {
           {/* 1. Live WhatsApp Message Preview Bubble (Real-Time Media + Text) */}
           <div className="p-4 bg-[#efeae2] dark:bg-[#0b141a] border border-slate-300/80 dark:border-emerald-950 rounded-2xl shadow-inner min-h-[160px] flex flex-col justify-center select-none">
             {(() => {
-              const mediaPreview = publicMediaUrl.trim() || attachedFiles[0]?.url || templateMediaUrl;
+              const rawMedia = publicMediaUrl.trim() || attachedFiles[0]?.url || templateMediaUrl;
+              const mediaPreview = normalizePublicMediaUrl(rawMedia, mediaFormat === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
               const hasText = Boolean(previewResolvedText && previewResolvedText.trim().length > 0);
               const hasMedia = Boolean(mediaPreview);
               const hasPoll = Boolean(isPollMode && pollQuestion);
@@ -1910,24 +1932,17 @@ function CampaignsStudioInner() {
               const isImage = 
                 mediaFormat === "IMAGE" ||
                 (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.startsWith("image/")) ||
-                (mediaPreview && (
-                  mediaPreview.startsWith("data:image") ||
-                  mediaPreview.includes("blob:") ||
-                  /\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaPreview) ||
-                  mediaPreview.includes("unsplash.com") ||
-                  mediaPreview.includes("r2.dev") ||
-                  mediaPreview.includes("/uploads/")
-                ));
+                isLikelyImageUrl(mediaPreview);
 
               const isVideo = 
                 mediaFormat === "VIDEO" ||
                 (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.startsWith("video/")) ||
-                (mediaPreview && /\.(mp4|mov|webm)(\?|$)/i.test(mediaPreview));
+                isLikelyVideoUrl(mediaPreview);
 
               const isDoc = 
                 mediaFormat === "DOCUMENT" ||
                 (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.includes("pdf")) ||
-                (mediaPreview && /\.pdf(\?|$)/i.test(mediaPreview));
+                isLikelyDocumentUrl(mediaPreview);
 
               // If user selected "As a separate message" with an attached image
               if (textWithMediaMode === "separate" && hasMedia && hasText) {
@@ -1941,6 +1956,7 @@ function CampaignsStudioInner() {
                             src={mediaPreview}
                             alt="Message Media"
                             className="w-full h-auto object-cover max-h-56 rounded-lg"
+                            referrerPolicy="no-referrer"
                           />
                         </div>
                       ) : isDoc ? (
@@ -1988,6 +2004,7 @@ function CampaignsStudioInner() {
                             src={mediaPreview}
                             alt="Message Banner"
                             className="w-full h-auto object-cover max-h-56 rounded-lg"
+                            referrerPolicy="no-referrer"
                           />
                         </div>
                       ) : isDoc ? (

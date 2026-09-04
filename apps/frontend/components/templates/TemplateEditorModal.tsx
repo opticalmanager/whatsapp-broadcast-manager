@@ -73,6 +73,7 @@ import { useAuth } from "@/lib/auth-context";
 import { X, Plus, Sparkles, Image as ImageIcon, FileText, Video, MessageSquare, Loader2 } from "lucide-react";
 import { WhatsAppPreview } from "./WhatsAppPreview";
 import { toast } from "sonner";
+import { normalizePublicMediaUrl, detectMediaTypeFromUrl } from "@/lib/media-url-utils";
 
 interface TemplateEditorModalProps {
   isOpen: boolean;
@@ -297,9 +298,17 @@ export function TemplateEditorModal({ isOpen, onClose, onSuccess }: TemplateEdit
 
                   <input
                     type="text"
-                    placeholder="Or paste public URL (https://...)"
+                    placeholder="Or paste public URL (Google Drive, Dropbox, direct link...)"
                     value={mediaUrl}
-                    onChange={(e) => setMediaUrl(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const normalized = normalizePublicMediaUrl(val, mediaType === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
+                      setMediaUrl(normalized);
+                      if (val.trim()) {
+                        const detected = detectMediaTypeFromUrl(normalized);
+                        if (detected !== "NONE" && detected !== mediaType) setMediaType(detected);
+                      }
+                    }}
                     className="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors font-mono"
                   />
                 </div>

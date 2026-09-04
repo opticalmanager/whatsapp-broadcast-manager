@@ -2,6 +2,7 @@
 
 import React from "react";
 import { CheckCheck, FileText, Image as ImageIcon, Video, Glasses } from "lucide-react";
+import { normalizePublicMediaUrl, isLikelyImageUrl } from "@/lib/media-url-utils";
 
 interface WhatsAppPreviewProps {
   bodyText: string;
@@ -16,6 +17,9 @@ export function WhatsAppPreview({
   mediaUrl,
   shopName = "OpticalManager Store",
 }: WhatsAppPreviewProps) {
+  const displayUrl = normalizePublicMediaUrl(mediaUrl, mediaType === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
+  const isImg = mediaType === "IMAGE" || isLikelyImageUrl(displayUrl);
+
   // Replace template variables {{variable}} with sample values for live preview
   const formattedText = (bodyText || "Your template body message preview will appear here...")
     .replace(/\{\{customer_name\}\}/gi, "Rahul Mehta")
@@ -43,11 +47,16 @@ export function WhatsAppPreview({
         {/* WhatsApp Chat Message Bubble */}
         <div className="bg-[#0b141a] p-3 rounded-xl space-y-2 border border-slate-800/60 shadow-inner">
           {/* Media Header Preview */}
-          {(mediaType === "IMAGE" || (mediaUrl && (mediaUrl.startsWith("data:image") || mediaUrl.includes("blob:") || /\.(jpg|jpeg|png|webp|gif)/i.test(mediaUrl)))) && (
+          {isImg && (
             <div className="rounded-lg overflow-hidden border border-slate-700/50 bg-slate-800 max-h-48 relative flex items-center justify-center shadow-xs">
-              {mediaUrl ? (
+              {displayUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={mediaUrl} alt="Template Flyer Header" className="w-full h-auto object-cover max-h-48" />
+                <img
+                  src={displayUrl}
+                  alt="Template Flyer Header"
+                  className="w-full h-auto object-cover max-h-48"
+                  referrerPolicy="no-referrer"
+                />
               ) : (
                 <div className="p-4 flex items-center gap-1.5 text-slate-400 text-xs font-semibold">
                   <ImageIcon className="w-4 h-4 text-emerald-400" />

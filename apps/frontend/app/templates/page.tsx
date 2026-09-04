@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { getBackendUrl } from "@/lib/backend-url";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { normalizePublicMediaUrl, isLikelyImageUrl, detectMediaTypeFromUrl } from "@/lib/media-url-utils";
 import {
   FileText,
   Plus,
@@ -442,13 +443,13 @@ export default function WhatsAppTemplatesPage() {
                     </div>
 
                     {/* Image Preview Thumbnail if media exists */}
-                    {tmpl.mediaType === "IMAGE" && tmpl.mediaUrl && (
+                    {(tmpl.mediaType === "IMAGE" || isLikelyImageUrl(tmpl.mediaUrl)) && tmpl.mediaUrl && (
                       <div className="h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={tmpl.mediaUrl}
+                          src={normalizePublicMediaUrl(tmpl.mediaUrl)}
                           alt={tmpl.title}
-                          crossOrigin="anonymous"
+                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
                         />
                       </div>
@@ -717,14 +718,11 @@ function TemplateEditorModal({
 
   // Handle URL change & auto-detect media type
   const handleUrlChange = (val: string) => {
-    setMediaUrl(val);
-    const clean = val.trim().toLowerCase();
-    if (clean.match(/\.(png|jpg|jpeg|webp|gif)(\?.*)?$/i) || clean.includes("awsstatic.com") || clean.includes("unsplash.com") || clean.includes("r2.dev")) {
-      if (mediaType === "NONE") setMediaType("IMAGE");
-    } else if (clean.endsWith(".pdf")) {
-      if (mediaType === "NONE") setMediaType("DOCUMENT");
-    } else if (clean.endsWith(".mp4")) {
-      if (mediaType === "NONE") setMediaType("VIDEO");
+    const normalized = normalizePublicMediaUrl(val, mediaType === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
+    setMediaUrl(normalized);
+    if (val.trim() && mediaType === "NONE") {
+      const detected = detectMediaTypeFromUrl(normalized);
+      if (detected !== "NONE") setMediaType(detected);
     }
   };
 
@@ -1104,13 +1102,14 @@ function TemplateEditorModal({
                       </div>
 
                       {/* Instant URL Thumbnail Confirmation */}
-                      {mediaUrl && mediaType === "IMAGE" && (
+                      {mediaUrl && (mediaType === "IMAGE" || isLikelyImageUrl(mediaUrl)) && (
                         <div className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
                           <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={mediaUrl}
+                              src={normalizePublicMediaUrl(mediaUrl)}
                               alt="URL Preview"
+                              referrerPolicy="no-referrer"
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 (e.target as HTMLElement).style.display = "none";
@@ -1462,13 +1461,14 @@ function WhatsAppTemplateLivePreview({
           <div className="bg-[#d9fdd3] text-[#111b21] rounded-xl rounded-tr-none p-2.5 space-y-1.5 max-w-[95%] ml-auto border border-emerald-200/60 shadow-xs">
             
             {/* Media Preview */}
-            {mediaType === "IMAGE" && (
+            {(mediaType === "IMAGE" || isLikelyImageUrl(mediaUrl)) && (
               <div className="rounded-lg overflow-hidden bg-slate-100 border border-slate-300 max-h-36 shadow-2xs">
                 {mediaUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={mediaUrl}
+                    src={normalizePublicMediaUrl(mediaUrl)}
                     alt="Template Media"
+                    referrerPolicy="no-referrer"
                     className="w-full h-auto object-cover max-h-36"
                     onError={(e) => {
                       (e.target as HTMLElement).style.opacity = "0.8";

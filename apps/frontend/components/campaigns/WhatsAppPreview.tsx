@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Smartphone, Image as ImageIcon, FileText } from "lucide-react";
+import { normalizePublicMediaUrl, isLikelyImageUrl } from "@/lib/media-url-utils";
 
 interface WhatsAppPreviewProps {
   messageText: string;
@@ -16,6 +17,9 @@ export function WhatsAppPreview({
   mediaType = "NONE",
   customerName = "Rahul Sharma",
 }: WhatsAppPreviewProps) {
+  const displayUrl = normalizePublicMediaUrl(mediaUrl, mediaType === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
+  const isImg = mediaType === "IMAGE" || isLikelyImageUrl(displayUrl);
+
   const formattedText = (messageText || "Type your marketing message on the left to see live preview...")
     .replace(/\{\{\s*customer_name\s*\}\}/g, customerName)
     .replace(/\{\{\s*city\s*\}\}/g, "Narsapur")
@@ -48,11 +52,16 @@ export function WhatsAppPreview({
           <div className="bg-[#202c33] text-slate-100 rounded-xl rounded-tr-none p-2.5 space-y-1.5 max-w-[92%] ml-auto border border-slate-700/40 shadow-sm">
             
             {/* Media Attachment Preview */}
-            {mediaType === "IMAGE" && (
+            {isImg && (
               <div className="rounded-lg overflow-hidden bg-slate-800 border border-slate-700 max-h-36">
-                {mediaUrl ? (
+                {displayUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={mediaUrl} alt="Campaign Media" className="w-full h-auto object-cover" />
+                  <img
+                    src={displayUrl}
+                    alt="Campaign Media"
+                    className="w-full h-auto object-cover"
+                    referrerPolicy="no-referrer"
+                  />
                 ) : (
                   <div className="p-4 text-center text-slate-400 space-y-1">
                     <ImageIcon className="w-6 h-6 mx-auto text-emerald-400" />

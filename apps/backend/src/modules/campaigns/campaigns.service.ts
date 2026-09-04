@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } 
 import { WhatsAppSessionManagerService, IncomingResponseEvent } from "../whatsapp-session/whatsapp-session.service";
 import { DatabaseService } from "../../database/database.service";
 import { SettingsService } from "../settings/settings.service";
+import { normalizePublicMediaUrl } from "../media/media-url.utils";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -1171,7 +1172,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       failedCount: 0,
       recipients: recipientsList,
       messageText: payload.messageText,
-      mediaUrl: payload.mediaUrl,
+      mediaUrl: payload.mediaUrl ? normalizePublicMediaUrl(payload.mediaUrl) : undefined,
       createdAt: new Date(),
       warmupRamp: payload.warmupRamp ?? false,
       batchSize: payload.batchSize ?? 0,
@@ -1225,7 +1226,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (!isScheduled && recipientsList.length > 0) {
-      this.startLiveBaileysDispatch(newCampaign, payload.messageText, payload.mediaUrl).catch((err) => {
+      this.startLiveBaileysDispatch(newCampaign, payload.messageText, newCampaign.mediaUrl).catch((err) => {
         this.logger.error(`Critical error in dispatch loop for ${newCampaign.id}: ${err.message}`, err.stack);
       });
     }

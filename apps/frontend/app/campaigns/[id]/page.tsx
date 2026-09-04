@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { getBackendUrl } from "@/lib/backend-url";
+import { normalizePublicMediaUrl } from "@/lib/media-url-utils";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { 
@@ -693,7 +694,13 @@ export default function CampaignReportFullPage() {
             <div className="bg-[#f0f2f5] dark:bg-[#1a233a] rounded-xl p-3 space-y-2 border border-slate-200/60 dark:border-slate-700/60 text-slate-900 dark:text-white">
               {data.campaign.mediaUrl && (
                 <div className="rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-200 dark:bg-slate-800 aspect-video flex items-center justify-center text-xs text-slate-400">
-                  <img src={data.campaign.mediaUrl} alt="Campaign Media" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = "none")} />
+                  <img
+                    src={normalizePublicMediaUrl(data.campaign.mediaUrl)}
+                    alt="Campaign Media"
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover"
+                    onError={(e) => (e.currentTarget.style.display = "none")}
+                  />
                 </div>
               )}
 
