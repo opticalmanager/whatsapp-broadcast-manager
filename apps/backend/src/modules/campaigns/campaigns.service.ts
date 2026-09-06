@@ -1291,6 +1291,12 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
       this.logger.log(`[Load Balancer] Distributing campaign ${campaign.id} across ${activePool.length} active instance(s): ${activePool.join(", ")}`);
 
+      // Pre-warm media buffer in memory so all recipients reuse the downloaded buffer instantly
+      const effectiveMediaUrl = mediaUrl || campaign.mediaUrl;
+      if (effectiveMediaUrl) {
+        await this.baileysService.prewarmMediaBuffer(effectiveMediaUrl);
+      }
+
       // Load master broadcast settings and unsubscriber rules for this organization
       const globalSettings = await this.settingsService.getSettings(campaign.organizationId);
       const unsubSettings = await this.unsubscribersService.getSettings(campaign.organizationId);

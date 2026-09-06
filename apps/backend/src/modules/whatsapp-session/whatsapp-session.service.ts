@@ -77,6 +77,53 @@ export interface TrackedPoll {
   createdAt: Date;
 }
 
+/**
+ * Universal In-Memory Cache Store conforming to Baileys CacheStore contract.
+ * Automatically evicts stale keys and provides high-speed TTL management for retry counters and media handles.
+ */
+export interface BaileysCacheStore {
+  get<T>(key: string): T | undefined;
+  set<T>(key: string, value: T): void;
+  del(key: string): void;
+  flushAll(): void;
+}
+
+export class MemoryCacheStore implements BaileysCacheStore {
+  private store = new Map<string, { val: any; expiresAt?: number }>();
+  private defaultTtlMs: number;
+
+  constructor(defaultTtlSeconds = 86400) {
+    this.defaultTtlMs = defaultTtlSeconds * 1000;
+  }
+
+  get<T>(key: string): T | undefined {
+    const item = this.store.get(key);
+    if (!item) return undefined;
+    if (item.expiresAt && Date.now() > item.expiresAt) {
+      this.store.delete(key);
+      return undefined;
+    }
+    return item.val as T;
+  }
+
+  set<T>(key: string, value: T, ttlSeconds?: number): void {
+    const ttl = ttlSeconds !== undefined ? ttlSeconds * 1000 : this.defaultTtlMs;
+    if (this.store.size > 10000) {
+      const oldest = this.store.keys().next().value;
+      if (oldest) this.store.delete(oldest);
+    }
+    this.store.set(key, { val: value, expiresAt: ttl > 0 ? Date.now() + ttl : undefined });
+  }
+
+  del(key: string): void {
+    this.store.delete(key);
+  }
+
+  flushAll(): void {
+    this.store.clear();
+  }
+}
+
 @Injectable()
 export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(WhatsAppSessionManagerService.name);
@@ -97,6 +144,106 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   public lidToPhoneMap: Map<string, string> = new Map();
   public phoneToPushNameMap: Map<string, string> = new Map();
   public processedIncomingMsgIds: Set<string> = new Set();
+
+  // 1. E2EE Cache Stores for retry counters, media handles, user devices, and placeholder resends
+  public readonly msgRetryCounterCache = new MemoryCacheStore(86400);
+  public readonly mediaCache = new MemoryCacheStore(86400);
+  public readonly userDevicesCache = new MemoryCacheStore(86400);
+  public readonly placeholderResendCache = new MemoryCacheStore(86400);
+
+  // 2. High-speed In-Memory message store for Signal protocol decryption retries
+  // Solves "Waiting for this message. This may take a while" permanently
+  public readonly recentMessagesMap: Map<string, proto.IMessage> = new Map();
+
+  // 3. Campaign & public media buffer cache (prevents redundant downloads across recipients)
+  public readonly mediaBufferCache: Map<string, { fetched: any; timestamp: number }> = new Map();
+
+  /**
+   * Tracks sent or received WhatsApp messages in memory so that Baileys can re-encrypt and resend them
+   * when recipient devices issue decryption retry receipts, completely solving "Waiting for this message".
+   */
+  public trackSentMessage(msgInfo: any) {
+    if (!msgInfo) return;
+    const msgId = msgInfo.key?.id;
+    const remoteJid = msgInfo.key?.remoteJid;
+    const message = msgInfo.message;
+    if (msgId && message) {
+      this.recentMessagesMap.set(msgId, message);
+      if (remoteJid) {
+        this.recentMessagesMap.set(`${remoteJid}:${msgId}`, message);
+      }
+      if (this.recentMessagesMap.size > 15000) {
+        const oldest = this.recentMessagesMap.keys().next().value;
+        if (oldest) this.recentMessagesMap.delete(oldest);
+      }
+    }
+  }
+
+  /**
+   * Mandatory getMessage handler for makeWASocket.
+   * Resolves original proto.IMessage for decryption retry receipts sent by WhatsApp client devices.
+   */
+  public async getMessage(key: proto.IMessageKey): Promise<proto.IMessage | undefined> {
+    const msgId = key.id;
+    if (!msgId) return undefined;
+
+    // A. Check in-memory message store
+    let msg = this.recentMessagesMap.get(msgId);
+    if (!msg && key.remoteJid) {
+      msg = this.recentMessagesMap.get(`${key.remoteJid}:${msgId}`);
+    }
+    if (msg) {
+      this.logger.log(`[getMessage] Resolved message for retry request from memory cache (msgId=${msgId}, recipient=${key.remoteJid || 'peer'})`);
+      return msg;
+    }
+
+    // B. Database Fallback: chat_messages table
+    try {
+      const rows = await this.db.sql`
+        SELECT content, message_type FROM chat_messages 
+        WHERE message_id = ${msgId} OR id = ${msgId} 
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0 && rows[0].content) {
+        this.logger.log(`[getMessage] Resolved message for retry from database chat_messages (msgId=${msgId})`);
+        return { conversation: rows[0].content };
+      }
+
+      // Check campaign recipients
+      const campRows = await this.db.sql`
+        SELECT c.message_text, c.media_url, cr.name
+        FROM campaign_recipients cr
+        JOIN campaigns c ON c.id = cr.campaign_id
+        WHERE cr.message_id = ${msgId}
+        LIMIT 1
+      `;
+      if (campRows && campRows.length > 0 && campRows[0].message_text) {
+        this.logger.log(`[getMessage] Resolved message for retry from database campaigns (msgId=${msgId})`);
+        return { conversation: campRows[0].message_text };
+      }
+    } catch (err: any) {
+      this.logger.warn(`[getMessage] DB lookup error for msgId=${msgId}: ${err.message}`);
+    }
+
+    return proto.Message.fromObject({});
+  }
+
+  /**
+   * Pre-fetches and caches media buffer into memory before running bulk dispatch loops.
+   * Eliminates repetitive network requests to Google Drive or remote hosts for each recipient.
+   */
+  public async prewarmMediaBuffer(rawUrl?: string, preferredType = "AUTO"): Promise<void> {
+    if (!rawUrl || !rawUrl.startsWith("http")) return;
+    try {
+      const cached = this.mediaBufferCache.get(rawUrl);
+      if (cached && Date.now() - cached.timestamp < 1800000) return;
+      const fetched = await fetchMediaWithFallback(rawUrl, preferredType as any, 25000);
+      this.mediaBufferCache.set(rawUrl, { fetched, timestamp: Date.now() });
+      this.logger.log(`[prewarmMediaBuffer] Successfully pre-warmed media buffer for ${rawUrl.slice(0, 70)} (${fetched.buffer.length} bytes, MIME: ${fetched.mimeType})`);
+    } catch (err: any) {
+      this.logger.warn(`[prewarmMediaBuffer] Could not pre-warm media from ${rawUrl.slice(0, 80)}: ${err.message}`);
+    }
+  }
 
   public onIncomingMessage(cb: (instanceId: string, orgId: string, remoteJid: string, text: string, pushName?: string) => void) {
     this.incomingMessageCallbacks.push(cb);
@@ -712,7 +859,14 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
           throw new BadRequestException("Recipient number is not registered on WhatsApp (Non-WhatsApp number)");
         }
         if (results[0]?.exists && results[0]?.jid) {
-          targetJid = results[0].jid;
+          // CRITICAL: NEVER send to @lid for 1:1 chats!
+          // Sending to @lid causes "Waiting for this message" Signal protocol decryption failures on iOS.
+          // Only use verified jid if it is a standard @s.whatsapp.net telephone JID.
+          if (!results[0].jid.includes("@lid") && results[0].jid.endsWith("@s.whatsapp.net")) {
+            targetJid = results[0].jid;
+          } else {
+            targetJid = recipientJid;
+          }
           verifiedExists = true;
           this.logger.log(`Verified authentic WhatsApp recipient: ${targetJid}`);
         }
@@ -722,6 +876,11 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
         throw waErr;
       }
       this.logger.warn(`onWhatsApp check timeout/warning for ${recipientJid}: ${waErr.message}. Proceeding cautiously with normalized JID.`);
+    }
+
+    // Double safety check: ensure targetJid is strictly a telephone JID and never @lid
+    if (targetJid.includes("@lid")) {
+      targetJid = recipientJid;
     }
 
     try {
@@ -804,22 +963,40 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
         // 3. Remote HTTP / HTTPS URL (Resilient fetch with Google Drive fallback & magic-byte sniffing)
         if (!buffer && (rawMediaUrl.startsWith("http://") || rawMediaUrl.startsWith("https://"))) {
-          this.logger.log(`Downloading media buffer from URL: ${rawMediaUrl}...`);
-          const msgTypeLower = (opts.messageType || "").toLowerCase();
-          const preferredType = msgTypeLower.includes("video")
-            ? "VIDEO"
-            : msgTypeLower.includes("pdf") || msgTypeLower.includes("document")
-            ? "DOCUMENT"
-            : "AUTO";
+          const cached = this.mediaBufferCache.get(rawMediaUrl);
+          if (cached && Date.now() - cached.timestamp < 1800000) {
+            buffer = cached.fetched.buffer;
+            mimeType = cached.fetched.mimeType;
+            rawFileName = cached.fetched.fileName;
+            isImage = cached.fetched.isImage;
+            isVideo = cached.fetched.isVideo;
+            isAudio = cached.fetched.isAudio;
+            isPdf = cached.fetched.isPdf;
+            this.logger.log(`[MediaCache] Reusing in-memory pre-fetched media buffer for ${rawMediaUrl.slice(0, 70)} (${buffer.length} bytes)`);
+          } else {
+            this.logger.log(`Downloading media buffer from URL: ${rawMediaUrl}...`);
+            const msgTypeLower = (opts.messageType || "").toLowerCase();
+            const preferredType = msgTypeLower.includes("video")
+              ? "VIDEO"
+              : msgTypeLower.includes("pdf") || msgTypeLower.includes("document")
+              ? "DOCUMENT"
+              : "AUTO";
 
-          const fetched = await fetchMediaWithFallback(rawMediaUrl, preferredType, 25000);
-          buffer = fetched.buffer;
-          mimeType = fetched.mimeType;
-          rawFileName = fetched.fileName;
-          isImage = fetched.isImage;
-          isVideo = fetched.isVideo;
-          isAudio = fetched.isAudio;
-          isPdf = fetched.isPdf;
+            const fetched = await fetchMediaWithFallback(rawMediaUrl, preferredType, 25000);
+            buffer = fetched.buffer;
+            mimeType = fetched.mimeType;
+            rawFileName = fetched.fileName;
+            isImage = fetched.isImage;
+            isVideo = fetched.isVideo;
+            isAudio = fetched.isAudio;
+            isPdf = fetched.isPdf;
+
+            this.mediaBufferCache.set(rawMediaUrl, { fetched, timestamp: Date.now() });
+            if (this.mediaBufferCache.size > 50) {
+              const oldest = this.mediaBufferCache.keys().next().value;
+              if (oldest) this.mediaBufferCache.delete(oldest);
+            }
+          }
         }
 
         if (!buffer || buffer.length === 0) {
@@ -844,24 +1021,32 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
           }
         }
 
+        const cleanCaption = captionText && captionText.trim() ? captionText.trim() : undefined;
+        let sent: any;
+
         if (isImage) {
           this.logger.log(`Dispatching Baileys image buffer (${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
-          return await socket.sendMessage(targetJid, { image: buffer, caption: captionText, mimetype: mimeType });
+          sent = await socket.sendMessage(targetJid, { image: buffer, caption: cleanCaption, mimetype: mimeType });
         } else if (isVideo) {
           this.logger.log(`Dispatching Baileys video buffer (${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
-          return await socket.sendMessage(targetJid, { video: buffer, caption: captionText, mimetype: mimeType });
+          sent = await socket.sendMessage(targetJid, { video: buffer, caption: cleanCaption, mimetype: mimeType });
         } else if (isAudio) {
           this.logger.log(`Dispatching Baileys audio buffer (${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
-          return await socket.sendMessage(targetJid, { audio: buffer, mimetype: mimeType || "audio/mp4" });
+          sent = await socket.sendMessage(targetJid, { audio: buffer, mimetype: mimeType || "audio/mp4" });
         } else {
           this.logger.log(`Dispatching Baileys document buffer (${rawFileName}, ${buffer.length} bytes, MIME: ${mimeType}) to ${targetJid}`);
-          return await socket.sendMessage(targetJid, {
+          sent = await socket.sendMessage(targetJid, {
             document: buffer,
             mimetype: mimeType || "application/pdf",
             fileName: rawFileName,
-            caption: captionText,
+            caption: cleanCaption,
           });
         }
+
+        if (sent) {
+          this.trackSentMessage(sent);
+        }
+        return sent;
       } catch (mediaErr: any) {
         this.logger.error(`sendMedia failed for ${targetJid}: ${mediaErr.message}`);
         throw mediaErr;
@@ -893,6 +1078,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
           selectableCount: opts.pollData?.multiple ? validOptions.length : 1,
         },
       });
+      if (result) this.trackSentMessage(result);
 
       if (result?.key?.id) {
         const pollMsgId = result.key.id;
@@ -941,6 +1127,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       }
       if (!result) {
         result = await socket.sendMessage(targetJid, { text: formattedText.trim() });
+        if (result) this.trackSentMessage(result);
       }
       this.logger.log(`Safe text formatted button-card dispatched to ${targetJid}`);
     }
@@ -964,6 +1151,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       }
       if (!result) {
         result = await socket.sendMessage(targetJid, { text: formattedMenu.trim() });
+        if (result) this.trackSentMessage(result);
       }
       this.logger.log(`Safe numbered text menu dispatched to ${targetJid}`);
     }
@@ -971,10 +1159,22 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     // 4. STANDARD TEXT / MEDIA
     else {
       if (opts.mediaUrl) {
-        result = await sendMedia(textToSend);
+        if (opts.textWithMediaMode === "separate" && textToSend && textToSend.trim()) {
+          // Send media first (without caption)
+          result = await sendMedia(undefined);
+          // Pacing delay between media and separate text message to prevent race conditions
+          await new Promise((r) => setTimeout(r, 600));
+          // Send text second
+          const textResult = await socket.sendMessage(targetJid, { text: textToSend.trim() });
+          if (textResult) this.trackSentMessage(textResult);
+        } else {
+          // Standard caption mode (Single unified media message)
+          result = await sendMedia(textToSend && textToSend.trim() ? textToSend.trim() : undefined);
+        }
       }
       if (!result) {
         result = await socket.sendMessage(targetJid, { text: textToSend || " " });
+        if (result) this.trackSentMessage(result);
       }
     }
 
@@ -1205,6 +1405,11 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       connectTimeoutMs: 60000,
       defaultQueryTimeoutMs: 60000,
       qrTimeout: 60000,
+      msgRetryCounterCache: this.msgRetryCounterCache,
+      mediaCache: this.mediaCache,
+      userDevicesCache: this.userDevicesCache,
+      placeholderResendCache: this.placeholderResendCache,
+      getMessage: async (key) => this.getMessage(key),
     });
 
     socket.ev.on("creds.update", async () => {
@@ -1346,6 +1551,11 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
 
     socket.ev.on("messages.upsert", async ({ messages }: any) => {
       for (const msg of messages || []) {
+        // Always track every incoming/outgoing message in recentMessagesMap for instant E2EE retry response
+        if (msg.key?.id && msg.message) {
+          this.trackSentMessage(msg);
+        }
+
         if (!msg.key?.fromMe && msg.key?.remoteJid && !msg.key.remoteJid.includes("@g.us") && !msg.key.remoteJid.includes("@broadcast")) {
           const msgKeyId = msg.key?.id;
           if (msgKeyId) {
@@ -1760,7 +1970,8 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
                   // Optional confirmation reply
                   if (unsubSettings.auto_reply_confirmation !== false) {
                     const confMsg = unsubSettings.confirmation_message || 'You have been successfully unsubscribed. You will no longer receive promotional broadcasts from us.';
-                    await socket.sendMessage(remoteJid, { text: confMsg }).catch(() => {});
+                    const sentConf = await socket.sendMessage(remoteJid, { text: confMsg }).catch(() => {});
+                    if (sentConf) this.trackSentMessage(sentConf);
                   }
                 }
               }
