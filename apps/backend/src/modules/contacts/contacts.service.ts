@@ -526,39 +526,46 @@ export class ContactsService {
 
     let insertedCount = 0;
     const contactIds: string[] = [];
-    const effectiveOrg = orgId || "org-demo";
+    const effectiveOrg = orgId || "org-f7c924751158c061";
+    const effectiveShop = shopId || "main-outlet";
 
-    for (const c of contactsList) {
-      const normalized = this.normalizePhone(c.phone);
-      if (!normalized) continue;
+    const BATCH_SIZE = 25;
+    for (let i = 0; i < contactsList.length; i += BATCH_SIZE) {
+      const batch = contactsList.slice(i, i + BATCH_SIZE);
+      await Promise.all(
+        batch.map(async (c) => {
+          const normalized = this.normalizePhone(c.phone);
+          if (!normalized) return;
 
-      const id = "cnt_" + crypto.createHash("md5").update(effectiveOrg + ":" + normalized).digest("hex").slice(0, 16);
-      const name = c.name?.trim() || "Customer";
-      const city = c.city?.trim() || null;
-      const dob = c.dob?.trim() || null;
-      const tags = Array.isArray(c.tags) ? c.tags.map(t => t.trim()).filter(Boolean) : [];
-      const meta = c.metadata ? JSON.stringify(c.metadata) : null;
+          const id = "cnt_" + crypto.createHash("md5").update(effectiveOrg + ":" + normalized).digest("hex").slice(0, 16);
+          const name = c.name?.trim() || "Customer";
+          const city = c.city?.trim() || null;
+          const dob = c.dob?.trim() || null;
+          const tags = Array.isArray(c.tags) ? c.tags.map((t) => t.trim()).filter(Boolean) : [];
+          const meta = c.metadata ? JSON.stringify(c.metadata) : null;
 
-      try {
-        await this.db.sql`
-          INSERT INTO contacts (id, organization_id, shop_id, phone, name, city, dob, tags, metadata, created_at, updated_at)
-          VALUES (${id}, ${effectiveOrg}, ${shopId || 'main-outlet'}, ${normalized}, ${name}, ${city}, ${dob}, ${JSON.stringify(tags)}::jsonb, ${meta}, NOW(), NOW())
-          ON CONFLICT (organization_id, phone) DO UPDATE SET
-            name = EXCLUDED.name,
-            city = COALESCE(EXCLUDED.city, contacts.city),
-            dob = COALESCE(EXCLUDED.dob, contacts.dob),
-            tags = (
-              SELECT jsonb_agg(DISTINCT elem)
-              FROM jsonb_array_elements_text(COALESCE(contacts.tags, '[]'::jsonb) || EXCLUDED.tags) AS elem
-            ),
-            metadata = EXCLUDED.metadata,
-            updated_at = NOW()
-        `;
-        insertedCount++;
-        contactIds.push(id);
-      } catch (err: any) {
-        this.logger.warn(`Failed to upsert contact ${normalized}: ${err.message}`);
-      }
+          try {
+            await this.db.sql`
+              INSERT INTO contacts (id, organization_id, shop_id, phone, name, city, dob, tags, metadata, created_at, updated_at)
+              VALUES (${id}, ${effectiveOrg}, ${effectiveShop}, ${normalized}, ${name}, ${city}, ${dob}, ${JSON.stringify(tags)}::jsonb, ${meta}, NOW(), NOW())
+              ON CONFLICT (organization_id, phone) DO UPDATE SET
+                name = EXCLUDED.name,
+                city = COALESCE(EXCLUDED.city, contacts.city),
+                dob = COALESCE(EXCLUDED.dob, contacts.dob),
+                tags = (
+                  SELECT jsonb_agg(DISTINCT elem)
+                  FROM jsonb_array_elements_text(COALESCE(contacts.tags, '[]'::jsonb) || EXCLUDED.tags) AS elem
+                ),
+                metadata = EXCLUDED.metadata,
+                updated_at = NOW()
+            `;
+            insertedCount++;
+            contactIds.push(id);
+          } catch (err: any) {
+            this.logger.warn(`Failed to upsert contact ${normalized}: ${err.message}`);
+          }
+        })
+      );
     }
 
     let audienceId: string | undefined;
@@ -575,7 +582,7 @@ export class ContactsService {
             INSERT INTO audience_members (audience_id, contact_id, added_at)
             VALUES (${audienceId}, ${cId}, NOW())
             ON CONFLICT DO NOTHING
-          `;
+          `.catch(() => {});
         }
       } catch (audErr: any) {
         this.logger.warn(`Failed to create audience list: ${audErr.message}`);

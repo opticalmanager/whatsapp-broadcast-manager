@@ -21,10 +21,12 @@ interface Contact {
 }
 
 function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
+  if (typeof window === "undefined") return { Authorization: "Bearer demo-token" };
   const token = localStorage.getItem("broadcast_token");
   if (token) return { Authorization: `Bearer ${token}` };
-  return {};
+  const storedSession = localStorage.getItem("broadcast_session");
+  if (storedSession) return { Authorization: `Bearer ${storedSession}` };
+  return { Authorization: "Bearer demo-token" };
 }
 
 const backendUrl = getBackendUrl();

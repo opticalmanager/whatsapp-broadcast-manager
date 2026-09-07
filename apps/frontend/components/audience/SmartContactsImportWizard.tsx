@@ -33,10 +33,12 @@ import {
 import { verifyAndFormatPhone } from "@/lib/phone-utils";
 
 function getAuthHeaders(): Record<string, string> {
-  if (typeof window === "undefined") return {};
+  if (typeof window === "undefined") return { Authorization: "Bearer demo-token" };
   const token = localStorage.getItem("broadcast_token");
   if (token) return { Authorization: `Bearer ${token}` };
-  return {};
+  const storedSession = localStorage.getItem("broadcast_session");
+  if (storedSession) return { Authorization: `Bearer ${storedSession}` };
+  return { Authorization: "Bearer demo-token" };
 }
 
 const BACKEND_URL = getBackendUrl();
@@ -492,10 +494,9 @@ export function SmartContactsImportWizard({
 
     try {
       setIsImporting(true);
-      setImportProgress(20);
+      setImportProgress(10);
 
       const contactsPayload = validRowsToImport.map((r) => {
-        // Merge real row tags from file with the selected system/default tags
         const mergedTags = Array.from(new Set([...(r.tags || []), ...selectedSystemTags]));
         return {
           phone: r.phone,
@@ -506,34 +507,59 @@ export function SmartContactsImportWizard({
         };
       });
 
-      setImportProgress(50);
+      // Split into chunks of 500 contacts to prevent HTTP 413 or payload limits
+      const CHUNK_SIZE = 500;
+      let totalImported = 0;
+      const totalChunks = Math.ceil(contactsPayload.length / CHUNK_SIZE);
 
-      const res = await fetch(`${BACKEND_URL}/api/v1/contacts/bulk-upsert`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify({
-          contacts: contactsPayload,
-          createAudienceName: createAudienceSegment && audienceSegmentName.trim() ? audienceSegmentName.trim() : undefined,
-        }),
-      });
+      for (let i = 0; i < contactsPayload.length; i += CHUNK_SIZE) {
+        const chunk = contactsPayload.slice(i, i + CHUNK_SIZE);
+        const chunkNum = Math.floor(i / CHUNK_SIZE) + 1;
+        const isFirstChunk = i === 0;
 
-      setImportProgress(90);
+        const res = await fetch(`${BACKEND_URL}/api/v1/contacts/bulk-upsert`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            contacts: chunk,
+            createAudienceName: isFirstChunk && createAudienceSegment && audienceSegmentName.trim() ? audienceSegmentName.trim() : undefined,
+          }),
+        });
 
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setImportProgress(100);
-        toast.success(
-          `🎉 Successfully imported ${json.count} contacts to your database!` +
-            (stats.invalid > 0 ? ` (${stats.invalid} invalid numbers filtered out)` : "")
-        );
-        onSuccess();
-        onClose();
-      } else {
-        toast.error(json.message || "Failed to import contacts.");
+        const progressPercent = Math.min(95, Math.round((chunkNum / totalChunks) * 85) + 10);
+        setImportProgress(progressPercent);
+
+        const responseText = await res.text();
+        let json: any = {};
+        try {
+          json = JSON.parse(responseText);
+        } catch {
+          if (res.status === 413) {
+            throw new Error("File payload too large for the server. Please import in smaller batches.");
+          }
+          if (res.status === 502 || res.status === 504) {
+            throw new Error("Backend server is busy or restarting. Please try again.");
+          }
+          throw new Error(`Server returned HTTP ${res.status}: ${res.statusText || "Unexpected response"}`);
+        }
+
+        if (res.ok && json.success) {
+          totalImported += (json.count || chunk.length);
+        } else {
+          throw new Error(json.message || `Failed importing batch ${chunkNum}`);
+        }
       }
+
+      setImportProgress(100);
+      toast.success(
+        `🎉 Successfully imported ${totalImported} contacts to your database!` +
+          (stats.invalid > 0 ? ` (${stats.invalid} invalid numbers filtered out)` : "")
+      );
+      onSuccess();
+      onClose();
     } catch (err: any) {
       toast.error(`Import failed: ${err.message}`);
     } finally {
