@@ -53,3 +53,6 @@ Thumbs.db
 scratch/
 tmp/
 .temp/
+
+# Large installer / distribution packages
+apps/frontend/public/downloads/*.zip

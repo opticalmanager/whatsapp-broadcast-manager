@@ -26,7 +26,9 @@ import {
   Smartphone,
   Layers,
   Smile,
-  Zap
+  Zap,
+  Laptop,
+  Download
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useAuth } from "@/lib/auth-context";
@@ -103,6 +105,10 @@ export function LandingPage() {
           {/* Nav Links */}
           <nav className="hidden md:flex items-center gap-7 text-xs font-semibold text-slate-600 dark:text-slate-300">
             <a href="#features" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Features</a>
+            <a href="#desktop-app" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5">
+              <Laptop className="w-3.5 h-3.5 text-blue-500" />
+              <span>Desktop App (.exe)</span>
+            </a>
             <a href="#cloud" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">100% Cloud</a>
             <a href="#pricing" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">Pricing</a>
             <a href="#faq" className="hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">FAQ</a>
@@ -281,6 +287,130 @@ export function LandingPage() {
               </div>
             </div>
 
+          </div>
+        </div>
+      </section>
+
+      {/* =========================================================================
+          2B. DESKTOP ASSISTANT SHOWCASE & DOWNLOAD SECTION
+          ========================================================================= */}
+      <section id="desktop-app" className="py-16 bg-gradient-to-b from-slate-900 via-[#0a1020] to-slate-950 border-y border-slate-800 text-white relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.12),transparent_50%)] pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="bg-gradient-to-r from-slate-800/80 via-slate-850/80 to-blue-950/40 rounded-3xl border border-slate-700/80 p-8 sm:p-12 shadow-2xl backdrop-blur-md">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              
+              {/* Left Column: App Icon & Details */}
+              <div className="lg:col-span-7 space-y-5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-wider">
+                  <Laptop className="w-3.5 h-3.5" />
+                  <span>Offline Desktop Companion for Optical Stores</span>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <img 
+                    src="/desktop-app-icon.png" 
+                    alt="Desktop Assistant Icon" 
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl shadow-xl shadow-blue-500/20 border border-blue-400/20 object-contain shrink-0" 
+                  />
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                      Optical Manager WhatsApp Assistant
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-400 font-semibold mt-1">
+                      Standalone Windows Software for Optical Store Billing Counters
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-sm text-slate-300 font-medium leading-relaxed">
+                  Don't want to pay monthly server hosting costs? Install our lightweight desktop assistant on your store's PC or billing laptop. Connect your WhatsApp once via QR code and send digital bills, invoices, receipts, and order readiness notices with <strong>1-click in the background</strong> without opening WhatsApp Web.
+                </p>
+
+                {/* 4 Feature Pills */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs font-semibold text-slate-200">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-black flex items-center justify-center shrink-0">✓</span>
+                    <span><strong>100% Local PC Engine:</strong> Zero VPS socket hosting charges.</span>
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs font-semibold text-slate-200">
+                    <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-black flex items-center justify-center shrink-0">✓</span>
+                    <span><strong>1-Click OM Send:</strong> Dispatches silently without leaving POS.</span>
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs font-semibold text-slate-200">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 font-black flex items-center justify-center shrink-0">✓</span>
+                    <span><strong>Shop IP Protection:</strong> Sends via local shop broadband IP.</span>
+                  </div>
+                  <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs font-semibold text-slate-200">
+                    <span className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-400 font-black flex items-center justify-center shrink-0">✓</span>
+                    <span><strong>System Tray & Auto-Start:</strong> Runs quietly in Windows tray.</span>
+                  </div>
+                </div>
+
+                {/* Download CTA Button */}
+                <div className="pt-3 flex flex-wrap items-center gap-4">
+                  <a
+                    href="/downloads/Optical-Manager-WhatsApp-Assistant.zip"
+                    download
+                    className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-extrabold text-sm shadow-xl shadow-blue-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                  >
+                    <Download className="w-5 h-5" />
+                    <span>Download for Windows (.exe)</span>
+                  </a>
+
+                  <div className="text-xs text-slate-400 space-y-0.5">
+                    <p className="font-bold text-slate-300">Version 1.0.0 · 64-bit Windows</p>
+                    <p>Compatible with Windows 10 & 11</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Live App Mockup Card */}
+              <div className="lg:col-span-5 bg-slate-900/90 rounded-2xl border border-slate-700/80 p-5 shadow-inner space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="font-mono font-bold text-slate-200">Desktop Assistant v1.0.0</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 text-[10px] font-bold">
+                    Connected: Active
+                  </span>
+                </div>
+
+                {/* Live stream preview */}
+                <div className="space-y-2 text-xs">
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <strong className="text-slate-200">Invoice #INV-2026-089</strong>
+                      <span className="text-emerald-400 font-mono font-bold">SENT ✓</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Sent to: +91 98106 XXXXX · Delivery time: 0.8s</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <strong className="text-slate-200">Receipt #RCP-2026-042</strong>
+                      <span className="text-emerald-400 font-mono font-bold">SENT ✓</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Sent to: +91 98765 XXXXX · Delivery time: 1.1s</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <strong className="text-slate-200">Spectacles Ready Notice</strong>
+                      <span className="text-emerald-400 font-mono font-bold">SENT ✓</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400">Sent to: +91 97112 XXXXX · Delivery time: 0.9s</p>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-slate-400 italic text-center pt-1">
+                  Dispatches in background as your staff bills patients in Optical Manager.
+                </p>
+              </div>
+
+            </div>
           </div>
         </div>
       </section>
