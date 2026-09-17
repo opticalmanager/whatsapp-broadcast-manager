@@ -351,17 +351,17 @@ export function LandingPage() {
                 {/* Download CTA Button */}
                 <div className="pt-3 flex flex-wrap items-center gap-4">
                   <a
-                    href="/downloads/Optical-Manager-WhatsApp-Assistant.zip"
-                    download
+                    href="/downloads/Optical-Manager-WhatsApp-Assistant-Setup.exe"
+                    download="Optical-Manager-WhatsApp-Assistant-Setup.exe"
                     className="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white font-extrabold text-sm shadow-xl shadow-blue-600/25 transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
                   >
                     <Download className="w-5 h-5" />
-                    <span>Download for Windows (.exe)</span>
+                    <span>Download Windows Installer (.exe)</span>
                   </a>
 
                   <div className="text-xs text-slate-400 space-y-0.5">
-                    <p className="font-bold text-slate-300">Version 1.0.0 · 64-bit Windows</p>
-                    <p>Compatible with Windows 10 & 11</p>
+                    <p className="font-bold text-slate-300">Version 1.0.0 Setup · 64-bit Windows</p>
+                    <p>Single .exe installer with desktop shortcut</p>
                   </div>
                 </div>
               </div>
