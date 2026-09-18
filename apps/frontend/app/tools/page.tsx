@@ -15,7 +15,10 @@ import {
   ShieldCheck, 
   Layers, 
   FileSpreadsheet,
-  Download
+  Download,
+  Laptop,
+  MessageSquare,
+  Zap
 } from "lucide-react";
 
 export default function ToolsPage() {
@@ -32,6 +35,84 @@ export default function ToolsPage() {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             Specialized productivity, group parsing, and audience validation utilities for WhatsApp broadcast operations.
           </p>
+        </div>
+      </div>
+
+      {/* FEATURED: OPTICAL MANAGER DESKTOP ASSISTANT — FULL WIDTH DOWNLOAD BANNER */}
+      <div className="relative overflow-hidden rounded-2xl border border-blue-200/80 dark:border-blue-800/60 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 shadow-lg p-6 sm:p-8">
+        {/* Background decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-24 -translate-x-24 pointer-events-none" />
+
+        <div className="relative flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          {/* Left: Icon + Title + Description */}
+          <div className="flex items-start gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-inner shrink-0">
+              <Laptop className="w-7 h-7 text-white" />
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-black text-white tracking-tight">
+                  Optical Manager Desktop Assistant
+                </h3>
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30">
+                  Windows App
+                </span>
+                <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-400/30 text-emerald-100 border border-emerald-400/40">
+                  v1.0 — Latest
+                </span>
+              </div>
+              <p className="text-sm text-blue-100 font-medium leading-relaxed max-w-lg">
+                Send utility WhatsApp messages (invoices, receipts, order updates) silently in 1-click from your store counter PC — no browser needed. Connects directly to Optical Manager for real-time dispatch.
+              </p>
+              {/* Feature pills */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-[11px] font-semibold backdrop-blur-sm">
+                  ⚡ 1-Click Invoice Send
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-[11px] font-semibold backdrop-blur-sm">
+                  📩 Real-Time Delivery Receipts
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-[11px] font-semibold backdrop-blur-sm">
+                  🔒 Runs Locally — No Server
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-white/15 text-white text-[11px] font-semibold backdrop-blur-sm">
+                  💬 Auto WhatsApp QR Login
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Download button */}
+          <div className="flex flex-col items-start md:items-end gap-2 shrink-0">
+            <a
+              href="/downloads/Optical-Manager-WhatsApp-Assistant-Setup.exe"
+              download="Optical-Manager-WhatsApp-Assistant-Setup.exe"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-blue-700 font-black text-sm shadow-lg hover:bg-blue-50 transition-all cursor-pointer group/btn"
+            >
+              <Download className="w-4 h-4 group-hover/btn:translate-y-0.5 transition-transform" />
+              <span>Download .exe Installer</span>
+            </a>
+            <span className="text-[10px] text-blue-200 font-semibold text-right">
+              Windows 10/11 · ~82 MB · Free for Optical Manager users
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom setup steps */}
+        <div className="relative mt-6 pt-5 border-t border-white/20 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="flex items-center gap-2.5 text-blue-100 text-xs font-semibold">
+            <span className="w-6 h-6 rounded-full bg-white/20 text-white text-xs font-black flex items-center justify-center shrink-0">1</span>
+            <span>Download & install on your counter PC</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-blue-100 text-xs font-semibold">
+            <span className="w-6 h-6 rounded-full bg-white/20 text-white text-xs font-black flex items-center justify-center shrink-0">2</span>
+            <span>Paste your Branch Pairing Key from Optical Manager settings</span>
+          </div>
+          <div className="flex items-center gap-2.5 text-blue-100 text-xs font-semibold">
+            <span className="w-6 h-6 rounded-full bg-white/20 text-white text-xs font-black flex items-center justify-center shrink-0">3</span>
+            <span>Scan WhatsApp QR once — stays connected automatically</span>
+          </div>
         </div>
       </div>
 
