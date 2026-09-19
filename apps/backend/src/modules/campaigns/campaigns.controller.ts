@@ -267,6 +267,21 @@ export class CampaignsController {
     };
   }
 
+  @Post(":id/retry-disconnected")
+  @HttpCode(HttpStatus.OK)
+  async retryDisconnected(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string,
+    @Body() fallbackData?: any
+  ) {
+    const campaign = await this.campaignsService.resumeCampaign(orgId, id, fallbackData);
+    return {
+      success: true,
+      message: `Campaign ${id} resumed across connected devices.`,
+      data: campaign,
+    };
+  }
+
   @Delete(":id")
   @HttpCode(HttpStatus.OK)
   async remove(

@@ -42,7 +42,7 @@ export class SettingsService {
     warmupWeek2Limit: 150,
     warmupWeek3Limit: 300,
     warmupWeek4Limit: 500,
-    deliveryWindowEnabled: true,
+    deliveryWindowEnabled: false,
     deliveryWindowStart: "10:00",
     deliveryWindowEnd: "19:00",
   };
@@ -92,7 +92,7 @@ export class SettingsService {
           warmupWeek2Limit: Number(r.warmup_week2_limit) || 150,
           warmupWeek3Limit: Number(r.warmup_week3_limit) || 300,
           warmupWeek4Limit: Number(r.warmup_week4_limit) || 500,
-          deliveryWindowEnabled: r.delivery_window_enabled !== false,
+          deliveryWindowEnabled: Boolean(r.delivery_window_enabled),
           deliveryWindowStart: r.delivery_window_start || "10:00",
           deliveryWindowEnd: r.delivery_window_end || "19:00",
         };

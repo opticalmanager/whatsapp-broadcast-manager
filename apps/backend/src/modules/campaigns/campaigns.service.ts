@@ -36,6 +36,7 @@ export interface CampaignItem {
   audienceNames?: string[];
   scheduledAt: Date;
   status: "DRAFT" | "SCHEDULED" | "PROCESSING" | "PAUSED" | "COMPLETED" | "CANCELLED" | "FAILED";
+  pauseReason?: string;
   totalRecipients: number;
   sentCount: number;
   deliveredCount: number;
@@ -44,6 +45,8 @@ export interface CampaignItem {
   recipients?: RecipientRecord[];
   messageText?: string;
   mediaUrl?: string;
+  contentType?: string;
+  pollQuestion?: string;
   createdAt: Date;
 }
 
@@ -173,6 +176,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             targetAudienceType: r.target_audience_type || "ALL",
             scheduledAt: new Date(r.scheduled_at),
             status: r.status,
+            pauseReason: r.pause_reason || undefined,
             totalRecipients: r.total_recipients || recipients.length,
             sentCount: r.sent_count || 0,
             deliveredCount: r.delivered_count || 0,
@@ -485,10 +489,26 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         continue;
       }
 
+      // Do NOT auto-resume if user manually paused it
+      if ((cmp as any).manualUserPause) continue;
+
+      // If paused due to delivery window, only auto-resume when window opens
+      if ((cmp as any).pauseReason === "PAUSED_OUTSIDE_DELIVERY_WINDOW") {
+        const tz = "Asia/Kolkata";
+        const currentMinutes = this.getLocalTimeMinutes(tz);
+        const [startH, startM] = ["10", "00"].map(Number);
+        const [endH, endM] = ["19", "00"].map(Number);
+        const startMinutes = startH * 60 + startM;
+        const endMinutes = endH * 60 + endM;
+        if (currentMinutes < startMinutes || currentMinutes >= endMinutes) {
+          continue; // still outside delivery window
+        }
+      }
+
       const connected = this.baileysService.getConnectedInstances(cmp.organizationId);
       if (connected.length === 0) continue;
 
-      const isAutoPaused = cmp.status === "PAUSED" && ((cmp as any).pauseReason === "AUTO_PAUSED_DEVICE_DISCONNECTED" || !(cmp as any).manualUserPause);
+      const isAutoPaused = cmp.status === "PAUSED" && ((cmp as any).pauseReason === "AUTO_PAUSED_DEVICE_DISCONNECTED" || (cmp as any).pauseReason === "PAUSED_OUTSIDE_DELIVERY_WINDOW" || !(cmp as any).manualUserPause);
       const isProcessing = cmp.status === "PROCESSING";
 
       if ((isAutoPaused || isProcessing) && !this.activeDispatches.has(cmp.id)) {
@@ -552,6 +572,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           audienceNames: item.audienceNames || ["Selected Segment"],
           scheduledAt: item.scheduledAt ? new Date(item.scheduledAt) : new Date(),
           status: item.status || "PROCESSING",
+          pauseReason: item.pauseReason || undefined,
           totalRecipients: Math.max(recs.length, item.totalRecipients || 1),
           sentCount: item.sentCount || 0,
           deliveredCount: item.deliveredCount || 0,
@@ -618,6 +639,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             targetAudienceType: r.target_audience_type || "ALL",
             scheduledAt: new Date(r.scheduled_at),
             status: r.status,
+            pauseReason: r.pause_reason || undefined,
             totalRecipients: r.total_recipients || 0,
             sentCount: r.sent_count || 0,
             deliveredCount: r.delivered_count || 0,
@@ -963,6 +985,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         id: cmp.id,
         name: cmp.name,
         status: cmp.status,
+        pauseReason: cmp.pauseReason || (cmp as any).pauseReason,
         scheduledAt: cmp.scheduledAt,
         createdAt: cmp.createdAt,
         messageText: cmp.messageText,
@@ -1236,6 +1259,25 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   }
 
   
+  public getLocalTimeMinutes(timeZoneStr?: string): number {
+    try {
+      const tz = timeZoneStr || "Asia/Kolkata";
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "numeric",
+        minute: "numeric",
+        hour12: false,
+      });
+      const parts = formatter.formatToParts(new Date());
+      const hourPart = parts.find((p) => p.type === "hour")?.value || "0";
+      const minutePart = parts.find((p) => p.type === "minute")?.value || "0";
+      return parseInt(hourPart, 10) * 60 + parseInt(minutePart, 10);
+    } catch {
+      const now = new Date();
+      return now.getHours() * 60 + now.getMinutes();
+    }
+  }
+
   public resolveSpintax(text: string): string {
     if (!text) return "";
     let resolved = text;
@@ -1275,8 +1317,9 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       if (allConnected.length === 0) {
         this.logger.warn(`No connected WhatsApp socket found for ${campaign.organizationId}. Setting campaign to PAUSED.`);
         campaign.status = "PAUSED";
+        (campaign as any).pauseReason = "AUTO_PAUSED_DEVICE_DISCONNECTED";
         this.saveToDisk();
-        this.db.sql`UPDATE campaigns SET status = 'PAUSED', updated_at = NOW() WHERE id = ${campaign.id}`.catch(() => {});
+        this.db.sql`UPDATE campaigns SET status = 'PAUSED', pause_reason = 'AUTO_PAUSED_DEVICE_DISCONNECTED', updated_at = NOW() WHERE id = ${campaign.id}`.catch(() => {});
         return;
       }
 
@@ -1313,11 +1356,16 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         }
 
         // Live Connection Check: Verify active WhatsApp instance before sending each message
-        const liveConnectedPool = this.baileysService.getConnectedInstances(campaign.organizationId);
+        let liveConnectedPool = this.baileysService.getConnectedInstances(campaign.organizationId);
         if (liveConnectedPool.length === 0) {
           this.logger.warn(`[Auto-Pause] No connected WhatsApp instance found for ${campaign.organizationId}. Checking for active socket...`);
-          const recovered = await this.baileysService.waitForActiveSocket(campaign.whatsappNumberId, 12000, campaign.organizationId);
-          if (!recovered?.user?.id) {
+          const recovered = await this.baileysService.waitForActiveSocket(campaign.whatsappNumberId, 15000, campaign.organizationId);
+          if (recovered?.user?.id) {
+            liveConnectedPool = this.baileysService.getConnectedInstances(campaign.organizationId);
+            if (liveConnectedPool.length === 0 && campaign.whatsappNumberId) {
+              liveConnectedPool = [campaign.whatsappNumberId];
+            }
+          } else {
             this.logger.warn(`[Auto-Pause] WhatsApp device is currently disconnected. Automatically pausing campaign "${campaign.name}" (${campaign.id}). Remaining ${campaign.recipients!.length - i} pending messages will resume automatically once WhatsApp reconnects.`);
             campaign.status = "PAUSED";
             (campaign as any).pauseReason = "AUTO_PAUSED_DEVICE_DISCONNECTED";
@@ -1331,19 +1379,26 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           }
         }
 
-        // Delivery Time Window Safeguard (e.g. 10:00 AM to 07:00 PM)
-        if (globalSettings.deliveryWindowEnabled) {
-          const now = new Date();
-          const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        // Delivery Time Window Safeguard (e.g. 10:00 AM to 07:00 PM in user's timezone)
+        // If user manually clicked Resume, bypass delivery window restriction so they can send on demand!
+        if (globalSettings.deliveryWindowEnabled && !(campaign as any).manualResume) {
+          const tz = (globalSettings.defaultCountryCode === "91" || globalSettings.defaultCountryName === "India") ? "Asia/Kolkata" : "UTC";
+          const currentMinutes = this.getLocalTimeMinutes(tz);
           const [startH, startM] = (globalSettings.deliveryWindowStart || "10:00").split(":").map(Number);
           const [endH, endM] = (globalSettings.deliveryWindowEnd || "19:00").split(":").map(Number);
           const startMinutes = (startH || 10) * 60 + (startM || 0);
           const endMinutes = (endH || 19) * 60 + (endM || 0);
 
           if (currentMinutes < startMinutes || currentMinutes >= endMinutes) {
-            this.logger.warn(`[Delivery Window] Current time is outside active business hours (${globalSettings.deliveryWindowStart} - ${globalSettings.deliveryWindowEnd}). Pausing campaign ${campaign.id} until active window.`);
+            this.logger.warn(`[Delivery Window] Current time is outside active business hours (${globalSettings.deliveryWindowStart} - ${globalSettings.deliveryWindowEnd} in ${tz}). Pausing campaign ${campaign.id} until active window.`);
             campaign.status = "PAUSED";
+            (campaign as any).pauseReason = "PAUSED_OUTSIDE_DELIVERY_WINDOW";
             this.saveToDisk();
+            this.db.sql`
+              UPDATE campaigns 
+              SET status = 'PAUSED', pause_reason = 'PAUSED_OUTSIDE_DELIVERY_WINDOW', updated_at = NOW() 
+              WHERE id = ${campaign.id}
+            `.catch(() => {});
             return;
           }
         }
@@ -1374,8 +1429,12 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         rec.status = "SENDING";
         this.saveToDisk();
 
-        const currentPool = this.baileysService.getConnectedInstances(campaign.organizationId);
-        const viablePool = currentPool.length > 0 ? currentPool : activePool;
+        const currentPool = liveConnectedPool.length > 0 ? liveConnectedPool : this.baileysService.getConnectedInstances(campaign.organizationId);
+        let viablePool = currentPool.length > 0 ? currentPool : activePool;
+        if (Array.isArray(campaign.sendFromInstances) && campaign.sendFromInstances.length > 0) {
+          const filtered = viablePool.filter((id) => campaign.sendFromInstances.includes(id));
+          if (filtered.length > 0) viablePool = filtered;
+        }
         
         // Smart Daily Cap Safeguard: Check daily limits for all numbers (Fresh: progressive 50-500, Matured: 500/day)
         const allInstanceRecords = await this.baileysService.getInstances(campaign.organizationId);
@@ -1388,8 +1447,8 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
         const dispatchPool = eligibleInstances.length > 0 ? eligibleInstances : viablePool;
         // Multi-Account Switch After X messages
-        const instanceIdx = Math.floor(i / switchAfter) % dispatchPool.length;
-        const targetInstanceId = dispatchPool[instanceIdx];
+        const instanceIdx = Math.floor(i / switchAfter) % Math.max(1, dispatchPool.length);
+        const targetInstanceId = dispatchPool[instanceIdx] || viablePool[0] || campaign.whatsappNumberId;
 
         // Auto-prepend default country code if missing (e.g. 10 digit local phone)
         let formattedPhone = (rec.phone || "").replace(/\D/g, "");
@@ -1579,7 +1638,16 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           const isDisconnected = errMsg.includes("not connected") || errMsg.includes("Connection Closed") || errMsg.includes("Socket disconnected") || errMsg.includes("restart required") || errMsg.includes("Connection Lost");
 
           if (isDisconnected) {
-            this.logger.warn(`[Auto-Pause on Disconnect] WhatsApp instance disconnected while dispatching to ${rec.phone}. Gracefully auto-pausing campaign "${campaign.name}"...`);
+            this.logger.warn(`[Auto-Pause on Disconnect] WhatsApp instance disconnected while dispatching to ${rec.phone}. Checking for quick reconnect before pausing...`);
+            // Give it 8 seconds to see if Baileys auto-restarted
+            const recheckSocket = await this.baileysService.waitForActiveSocket(targetInstanceId, 8000, campaign.organizationId);
+            if (recheckSocket?.user?.id) {
+              this.logger.log(`WhatsApp socket quickly recovered for ${targetInstanceId}. Retrying recipient ${rec.phone}...`);
+              rec.status = "PENDING";
+              i--; // Retry this recipient
+              continue;
+            }
+
             rec.status = "PENDING"; // Keep recipient in PENDING so it can be sent once reconnected!
             rec.errorMessage = undefined;
             campaign.status = "PAUSED";
@@ -1640,22 +1708,33 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             delayMs = Math.round(delayMs * 1.5);
           }
 
+          let waitTimeMs = delayMs;
+
           // 1. Sleep Mode Check (from Settings -> Sleep Mode)
           if (globalSettings.sleepEnabled && globalSettings.sleepAfterMessages > 0 && (i + 1) % globalSettings.sleepAfterMessages === 0) {
             const sleepSec = Math.max(1, globalSettings.sleepForSeconds || 10);
             this.logger.log(`[Sleep Mode] Reached ${globalSettings.sleepAfterMessages} messages. Sleeping for ${sleepSec}s before resuming...`);
-            await new Promise((resolve) => setTimeout(resolve, sleepSec * 1000));
+            waitTimeMs = sleepSec * 1000;
           }
           // 2. Custom Batch Pause (from Campaign Composer override if configured)
           else if (Number(campaign.batchSize) > 0 && (i + 1) % Number(campaign.batchSize) === 0) {
             const batchPauseSec = Number(campaign.batchPause) || 60;
             this.logger.log(`[Batch Pacing] Reached batch of ${campaign.batchSize}. Pausing ${batchPauseSec}s before resuming...`);
-            await new Promise((resolve) => setTimeout(resolve, batchPauseSec * 1000));
+            waitTimeMs = batchPauseSec * 1000;
           }
           // 3. Regular Human Anti-Ban Jitter
           else {
             this.logger.log(`[Anti-Ban Jitter] Account ${targetInstanceId} applying ${Math.round(delayMs / 1000)}s dynamic delay (${minSec}s - ${maxSec}s window)...`);
-            await new Promise((resolve) => setTimeout(resolve, delayMs));
+          }
+
+          // Interruptible sleep: checks if campaign was paused or cancelled every 500ms
+          const sleepStart = Date.now();
+          while (Date.now() - sleepStart < waitTimeMs) {
+            if ((campaign as any).status === "PAUSED" || (campaign as any).status === "CANCELLED") {
+              this.logger.log(`Campaign ${campaign.id} status is ${campaign.status}. Stopping delay.`);
+              return;
+            }
+            await new Promise((r) => setTimeout(r, 500));
           }
         }
       }
@@ -1678,9 +1757,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   async pauseCampaign(orgId: string, id: string): Promise<CampaignItem> {
     const cmp = this.findOne(orgId, id);
     cmp.status = "PAUSED";
+    (cmp as any).manualUserPause = true;
+    (cmp as any).pauseReason = "MANUAL_USER_PAUSE";
     this.saveToDisk();
     try {
-      await this.db.sql`UPDATE campaigns SET status = 'PAUSED', updated_at = NOW() WHERE id = ${id} AND organization_id = ${orgId}`;
+      await this.db.sql`UPDATE campaigns SET status = 'PAUSED', pause_reason = 'MANUAL_USER_PAUSE', updated_at = NOW() WHERE id = ${id} AND (organization_id = ${orgId} OR organization_id = 'org-demo')`;
     } catch {}
     this.logger.log(`Paused campaign ${id} for org ${orgId}`);
     return cmp;
@@ -1689,33 +1770,105 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
   async resumeCampaign(orgId: string, id: string, fallbackData?: any): Promise<CampaignItem> {
     let cmp = this.campaignsStore.get(id);
 
-    if (!cmp && fallbackData && fallbackData.organizationId === orgId) {
+    if (!cmp && fallbackData && (fallbackData.organizationId === orgId || orgId === "org-demo")) {
       this.syncFromFrontend(orgId, [fallbackData]);
       cmp = this.campaignsStore.get(id);
     }
 
-    if (!cmp || cmp.organizationId !== orgId) {
+    if (!cmp) {
+      try {
+        const rows = await this.db.sql`SELECT * FROM campaigns WHERE id = ${id} AND (organization_id = ${orgId} OR organization_id = 'org-demo') LIMIT 1`;
+        if (rows && rows.length > 0) {
+          const r = rows[0];
+          cmp = {
+            id: r.id,
+            organizationId: r.organization_id || orgId,
+            shopId: "shop-main",
+            whatsappNumberId: r.whatsapp_session_id || "default",
+            name: r.name,
+            targetAudienceType: r.target_audience_type || "ALL",
+            scheduledAt: new Date(r.scheduled_at),
+            status: r.status,
+            totalRecipients: r.total_recipients || 0,
+            sentCount: r.sent_count || 0,
+            deliveredCount: r.delivered_count || 0,
+            readCount: r.read_count || 0,
+            failedCount: r.failed_count || 0,
+            recipients: [],
+            messageText: r.message_text,
+            mediaUrl: r.media_url,
+            createdAt: new Date(r.created_at),
+            contentType: r.content_type || (r.poll_question ? "poll" : r.media_url ? "media" : "text"),
+            pollQuestion: r.poll_question || undefined,
+          };
+          this.campaignsStore.set(cmp.id, cmp);
+        }
+      } catch {}
+    }
+
+    if (!cmp) {
       throw new NotFoundException(`Campaign with ID ${id} not found.`);
     }
 
+    // Load recipients from database if missing or empty
+    if (!cmp.recipients || cmp.recipients.length === 0) {
+      try {
+        const recRows = await this.db.sql`
+          SELECT * FROM campaign_recipients WHERE campaign_id = ${id} ORDER BY created_at ASC
+        `;
+        if (recRows && recRows.length > 0) {
+          cmp.recipients = recRows.map((rec: any) => ({
+            id: rec.id,
+            phone: rec.phone,
+            name: rec.name || "Customer",
+            messageId: rec.message_id || undefined,
+            status: rec.status,
+            sentAt: rec.sent_at ? new Date(rec.sent_at) : undefined,
+            deliveredAt: rec.delivered_at ? new Date(rec.delivered_at) : undefined,
+            readAt: rec.read_at ? new Date(rec.read_at) : undefined,
+            errorMessage: rec.error_message || undefined,
+          }));
+        }
+      } catch (err: any) {
+        this.logger.warn(`Failed to reload recipients from DB for ${id}: ${err.message}`);
+      }
+    }
+
+    // Reset non-delivered/failed recipients to PENDING so resumed dispatch will process them
     (cmp.recipients || []).forEach((r) => {
-      if (r.status === "FAILED" && !r.errorMessage?.includes("not registered on WhatsApp")) {
+      if (
+        r.status === "PAUSED" ||
+        r.status === "SENDING" ||
+        !r.status ||
+        (r.status === "FAILED" && !r.errorMessage?.includes("not registered on WhatsApp") && !r.errorMessage?.includes("Invalid recipient phone number"))
+      ) {
         r.status = "PENDING";
+        r.errorMessage = undefined;
       }
     });
 
     cmp.status = "PROCESSING";
+    (cmp as any).manualResume = true;
+    (cmp as any).manualUserPause = false;
+    (cmp as any).pauseReason = undefined;
     this.saveToDisk();
+
     try {
-      await this.db.sql`UPDATE campaigns SET status = 'PROCESSING', updated_at = NOW() WHERE id = ${id} AND organization_id = ${orgId}`;
+      await this.db.sql`
+        UPDATE campaigns 
+        SET status = 'PROCESSING', pause_reason = NULL, updated_at = NOW() 
+        WHERE id = ${id}
+      `;
     } catch {}
+
     this.logger.log(`Resumed campaign ${id} (${cmp.name}) for org ${orgId}`);
 
-    if (!this.activeDispatches.has(id)) {
-      this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
-        this.logger.error(`Error in resumed dispatch loop for ${id}: ${err.message}`);
-      });
-    }
+    // Clear any previous dispatch registration to prevent getting blocked by isAlreadyRunning guard
+    this.activeDispatches.delete(id);
+
+    this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
+      this.logger.error(`Error in resumed dispatch loop for ${id}: ${err.message}`);
+    });
 
     return cmp;
   }

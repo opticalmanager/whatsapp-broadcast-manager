@@ -14,6 +14,7 @@ import {
   Send, 
   Clock, 
   Pause, 
+  Play,
   XCircle, 
   AlertTriangle, 
   UserX, 
@@ -93,6 +94,7 @@ export interface CampaignReportData {
     id: string;
     name: string;
     status: string;
+    pauseReason?: string;
     scheduledAt?: string;
     createdAt: string;
     messageText?: string;
@@ -147,19 +149,20 @@ export default function CampaignReportFullPage() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [addingList, setAddingList] = useState<boolean>(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
 
-  // Resume / Retry all disconnected recipients
-  const handleRetryDisconnected = async () => {
-    setRetryingId("DISCONNECTED");
+  // Resume Broadcast Dispatch
+  const handleResumeCampaign = async () => {
+    setActionLoading(true);
     try {
       const headers = getAuthHeaders();
-      const res = await fetch(`${backendUrl}/api/v1/campaigns/${campaignId}/retry-disconnected`, {
+      const res = await fetch(`${backendUrl}/api/v1/campaigns/${campaignId}/resume`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...headers },
       });
       const json = await res.json();
       if (json.success) {
-        toast.success(json.message || "Resumed campaign dispatch across connected devices!");
+        toast.success(json.message || "Campaign resumed! Dispatching messages now.");
         fetchReport(false);
       } else {
         toast.error(json.message || "Failed to resume campaign. Ensure at least 1 WhatsApp device is connected.");
@@ -167,9 +170,35 @@ export default function CampaignReportFullPage() {
     } catch {
       toast.error("Network error while resuming campaign.");
     } finally {
-      setRetryingId(null);
+      setActionLoading(false);
     }
   };
+
+  // Pause Broadcast Dispatch
+  const handlePauseCampaign = async () => {
+    setActionLoading(true);
+    try {
+      const headers = getAuthHeaders();
+      const res = await fetch(`${backendUrl}/api/v1/campaigns/${campaignId}/pause`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+      });
+      const json = await res.json();
+      if (json.success) {
+        toast.info(json.message || "Campaign paused.");
+        fetchReport(false);
+      } else {
+        toast.error(json.message || "Failed to pause campaign.");
+      }
+    } catch {
+      toast.error("Network error while pausing campaign.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Alias for backward compatibility
+  const handleRetryDisconnected = handleResumeCampaign;
 
   // Retry Failed Recipient
   const handleRetryRecipient = async (recipientId: string, phone: string) => {
@@ -433,8 +462,20 @@ export default function CampaignReportFullPage() {
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800">
                 {data.campaign.name}
               </span>
-              <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-extrabold uppercase">
-                {data.campaign.status}
+              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
+                data.campaign.status === "PROCESSING"
+                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 animate-pulse"
+                  : data.campaign.status === "PAUSED"
+                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+              }`}>
+                {data.campaign.status === "PAUSED" && data.campaign.pauseReason
+                  ? data.campaign.pauseReason === "PAUSED_OUTSIDE_DELIVERY_WINDOW"
+                    ? "PAUSED (OUTSIDE DELIVERY WINDOW)"
+                    : data.campaign.pauseReason === "AUTO_PAUSED_DEVICE_DISCONNECTED"
+                    ? "PAUSED (DEVICE DISCONNECTED)"
+                    : "PAUSED (MANUAL)"
+                  : data.campaign.status}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -444,6 +485,32 @@ export default function CampaignReportFullPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          {/* Resume Campaign Dispatch Button */}
+          {data.campaign.status === "PAUSED" && (
+            <button
+              onClick={handleResumeCampaign}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50 hover:scale-105 active:scale-95"
+              title="Resume Broadcast Dispatch across connected devices"
+            >
+              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+              <span>Resume Broadcast</span>
+            </button>
+          )}
+
+          {/* Pause Campaign Dispatch Button */}
+          {data.campaign.status === "PROCESSING" && (
+            <button
+              onClick={handlePauseCampaign}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50 hover:scale-105 active:scale-95"
+              title="Pause Broadcast Dispatch"
+            >
+              {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Pause className="w-3.5 h-3.5" />}
+              <span>Pause Broadcast</span>
+            </button>
+          )}
+
           {/* Refresh Action */}
           <button
             onClick={() => fetchReport(true)}
@@ -505,6 +572,39 @@ export default function CampaignReportFullPage() {
           </button>
         </div>
       </div>
+
+      {/* Paused Alert Banner with Direct Action */}
+      {data.campaign.status === "PAUSED" && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 shrink-0">
+              <Pause className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200">
+                Campaign Dispatch Paused: {
+                  data.campaign.pauseReason === "PAUSED_OUTSIDE_DELIVERY_WINDOW"
+                    ? "Delivery Window Active (10:00 AM - 07:00 PM)"
+                    : data.campaign.pauseReason === "AUTO_PAUSED_DEVICE_DISCONNECTED"
+                    ? "WhatsApp device disconnected during broadcast"
+                    : "Manually paused by user"
+                }
+              </h4>
+              <p className="text-xs text-amber-700 dark:text-amber-300/80 mt-0.5">
+                {data.kpis.pendingCount + data.kpis.pausedCount} recipients are currently queued. Click Resume Broadcast Now to dispatch immediately.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleResumeCampaign}
+            disabled={actionLoading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-xs transition-all cursor-pointer shrink-0 disabled:opacity-50 hover:scale-105 active:scale-95"
+          >
+            {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+            <span>Resume Broadcast Now</span>
+          </button>
+        </div>
+      )}
 
       {/* =========================================================================
           2. VIEW SWITCHER TABS (Sending Report vs Campaign Report)

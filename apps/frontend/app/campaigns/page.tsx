@@ -33,6 +33,7 @@ interface CampaignItem {
   name: string;
   targetAudienceType?: string;
   status: "DRAFT" | "SCHEDULED" | "PROCESSING" | "PAUSED" | "COMPLETED" | "CANCELLED" | "FAILED";
+  pauseReason?: string;
   totalRecipients: number;
   sentCount: number;
   deliveredCount: number;
@@ -422,9 +423,24 @@ export default function CampaignsDashboardPage() {
                             Completed
                           </span>
                         ) : camp.status === "PAUSED" ? (
-                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold">
-                            Paused
-                          </span>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[10px] font-bold">
+                              Paused
+                            </span>
+                            {camp.pauseReason === "PAUSED_OUTSIDE_DELIVERY_WINDOW" ? (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
+                                Outside Window
+                              </span>
+                            ) : camp.pauseReason === "AUTO_PAUSED_DEVICE_DISCONNECTED" ? (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
+                                Device Offline
+                              </span>
+                            ) : camp.pauseReason === "MANUAL_USER_PAUSE" ? (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">
+                                User Paused
+                              </span>
+                            ) : null}
+                          </div>
                         ) : (
                           <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 text-[10px] font-bold">
                             Failed

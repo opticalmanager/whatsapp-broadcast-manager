@@ -70,7 +70,7 @@ export default function SettingsPage() {
     warmupWeek2Limit: 150,
     warmupWeek3Limit: 300,
     warmupWeek4Limit: 500,
-    deliveryWindowEnabled: true,
+    deliveryWindowEnabled: false,
     deliveryWindowStart: "10:00",
     deliveryWindowEnd: "19:00",
   });
@@ -108,7 +108,7 @@ export default function SettingsPage() {
               warmupWeek2Limit: Number(json.data.warmupWeek2Limit) || 150,
               warmupWeek3Limit: Number(json.data.warmupWeek3Limit) || 300,
               warmupWeek4Limit: Number(json.data.warmupWeek4Limit) || 500,
-              deliveryWindowEnabled: json.data.deliveryWindowEnabled !== false,
+              deliveryWindowEnabled: Boolean(json.data.deliveryWindowEnabled),
               deliveryWindowStart: json.data.deliveryWindowStart || "10:00",
               deliveryWindowEnd: json.data.deliveryWindowEnd || "19:00",
             });

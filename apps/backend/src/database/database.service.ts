@@ -323,7 +323,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS warmup_week2_limit INTEGER NOT NULL DEFAULT 150;`.catch(() => {});
       await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS warmup_week3_limit INTEGER NOT NULL DEFAULT 300;`.catch(() => {});
       await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS warmup_week4_limit INTEGER NOT NULL DEFAULT 500;`.catch(() => {});
-      await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS delivery_window_enabled BOOLEAN NOT NULL DEFAULT true;`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS delivery_window_enabled BOOLEAN NOT NULL DEFAULT false;`.catch(() => {});
       await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS delivery_window_start VARCHAR(10) NOT NULL DEFAULT '10:00';`.catch(() => {});
       await this.sql`ALTER TABLE public.broadcast_settings ADD COLUMN IF NOT EXISTS delivery_window_end VARCHAR(10) NOT NULL DEFAULT '19:00';`.catch(() => {});
 
