@@ -457,6 +457,16 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.sql`CREATE INDEX IF NOT EXISTS idx_waba_phone_number_id ON public.waba_configurations (phone_number_id);`.catch(() => {});
       await this.sql`CREATE INDEX IF NOT EXISTS idx_waba_waba_id ON public.waba_configurations (waba_id);`.catch(() => {});
 
+      // 15. WABA Webhook Verify Tokens Table (Resilient registry across all accounts)
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS public.waba_webhook_tokens (
+          token VARCHAR(255) PRIMARY KEY,
+          organization_id VARCHAR(64),
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_waba_webhook_tokens ON public.waba_webhook_tokens (token);`.catch(() => {});
+
       this.logger.log("Database schema & performance indexes verified successfully.");
     } catch (migErr: any) {
       this.logger.warn(`Schema initialization warning: ${migErr.message}`);

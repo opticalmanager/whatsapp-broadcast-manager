@@ -40,4 +40,13 @@ export class WabaController {
     const result = await this.wabaService.testConnection(orgId, dto);
     return result;
   }
+
+  @Post("webhook/register-token")
+  @HttpCode(HttpStatus.OK)
+  async registerWebhookToken(
+    @CurrentOrg() orgId: string,
+    @Body("token") token: string
+  ) {
+    return this.wabaService.registerWebhookToken(orgId, token);
+  }
 }

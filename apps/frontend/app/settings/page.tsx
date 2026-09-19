@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { getBackendUrl } from "@/lib/backend-url";
 import { 
   Send, 
@@ -122,6 +122,42 @@ export default function SettingsPage() {
   const [showToken, setShowToken] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [savingWaba, setSavingWaba] = useState(false);
+  const [publicWebhookHost, setPublicWebhookHost] = useState<string>("");
+  const [testingWebhookHandshake, setTestingWebhookHandshake] = useState(false);
+
+  const effectiveCallbackUrl = useMemo(() => {
+    const host = publicWebhookHost.trim() || backendUrl;
+    const cleanHost = host.replace(/\/+$/, "");
+    return `${cleanHost}/api/v1/waba/webhook`;
+  }, [publicWebhookHost, backendUrl]);
+
+  const isLocalCallback = useMemo(() => {
+    return (
+      effectiveCallbackUrl.startsWith("http://localhost") ||
+      effectiveCallbackUrl.startsWith("http://127.0.0.1") ||
+      effectiveCallbackUrl.startsWith("http://")
+    );
+  }, [effectiveCallbackUrl]);
+
+  const handleTestWebhookHandshake = async () => {
+    try {
+      setTestingWebhookHandshake(true);
+      const token = (wabaConfig.webhookVerifyToken || "waba_secret_verify_token_2026").trim();
+      const challenge = "meta_test_" + Math.floor(Math.random() * 1000000);
+      const testUrl = `${backendUrl}/api/v1/waba/webhook?hub.mode=subscribe&hub.challenge=${challenge}&hub.verify_token=${encodeURIComponent(token)}`;
+      const res = await fetch(testUrl);
+      const text = await res.text();
+      if (res.ok && text.trim() === challenge) {
+        toast.success("Webhook handshake verified! Backend returned HTTP 200 with challenge.");
+      } else {
+        toast.error(`Verification test returned HTTP ${res.status}: ${text}`);
+      }
+    } catch (err: any) {
+      toast.error(`Failed to reach backend webhook: ${err.message}`);
+    } finally {
+      setTestingWebhookHandshake(false);
+    }
+  };
 
   const getAuthHeaders = (): Record<string, string> => {
     if (typeof window === "undefined") return {};
@@ -265,7 +301,22 @@ export default function SettingsPage() {
     }
   };
 
-  const generateRandomToken = () => {
+  const autoRegisterVerifyToken = async (token: string) => {
+    const clean = token.trim();
+    if (!clean) return;
+    try {
+      await fetch(`${backendUrl}/api/v1/waba/webhook/register-token`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: clean }),
+      });
+    } catch {}
+  };
+
+  const generateRandomToken = async () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
     let token = "waba_";
     for (let i = 0; i < 24; i++) {
@@ -273,6 +324,7 @@ export default function SettingsPage() {
     }
     setWabaConfig((prev) => ({ ...prev, webhookVerifyToken: token }));
     toast.info("Generated new secure webhook verify token.");
+    await autoRegisterVerifyToken(token);
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -1174,6 +1226,7 @@ export default function SettingsPage() {
                       type="text"
                       value={wabaConfig.webhookVerifyToken}
                       onChange={(e) => setWabaConfig((prev) => ({ ...prev, webhookVerifyToken: e.target.value }))}
+                      onBlur={() => autoRegisterVerifyToken(wabaConfig.webhookVerifyToken)}
                       className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <p className="text-[11px] text-slate-400">
@@ -1294,25 +1347,61 @@ export default function SettingsPage() {
                       <Radio className="w-4 h-4 text-emerald-600" />
                       <span>Meta Webhook Configuration</span>
                     </span>
+                    <button
+                      type="button"
+                      onClick={handleTestWebhookHandshake}
+                      disabled={testingWebhookHandshake}
+                      className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 rounded-lg text-[11px] font-bold hover:bg-emerald-100 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                    >
+                      {testingWebhookHandshake ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      )}
+                      <span>Test Handshake</span>
+                    </button>
                   </div>
 
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                    Paste these two values into your <strong>Meta for Developers</strong> app under <strong>WhatsApp &gt; Configuration</strong> to receive live read receipts and customer replies:
-                  </p>
+                  {isLocalCallback && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs space-y-1">
+                      <div className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
+                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>Public HTTPS URL Required by Meta</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        Meta cannot verify <code>http://localhost:4000</code> because Meta requires a public HTTPS URL. For local testing, start a tunnel (e.g. <code>npx ngrok http 4000</code>) and enter your tunnel URL below. On production/VPS, enter your public domain.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Optional Public Tunnel / Domain Override */}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span>Public Domain / Tunnel URL (Optional Override)</span>
+                      <span className="text-[10px] font-normal text-slate-400">e.g. https://yourdomain.com or https://xxxx.ngrok-free.app</span>
+                    </span>
+                    <input
+                      type="text"
+                      value={publicWebhookHost}
+                      onChange={(e) => setPublicWebhookHost(e.target.value)}
+                      placeholder={backendUrl}
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-700 dark:text-slate-300"
+                    />
+                  </div>
 
                   {/* Callback URL */}
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Callback URL</span>
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Callback URL (Copy to Meta Dashboard)</span>
                     <div className="flex items-center gap-1.5">
                       <input
                         type="text"
                         readOnly
-                        value={`${backendUrl}/api/v1/waba/webhook`}
+                        value={effectiveCallbackUrl}
                         className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-700 dark:text-slate-300 select-all"
                       />
                       <button
                         type="button"
-                        onClick={() => copyToClipboard(`${backendUrl}/api/v1/waba/webhook`, "Callback URL")}
+                        onClick={() => copyToClipboard(effectiveCallbackUrl, "Callback URL")}
                         className="p-2 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
                         title="Copy Callback URL"
                       >
@@ -1323,7 +1412,7 @@ export default function SettingsPage() {
 
                   {/* Verify Token */}
                   <div className="space-y-1">
-                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Verify Token</span>
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Verify Token (Copy to Meta Dashboard)</span>
                     <div className="flex items-center gap-1.5">
                       <input
                         type="text"

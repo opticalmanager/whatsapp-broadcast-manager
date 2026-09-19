@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Query, Body, Res, HttpStatus, Logger, HttpCode } from "@nestjs/common";
-import { Response } from "express";
+import { Controller, Get, Post, Query, Body, Res, Req, HttpStatus, Logger, HttpCode } from "@nestjs/common";
+import { Request, Response } from "express";
 import { WabaService } from "./waba.service";
 
-@Controller("waba")
+@Controller(["waba", ""])
 export class WabaWebhookController {
   private readonly logger = new Logger(WabaWebhookController.name);
 
@@ -11,26 +11,43 @@ export class WabaWebhookController {
   /**
    * Meta Webhook Verification Handshake
    * Meta sends GET request with hub.mode, hub.verify_token, and hub.challenge
+   * Supports both /api/v1/waba/webhook and /api/v1/webhook
    * MUST return raw hub.challenge as plain text (Content-Type: text/plain) with HTTP 200
    */
-  @Get("webhook")
+  @Get(["webhook", "waba/webhook"])
   async verifyWebhook(
-    @Query("hub.mode") mode: string,
-    @Query("hub.verify_token") verifyToken: string,
-    @Query("hub.challenge") challenge: string,
+    @Req() req: Request,
+    @Query("hub.mode") queryMode: string,
+    @Query("hub.verify_token") queryVerifyToken: string,
+    @Query("hub.challenge") queryChallenge: string,
     @Res() res: Response
   ) {
-    this.logger.log(`[WABA Webhook Verification] Received handshake: mode=${mode}, token=${verifyToken ? '***' : 'missing'}`);
+    const rawQuery = (req.query as any) || {};
+    const mode = queryMode || rawQuery["hub.mode"] || rawQuery.hub?.mode || rawQuery.mode || "";
+    const verifyToken = queryVerifyToken || rawQuery["hub.verify_token"] || rawQuery.hub?.verify_token || rawQuery.verify_token || "";
+    const challenge = queryChallenge || rawQuery["hub.challenge"] || rawQuery.hub?.challenge || rawQuery.challenge || "";
 
-    const isVerified = await this.wabaService.verifyWebhookToken(mode, verifyToken);
+    this.logger.log(
+      `[WABA Webhook Verification] Received handshake: url=${req.originalUrl}, mode=${mode}, token=${verifyToken ? '***' : 'missing'}, challenge=${challenge}`
+    );
 
-    if (isVerified && challenge) {
-      this.logger.log("[WABA Webhook Verification] Handshake SUCCESS. Returning challenge to Meta.");
-      return res.status(HttpStatus.OK).type("text/plain").send(challenge);
+    const isVerified = await this.wabaService.verifyWebhookToken(String(mode || ""), String(verifyToken || ""));
+
+    if (isVerified && challenge !== undefined && challenge !== null && challenge !== "") {
+      this.logger.log(`[WABA Webhook Verification] Handshake SUCCESS. Returning challenge to Meta.`);
+      return res
+        .status(HttpStatus.OK)
+        .setHeader("Content-Type", "text/plain; charset=utf-8")
+        .send(String(challenge));
     }
 
-    this.logger.warn(`[WABA Webhook Verification] Handshake REJECTED. Mode or verify token invalid.`);
-    return res.status(HttpStatus.FORBIDDEN).type("text/plain").send("Forbidden");
+    this.logger.warn(
+      `[WABA Webhook Verification] Handshake REJECTED. Mode='${mode}', VerifyToken='${verifyToken}'. Token did not match database or environment.`
+    );
+    return res
+      .status(HttpStatus.FORBIDDEN)
+      .setHeader("Content-Type", "text/plain; charset=utf-8")
+      .send("Forbidden");
   }
 
   /**
@@ -38,7 +55,7 @@ export class WabaWebhookController {
    * Delivers live message delivery receipts (sent, delivered, read, failed) and customer replies
    * MUST return HTTP 200 OK immediately (<3s) to prevent Meta from retrying and disabling webhook
    */
-  @Post("webhook")
+  @Post(["webhook", "waba/webhook"])
   @HttpCode(HttpStatus.OK)
   handleWebhookEvent(@Body() body: any, @Res() res: Response) {
     // 1. Immediately acknowledge event to Meta
