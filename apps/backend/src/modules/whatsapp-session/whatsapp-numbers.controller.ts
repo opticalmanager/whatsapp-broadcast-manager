@@ -8,6 +8,7 @@ import {
   Body,
   Param,
   UnauthorizedException,
+  BadRequestException,
   HttpCode,
   HttpStatus,
   Logger,
@@ -103,6 +104,10 @@ export class WhatsAppNumbersController {
     @CurrentOrg() orgId: string,
     @Body() dto: CreateInstanceDto
   ) {
+    if (process.env.ENABLE_BAILEYS_SOCKETS !== "true") {
+      throw new BadRequestException("Baileys socket engine is retired in favor of official Meta WhatsApp Cloud API (WABA). Please configure your verified WABA number in Settings.");
+    }
+
     const instance = await this.sessionManager.createInstance(
       orgId,
       dto.instanceName,
@@ -203,6 +208,10 @@ export class WhatsAppNumbersController {
     @CurrentOrg() orgId: string,
     @Param("id") instanceId: string
   ) {
+    if (process.env.ENABLE_BAILEYS_SOCKETS !== "true") {
+      throw new BadRequestException("Baileys socket engine is retired in favor of official Meta WhatsApp Cloud API (WABA). Please configure your verified WABA number in Settings.");
+    }
+
     const instances = await this.sessionManager.getInstances(orgId);
     const inst = instances.find((i) => i.id === instanceId);
     if (!inst) {

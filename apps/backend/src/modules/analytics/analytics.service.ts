@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { CampaignsService } from "../campaigns/campaigns.service";
 import { WhatsAppSessionManagerService } from "../whatsapp-session/whatsapp-session.service";
 import { DatabaseService } from "../../database/database.service";
+import { WabaService } from "../waba/waba.service";
 
 export interface RecipientAuditItem {
   id: string;
@@ -92,6 +93,9 @@ export interface DashboardMetrics {
   // Visual Trends & Recents
   dailyTrends: DailyActivityPoint[];
   recentCampaigns: RecentCampaignSummary[];
+
+  // Meta WABA Official Health & VPS Memory
+  wabaHealth?: any;
 }
 
 @Injectable()
@@ -101,6 +105,7 @@ export class AnalyticsService {
   constructor(
     private readonly campaignsService: CampaignsService,
     private readonly baileysService: WhatsAppSessionManagerService,
+    private readonly wabaService: WabaService,
     private readonly db: DatabaseService
   ) {}
 
@@ -282,7 +287,10 @@ export class AnalyticsService {
     const readRate = deliveredMessages > 0 ? Math.round((readMessages / deliveredMessages) * 100) : 0;
     const activeSubscribers = Math.max(0, totalContacts - unsubscribedCount);
 
+    const wabaHealth = await this.wabaService.getAccountHealth(orgId).catch(() => null);
+
     return {
+      wabaHealth,
       devicesCount: totalInstances,
       totalInstances,
       connectedInstancesCount: connectedCount,

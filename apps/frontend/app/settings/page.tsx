@@ -21,7 +21,8 @@ import {
   AlertCircle,
   CheckCircle2,
   ExternalLink,
-  Radio
+  Radio,
+  Cpu
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
@@ -1328,6 +1329,9 @@ export default function SettingsPage() {
                         <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
                           {wabaConfig.messagingTier || "TIER_1K"}
                         </span>
+                        <span className="text-[10px] text-slate-500 block">
+                          {wabaConfig.messagingTier === "TIER_10K" ? "10,000 / 24 hrs" : wabaConfig.messagingTier === "TIER_100K" ? "100,000 / 24 hrs" : "1,000 / 24 hrs"}
+                        </span>
                       </div>
 
                       <div>
@@ -1336,6 +1340,29 @@ export default function SettingsPage() {
                           {wabaConfig.lastTestedAt ? new Date(wabaConfig.lastTestedAt).toLocaleDateString() : "Never"}
                         </span>
                       </div>
+                    </div>
+
+                    {/* VPS Memory & Engine Mode */}
+                    <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800/80">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <Cpu className="w-3.5 h-3.5 text-sky-500" />
+                          <span>VPS Engine:</span>
+                        </span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          Pure WABA (Baileys Retired)
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Zero background Baileys sockets running. Server RAM optimized (&lt;150MB target).
+                      </p>
+                    </div>
+
+                    {/* Automatic Tier Upgrade Tip */}
+                    <div className="pt-2 border-t border-slate-200/80 dark:border-slate-800/80">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                        💡 <strong className="text-slate-700 dark:text-slate-300">Automatic Tier Upgrade:</strong> Meta automatically levels your account up to Tier 10K when you maintain High Quality (Green) and send to at least 500 unique contacts within 7 days.
+                      </p>
                     </div>
                   </div>
                 </div>

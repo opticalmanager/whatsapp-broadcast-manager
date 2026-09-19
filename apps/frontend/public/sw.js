@@ -1,0 +1,31 @@
+// Self-unregistering Service Worker to eliminate stale chunk caches and 404 errors
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          return caches.delete(cacheName);
+        })
+      );
+    }).then(() => {
+      return self.registration.unregister();
+    }).then(() => {
+      return self.clients.matchAll();
+    }).then((clients) => {
+      clients.forEach((client) => {
+        if (client.url && 'navigate' in client) {
+          client.navigate(client.url);
+        }
+      });
+    })
+  );
+});
+
+// Pass-through fetch handler so network requests are not blocked
+self.addEventListener('fetch', (event) => {
+  event.respondWith(fetch(event.request));
+});

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
+import { Controller, Get, Post, Body, Query, UseGuards, HttpCode, HttpStatus } from "@nestjs/common";
 import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
 import { CurrentOrg } from "../auth/decorators/tenant.decorator";
 import { WabaService } from "./waba.service";
@@ -8,6 +8,19 @@ import { SaveWabaConfigDto, TestWabaConnectionDto } from "./dto/waba-config.dto"
 @UseGuards(TenantAuthGuard)
 export class WabaController {
   constructor(private readonly wabaService: WabaService) {}
+
+  @Get("health")
+  async getHealth(
+    @CurrentOrg() orgId: string,
+    @Query("sync") sync?: string
+  ) {
+    const forceSync = sync === "true" || sync === "1";
+    const health = await this.wabaService.getAccountHealth(orgId, forceSync);
+    return {
+      success: true,
+      data: health,
+    };
+  }
 
   @Get("config")
   async getConfig(@CurrentOrg() orgId: string) {

@@ -5,8 +5,6 @@ import type { NextRequest } from "next/server";
 const PROTECTED_ROUTES = [
   "/dashboard",
   "/app",
-  "/devices",
-  "/numbers",
   "/send-message",
   "/campaigns",
   "/welcome-message",
@@ -28,9 +26,12 @@ const PROTECTED_ROUTES = [
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Alias: /app -> /dashboard
+  // 1. Route Aliases & Deprecated Baileys Redirects
   if (pathname === "/app") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+  if (pathname === "/devices" || pathname === "/numbers") {
+    return NextResponse.redirect(new URL("/settings", request.url));
   }
 
   // 2. Check if route is protected

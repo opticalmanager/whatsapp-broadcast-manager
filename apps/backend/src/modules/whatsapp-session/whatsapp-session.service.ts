@@ -172,7 +172,7 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
       if (remoteJid) {
         this.recentMessagesMap.set(`${remoteJid}:${msgId}`, message);
       }
-      if (this.recentMessagesMap.size > 15000) {
+      if (this.recentMessagesMap.size > 100) {
         const oldest = this.recentMessagesMap.keys().next().value;
         if (oldest) this.recentMessagesMap.delete(oldest);
       }
@@ -285,6 +285,12 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   }
 
   async onModuleInit() {
+    const isBaileysEnabled = process.env.ENABLE_BAILEYS_SOCKETS === "true";
+    if (!isBaileysEnabled) {
+      this.logger.log("[WhatsAppSessionManager] Baileys background socket loops are RETIRED (Pure Meta WABA Mode). Skipping socket auto-connect and disk scanning to optimize RAM (<150MB).");
+      return;
+    }
+
     setImmediate(async () => {
       this.logger.log("Checking for persistent WhatsApp sessions in Supabase database...");
 
@@ -403,6 +409,8 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
     this.sessions.clear();
     this.sessionStates.clear();
     this.lastQrCache.clear();
+    this.recentMessagesMap.clear();
+    this.mediaBufferCache.clear();
   }
 
   public getAuthBaseDir(): string {
@@ -1364,6 +1372,11 @@ export class WhatsAppSessionManagerService implements OnModuleInit, OnModuleDest
   }
 
   async initSession(numberId: string, orgId: string, shopId: string, forceFresh = false): Promise<WASocket> {
+    if (process.env.ENABLE_BAILEYS_SOCKETS !== "true") {
+      this.logger.warn(`initSession rejected for ${numberId}: Baileys sockets are retired. Pure WABA mode is active.`);
+      throw new BadRequestException("Baileys socket engine is retired. The application is running in pure Meta WhatsApp Cloud API (WABA) mode. Please configure Meta WABA in Settings.");
+    }
+
     const authFolderPath = this.getAuthFolderPath(numberId, orgId);
 
     // Register org ownership for strict session isolation

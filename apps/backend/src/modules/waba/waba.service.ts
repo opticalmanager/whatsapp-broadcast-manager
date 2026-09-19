@@ -503,7 +503,19 @@ export class WabaService {
         // 3. Process Template Status Changes (APPROVED, REJECTED, PAUSED)
         if (change.field === "message_template_status_update") {
           this.logger.log(`[Meta Template Webhook] Status update: ${JSON.stringify(val)}`);
-          await this.handleTemplateStatusUpdate(val);
+          await this.handleTemplateStatusUpdate(val, wabaId);
+        }
+
+        // 4. Process Phone Number Quality & Messaging Tier Updates
+        if (change.field === "phone_number_quality_update") {
+          this.logger.log(`[Meta Quality Webhook] Quality update: ${JSON.stringify(val)}`);
+          await this.handleQualityUpdate(val, wabaId);
+        }
+
+        // 5. Process Phone Number Name / Verification Updates
+        if (change.field === "phone_number_name_update") {
+          this.logger.log(`[Meta Name Webhook] Name update: ${JSON.stringify(val)}`);
+          await this.handleNameUpdate(val, wabaId);
         }
       }
     }
@@ -512,7 +524,7 @@ export class WabaService {
   /**
    * Handle official template status update from Meta webhook
    */
-  private async handleTemplateStatusUpdate(val: any) {
+  private async handleTemplateStatusUpdate(val: any, wabaId?: string) {
     const templateName = val.message_template_name;
     const templateId = val.message_template_id ? String(val.message_template_id) : null;
     const event = (val.event || "").toUpperCase(); // APPROVED, REJECTED, PAUSED
@@ -522,18 +534,93 @@ export class WabaService {
 
     try {
       if (templateName || templateId) {
-        await this.db.sql`
-          UPDATE public.broadcast_templates
-          SET 
-            meta_status = ${event},
-            meta_rejection_reason = ${reason},
-            meta_template_id = COALESCE(${templateId}, meta_template_id),
-            updated_at = NOW()
-          WHERE (meta_template_name = ${templateName} OR meta_template_id = ${templateId})
-        `;
+        let targetOrgId: string | null = null;
+        if (wabaId) {
+          const orgRows = await this.db.sql`
+            SELECT organization_id FROM public.waba_configurations
+            WHERE waba_id = ${wabaId}
+            LIMIT 1
+          `;
+          if (orgRows && orgRows.length > 0) {
+            targetOrgId = orgRows[0].organization_id;
+          }
+        }
+
+        if (targetOrgId) {
+          await this.db.sql`
+            UPDATE public.broadcast_templates
+            SET 
+              meta_status = ${event},
+              meta_rejection_reason = ${reason},
+              meta_template_id = COALESCE(${templateId}, meta_template_id),
+              updated_at = NOW()
+            WHERE organization_id = ${targetOrgId}
+              AND (meta_template_name = ${templateName} OR meta_template_id = ${templateId})
+          `;
+        } else {
+          await this.db.sql`
+            UPDATE public.broadcast_templates
+            SET 
+              meta_status = ${event},
+              meta_rejection_reason = ${reason},
+              meta_template_id = COALESCE(${templateId}, meta_template_id),
+              updated_at = NOW()
+            WHERE (meta_template_name = ${templateName} OR meta_template_id = ${templateId})
+          `;
+        }
       }
     } catch (err: any) {
       this.logger.warn(`Failed to update template status from webhook: ${err.message}`);
+    }
+  }
+
+  /**
+   * Handle phone number quality & tier update from Meta webhook
+   */
+  private async handleQualityUpdate(val: any, wabaId?: string) {
+    const phoneId = val.phone_number_id ? String(val.phone_number_id) : null;
+    const displayPhone = val.display_phone_number || null;
+    const currentLimit = val.current_limit || null;
+    const event = (val.event || "").toUpperCase();
+
+    this.logger.log(`[Meta Quality Webhook] phoneId=${phoneId} limit=${currentLimit} event=${event}`);
+
+    try {
+      if (phoneId || displayPhone || wabaId) {
+        await this.db.sql`
+          UPDATE public.waba_configurations
+          SET 
+            messaging_tier = COALESCE(${currentLimit}, messaging_tier),
+            updated_at = NOW()
+          WHERE (phone_number_id = ${phoneId} OR display_phone_number = ${displayPhone} OR waba_id = ${wabaId})
+        `;
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to update quality/tier from webhook: ${err.message}`);
+    }
+  }
+
+  /**
+   * Handle phone number name / display update from Meta webhook
+   */
+  private async handleNameUpdate(val: any, wabaId?: string) {
+    const phoneId = val.phone_number_id ? String(val.phone_number_id) : null;
+    const verifiedName = val.verified_name || null;
+    const displayPhone = val.display_phone_number || null;
+
+    try {
+      if (phoneId || displayPhone || wabaId) {
+        await this.db.sql`
+          UPDATE public.waba_configurations
+          SET 
+            verified_name = COALESCE(${verifiedName}, verified_name),
+            display_phone_number = COALESCE(${displayPhone}, display_phone_number),
+            updated_at = NOW()
+          WHERE (phone_number_id = ${phoneId} OR display_phone_number = ${displayPhone} OR waba_id = ${wabaId})
+        `;
+      }
+    } catch (err: any) {
+      this.logger.warn(`Failed to update name from webhook: ${err.message}`);
     }
   }
 
@@ -761,34 +848,199 @@ export class WabaService {
       content = `[${msgType.toUpperCase()}]`;
     }
 
-    this.logger.log(`[Meta Inbound Message] From ${senderName} (${rawFrom}): "${content}"`);
+    this.logger.log(`[Meta Inbound Message] From ${senderName} (${rawFrom}) on phone ${metadata?.phone_number_id || "default"}: "${content}"`);
 
     try {
-      // 1. Save to chat_messages table
-      const msgId = `waba_msg_${msg.id || Date.now()}`;
-      await this.db.sql`
-        INSERT INTO public.chat_messages (
-          id, phone, sender_name, content, message_type, direction, created_at
-        ) VALUES (
-          ${msgId}, ${rawFrom}, ${senderName}, ${content}, ${msgType.toUpperCase()}, 'INCOMING', ${eventTime.toISOString()}::timestamptz
-        )
-        ON CONFLICT (id) DO NOTHING
-      `;
+      // Resolve organization from the WhatsApp phone_number_id receiving the message
+      const phoneId = metadata?.phone_number_id;
+      let targetOrgId: string | null = null;
+      if (phoneId) {
+        const orgRows = await this.db.sql`
+          SELECT organization_id FROM public.waba_configurations
+          WHERE phone_number_id = ${phoneId}
+          LIMIT 1
+        `;
+        if (orgRows && orgRows.length > 0) {
+          targetOrgId = orgRows[0].organization_id;
+        }
+      }
 
-      // 2. Mark corresponding campaign recipient as READ and record reply
-      await this.db.sql`
-        UPDATE public.campaign_recipients
-        SET 
-          status = 'READ',
-          read_at = COALESCE(read_at, ${eventTime.toISOString()}::timestamptz),
-          reply_text = ${content},
-          replied_at = ${eventTime.toISOString()}::timestamptz
-        WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
-          AND (replied_at IS NULL OR replied_at < ${eventTime.toISOString()}::timestamptz)
-      `;
+      // 1. Save to chat_messages table with organization isolation
+      const msgId = `waba_msg_${msg.id || Date.now()}`;
+      if (targetOrgId) {
+        await this.db.sql`
+          INSERT INTO public.chat_messages (
+            id, organization_id, phone, sender_name, content, message_type, direction, created_at
+          ) VALUES (
+            ${msgId}, ${targetOrgId}, ${rawFrom}, ${senderName}, ${content}, ${msgType.toUpperCase()}, 'INCOMING', ${eventTime.toISOString()}::timestamptz
+          )
+          ON CONFLICT (id) DO NOTHING
+        `;
+      } else {
+        await this.db.sql`
+          INSERT INTO public.chat_messages (
+            id, phone, sender_name, content, message_type, direction, created_at
+          ) VALUES (
+            ${msgId}, ${rawFrom}, ${senderName}, ${content}, ${msgType.toUpperCase()}, 'INCOMING', ${eventTime.toISOString()}::timestamptz
+          )
+          ON CONFLICT (id) DO NOTHING
+        `;
+      }
+
+      // 2. Mark corresponding campaign recipient as READ and record reply within this organization
+      if (targetOrgId) {
+        await this.db.sql`
+          UPDATE public.campaign_recipients cr
+          SET 
+            status = 'READ',
+            read_at = COALESCE(cr.read_at, ${eventTime.toISOString()}::timestamptz),
+            reply_text = ${content},
+            replied_at = ${eventTime.toISOString()}::timestamptz
+          FROM public.campaigns c
+          WHERE cr.campaign_id = c.id
+            AND c.organization_id = ${targetOrgId}
+            AND RIGHT(REGEXP_REPLACE(cr.phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
+            AND (cr.replied_at IS NULL OR cr.replied_at < ${eventTime.toISOString()}::timestamptz)
+        `;
+      } else {
+        await this.db.sql`
+          UPDATE public.campaign_recipients
+          SET 
+            status = 'READ',
+            read_at = COALESCE(read_at, ${eventTime.toISOString()}::timestamptz),
+            reply_text = ${content},
+            replied_at = ${eventTime.toISOString()}::timestamptz
+          WHERE RIGHT(REGEXP_REPLACE(phone, '\\D', '', 'g'), 10) = ${cleanPhone10}
+            AND (replied_at IS NULL OR replied_at < ${eventTime.toISOString()}::timestamptz)
+        `;
+      }
     } catch (err: any) {
       this.logger.debug(`Inbound message persistence note for ${rawFrom}: ${err.message}`);
     }
+  }
+
+  /**
+   * Get comprehensive WABA account health, quality rating, messaging limit tier & today's usage
+   */
+  async getAccountHealth(orgId: string, forceSyncMeta = false): Promise<any> {
+    const effectiveOrg = orgId || "org-demo";
+    const cfg = await this.getConfig(effectiveOrg);
+
+    const mem = process.memoryUsage();
+    const rssMb = Math.round(mem.rss / (1024 * 1024));
+    const heapUsedMb = Math.round(mem.heapUsed / (1024 * 1024));
+
+    if (!cfg || !cfg.phoneNumberId || !cfg.accessToken) {
+      return {
+        configured: false,
+        status: "DISCONNECTED",
+        qualityRating: "UNKNOWN",
+        messagingTier: "TIER_1K",
+        dailyLimit: 1000,
+        sentToday: 0,
+        remainingQuota: 1000,
+        usagePercent: 0,
+        vpsMemory: {
+          rssMb,
+          heapUsedMb,
+          status: rssMb < 200 ? "OPTIMIZED" : "ELEVATED",
+          engineMode: process.env.ENABLE_BAILEYS_SOCKETS === "true" ? "HYBRID_BAILEYS" : "PURE_WABA",
+          baileysRetired: process.env.ENABLE_BAILEYS_SOCKETS !== "true",
+        },
+        recommendation: "WABA credentials not configured. Please enter your Phone Number ID and Access Token in Settings to enable official Meta broadcasting.",
+      };
+    }
+
+    let qualityRating = cfg.qualityRating || "UNKNOWN";
+    let messagingTier = cfg.messagingTier || "TIER_1K";
+    let verifiedName = cfg.verifiedName || "Verified Business";
+    let displayPhoneNumber = cfg.displayPhoneNumber || "";
+
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    const shouldSync = forceSyncMeta || !cfg.lastTestedAt || cfg.lastTestedAt.getTime() < tenMinutesAgo;
+
+    if (shouldSync) {
+      try {
+        const syncResult = await this.testConnection(effectiveOrg, {
+          phoneNumberId: cfg.phoneNumberId,
+          accessToken: cfg.accessToken,
+        });
+        if (syncResult.success && syncResult.data) {
+          qualityRating = syncResult.data.qualityRating || qualityRating;
+          messagingTier = syncResult.data.messagingTier || messagingTier;
+          verifiedName = syncResult.data.verifiedName || verifiedName;
+          displayPhoneNumber = syncResult.data.displayPhoneNumber || displayPhoneNumber;
+        }
+      } catch (syncErr: any) {
+        this.logger.warn(`Background Meta health sync note for ${effectiveOrg}: ${syncErr.message}`);
+      }
+    }
+
+    // Resolve numeric daily limit
+    const tierLimits: Record<string, number> = {
+      TIER_50: 50,
+      TIER_250: 250,
+      TIER_1K: 1000,
+      TIER_10K: 10000,
+      TIER_100K: 100000,
+      TIER_UNLIMITED: -1,
+    };
+    const dailyLimit = tierLimits[messagingTier] !== undefined ? tierLimits[messagingTier] : 1000;
+
+    // Calculate messages sent today
+    let sentToday = 0;
+    try {
+      const sentRows = await this.db.sql`
+        SELECT COUNT(*)::int as count 
+        FROM public.campaign_recipients cr
+        JOIN public.campaigns c ON c.id = cr.campaign_id
+        WHERE c.organization_id = ${effectiveOrg}
+          AND c.channel_type = 'WABA'
+          AND cr.status IN ('SENT', 'DELIVERED', 'READ')
+          AND (cr.sent_at >= CURRENT_DATE OR (cr.sent_at IS NULL AND cr.created_at >= CURRENT_DATE))
+      `;
+      sentToday = Number(sentRows?.[0]?.count || 0);
+    } catch (queryErr: any) {
+      this.logger.warn(`Could not compute today sent count: ${queryErr.message}`);
+    }
+
+    const remainingQuota = dailyLimit === -1 ? 999999 : Math.max(0, dailyLimit - sentToday);
+    const usagePercent = dailyLimit === -1 ? 0 : Math.min(100, Math.round((sentToday / dailyLimit) * 100));
+
+    // Actionable recommendation
+    let recommendation = "Account is in good standing with Meta. High quality rating maintained.";
+    if (qualityRating === "RED") {
+      recommendation = "Critical Alert: Low Quality Rating detected by Meta. Customers may be blocking or reporting broadcast messages. Pause marketing campaigns and ensure template opt-outs are provided.";
+    } else if (qualityRating === "YELLOW") {
+      recommendation = "Caution: Medium Quality Rating. Ensure your audience has opted in and messages include relevant, non-spam content.";
+    } else if (dailyLimit !== -1 && usagePercent >= 80) {
+      recommendation = `High Usage: You have utilized ${usagePercent}% of your daily messaging limit (${sentToday}/${dailyLimit}). Quota resets at 00:00 UTC.`;
+    } else if (dailyLimit === 1000) {
+      recommendation = "Tier 1K (1,000 unique recipients/24h). To qualify for automatic Meta upgrade to Tier 10K, send at least 500 messages across 7 days while keeping Quality Rating GREEN.";
+    }
+
+    return {
+      configured: true,
+      status: cfg.status,
+      phoneNumberId: cfg.phoneNumberId,
+      displayPhoneNumber,
+      verifiedName,
+      qualityRating,
+      messagingTier,
+      dailyLimit,
+      sentToday,
+      remainingQuota,
+      usagePercent,
+      lastTestedAt: cfg.lastTestedAt,
+      vpsMemory: {
+        rssMb,
+        heapUsedMb,
+        status: rssMb < 200 ? "OPTIMIZED" : "ELEVATED",
+        engineMode: process.env.ENABLE_BAILEYS_SOCKETS === "true" ? "HYBRID_BAILEYS" : "PURE_WABA",
+        baileysRetired: process.env.ENABLE_BAILEYS_SOCKETS !== "true",
+      },
+      recommendation,
+    };
   }
 
   private mapRow(r: any): WabaConfigRecord {

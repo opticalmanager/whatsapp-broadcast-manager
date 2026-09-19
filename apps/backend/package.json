@@ -8,6 +8,7 @@
     "prestart:dev": "node scripts/free-port.js 4000",
     "start:dev": "nest start --watch",
     "build": "nest build",
+    "start:prod": "node --max-old-space-size=256 dist/src/main.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

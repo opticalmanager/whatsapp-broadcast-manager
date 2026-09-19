@@ -6,7 +6,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
   LayoutDashboard,
-  Clock,
   Send,
   Smile,
   Bot,
@@ -14,20 +13,16 @@ import {
   BookUser,
   UserX,
   Filter,
-  UsersRound,
-  FileBarChart,
   MessageSquare,
   Settings,
   ChevronDown,
   Sun,
   Moon,
   ShieldCheck,
-  Smartphone,
   Wrench,
   Menu,
   X
 } from "lucide-react";
-import { WhatsAppDrawer } from "./WhatsAppDrawer";
 import { useAuth } from "@/lib/auth-context";
 
 interface AppShellProps {
@@ -43,9 +38,7 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
   const { user: authUser, logout, getAuthHeaders, isAuthenticated } = useAuth();
 
   const resolvedUser = (authUser ? { fullName: authUser.fullName, email: authUser.email } : null) || ssoUser;
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [connectedDevicesCount, setConnectedDevicesCount] = useState<number>(0);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
 
@@ -75,37 +68,8 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
     }
   };
 
-  useEffect(() => {
-    async function checkInstances() {
-      try {
-        const backendUrl = getBackendUrl();
-        const headers = getAuthHeaders();
-        const res = await fetch(`${backendUrl}/api/v1/whatsapp-numbers/instances`, { headers });
-
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            const count = json.data.filter((d: any) => d.status === "CONNECTED").length;
-            setConnectedDevicesCount(count);
-          } else {
-            setConnectedDevicesCount(0);
-          }
-        }
-      } catch {
-        // Quiet fallback
-      }
-    }
-
-    if (isAuthenticated) {
-      checkInstances();
-      const interval = setInterval(checkInstances, 4000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, getAuthHeaders]);
-
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-    { label: "Devices", href: "/devices", icon: Clock },
     { label: "Campaigns", href: "/campaigns", icon: Send },
     { label: "Welcome Message", href: "/welcome-message", icon: Smile },
     { label: "Auto Reply", href: "/auto-reply", icon: Bot },
@@ -151,30 +115,18 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
           </Link>
         </div>
 
-        {/* Right Action Icons & Live WhatsApp Multi-Instance Status */}
+        {/* Right Action Icons & Live Meta WABA Cloud API Status */}
         <div className="flex items-center gap-2 sm:gap-3.5 shrink-0">
           
-          {/* WhatsApp Multi-Device Dynamic Status Indicator */}
+          {/* Official Meta WABA Cloud API Status Badge */}
           <Link
-            href="/devices"
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-xs ${
-              connectedDevicesCount > 0
-                ? "bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:border-emerald-700 dark:text-emerald-300"
-                : "bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/50 dark:border-amber-700 dark:text-amber-300"
-            }`}
-            title="WhatsApp Connected Devices"
+            href="/settings"
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-full text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/50 dark:border-emerald-700 dark:text-emerald-300 shadow-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-all cursor-pointer"
+            title="Official Meta WhatsApp Cloud API (WABA) Settings"
           >
-            <span className={`w-2 h-2 rounded-full shrink-0 ${connectedDevicesCount > 0 ? "bg-emerald-500 shadow-xs" : "bg-amber-500 animate-ping"}`} />
-            <span className="hidden sm:inline whitespace-nowrap">
-              {connectedDevicesCount === 0
-                ? "Pair Device (QR)"
-                : connectedDevicesCount === 1
-                ? "1 Device Connected"
-                : `${connectedDevicesCount} Devices Connected`}
-            </span>
-            <span className="sm:hidden whitespace-nowrap">
-              {connectedDevicesCount === 0 ? "Pair Device" : `${connectedDevicesCount} Connected`}
-            </span>
+            <span className="w-2 h-2 rounded-full shrink-0 bg-emerald-500 shadow-xs animate-pulse" />
+            <span className="hidden sm:inline whitespace-nowrap">Meta Cloud API (WABA)</span>
+            <span className="sm:hidden whitespace-nowrap">WABA Active</span>
           </Link>
 
           {/* Theme Toggle Button */}
@@ -218,20 +170,12 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
                 </div>
                 <div className="py-1">
                   <Link
-                    href="/devices"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-slate-400" />
-                    <span>WhatsApp Devices</span>
-                  </Link>
-                  <Link
                     href="/settings"
                     onClick={() => setIsProfileOpen(false)}
                     className="flex items-center gap-2 px-2.5 py-1.5 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
                   >
                     <Settings className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Settings & Anti-Ban</span>
+                    <span>Settings & Meta WABA</span>
                   </Link>
                 </div>
                 <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
@@ -260,7 +204,7 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href || (item.href === "/devices" && pathname === "/numbers") || (item.href === "/send-message" && pathname.startsWith("/campaigns")) || (item.href === "/auto-reply" && pathname.startsWith("/auto-repl"));
+                const isActive = pathname === item.href || (item.href === "/send-message" && pathname.startsWith("/campaigns")) || (item.href === "/auto-reply" && pathname.startsWith("/auto-repl"));
                 
                 return (
                   <Link
@@ -326,7 +270,7 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
                 <nav className="space-y-1">
                   {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = pathname === item.href || (item.href === "/devices" && pathname === "/numbers") || (item.href === "/send-message" && pathname.startsWith("/campaigns")) || (item.href === "/auto-reply" && pathname.startsWith("/auto-repl"));
+                    const isActive = pathname === item.href || (item.href === "/send-message" && pathname.startsWith("/campaigns")) || (item.href === "/auto-reply" && pathname.startsWith("/auto-repl"));
                     
                     return (
                       <Link
@@ -380,12 +324,6 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
           {children}
         </main>
       </div>
-
-      {/* Slide-Over WhatsApp Pairing Drawer */}
-      <WhatsAppDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-      />
     </div>
   );
 }

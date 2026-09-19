@@ -4,9 +4,10 @@ import { AnalyticsController } from "./analytics.controller";
 import { AuthModule } from "../auth/auth.module";
 import { CampaignsModule } from "../campaigns/campaigns.module";
 import { WhatsAppSessionModule } from "../whatsapp-session/whatsapp-session.module";
+import { WabaModule } from "../waba/waba.module";
 
 @Module({
-  imports: [AuthModule, CampaignsModule, WhatsAppSessionModule],
+  imports: [AuthModule, CampaignsModule, WhatsAppSessionModule, WabaModule],
   controllers: [AnalyticsController],
   providers: [AnalyticsService],
   exports: [AnalyticsService],
