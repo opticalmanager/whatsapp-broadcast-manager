@@ -4159,17 +4159,18 @@
     "totalRecipients": 1,
     "sentCount": 1,
     "deliveredCount": 1,
-    "readCount": 0,
+    "readCount": 1,
     "failedCount": 0,
     "recipients": [
       {
         "id": "pst_0_1789807753594",
         "phone": "917678106554",
         "name": "Recipient 1",
-        "status": "DELIVERED",
+        "status": "READ",
         "messageId": "3EB0C1458E7B9247BA89BB",
         "sentAt": "2026-09-19T08:49:19.965Z",
-        "deliveredAt": "2026-09-19T08:49:19.966Z"
+        "deliveredAt": "2026-09-19T08:49:19.966Z",
+        "readAt": "2026-09-19T08:50:16.941Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} {{whatsapp_name}}how are you?",
