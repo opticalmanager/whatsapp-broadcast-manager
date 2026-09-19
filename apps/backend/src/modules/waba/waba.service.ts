@@ -64,7 +64,7 @@ export class WabaService {
   /**
    * Save WABA configuration and automatically verify connection
    */
-  async saveConfig(orgId: string, dto: SaveWabaConfigDto): Promise<{ success: boolean; message: string; data: WabaConfigRecord }> {
+  async saveConfig(orgId: string, dto: SaveWabaConfigDto): Promise<{ success: boolean; message: string; data: WabaConfigRecord; isTokenExpired?: boolean }> {
     const effectiveOrg = orgId || "org-demo";
     const cleanPhoneId = dto.phoneNumberId?.trim();
     const cleanWabaId = dto.wabaId?.trim();
@@ -102,6 +102,7 @@ export class WabaService {
 
       return {
         success: testResult.success,
+        isTokenExpired: testResult.isTokenExpired || false,
         message: testResult.success 
           ? "WABA credentials saved and verified with Meta Cloud API successfully!" 
           : `WABA credentials saved, but connection test failed: ${testResult.message}`,
@@ -116,7 +117,7 @@ export class WabaService {
   /**
    * Test live connection to Meta Cloud API v20.0
    */
-  async testConnection(orgId: string, override?: TestWabaConnectionDto): Promise<{ success: boolean; message: string; data?: any }> {
+  async testConnection(orgId: string, override?: TestWabaConnectionDto): Promise<{ success: boolean; message: string; data?: any; isTokenExpired?: boolean; rawError?: string }> {
     const effectiveOrg = orgId || "org-demo";
     let phoneId = override?.phoneNumberId?.trim();
     let token = override?.accessToken?.trim();
@@ -144,9 +145,16 @@ export class WabaService {
       const json = await res.json();
 
       if (!res.ok || json.error) {
-        const errorMsg = json.error?.message || `Meta API error (${res.status})`;
+        const rawMsg = json.error?.message || `Meta API error (${res.status})`;
         const errorCode = json.error?.code || res.status;
-        this.logger.warn(`Meta API connection test failed for ${phoneId}: [Code ${errorCode}] ${errorMsg}`);
+        this.logger.warn(`Meta API connection test failed for ${phoneId}: [Code ${errorCode}] ${rawMsg}`);
+
+        let userMsg = rawMsg;
+        let isTokenExpired = false;
+        if (errorCode === 190 || rawMsg.toLowerCase().includes("session has expired") || rawMsg.toLowerCase().includes("error validating access token")) {
+          isTokenExpired = true;
+          userMsg = "Meta Access Token has expired (24-Hour Temporary Token). Please generate a Permanent System User Token with 'Never' expire in Meta Business Settings.";
+        }
 
         await this.db.sql`
           UPDATE public.waba_configurations 
@@ -156,7 +164,9 @@ export class WabaService {
 
         return {
           success: false,
-          message: `Meta API verification failed: ${errorMsg} (Error code: ${errorCode})`,
+          isTokenExpired,
+          message: `Meta API verification failed: ${userMsg} (Error code: ${errorCode})`,
+          rawError: rawMsg,
           data: json.error,
         };
       }
