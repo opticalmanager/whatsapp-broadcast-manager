@@ -2,11 +2,46 @@
 
 import React, { useState, useEffect } from "react";
 import { getBackendUrl } from "@/lib/backend-url";
-import { Send, Moon, Globe, Check, Loader2, Sparkles, Flame, ShieldAlert, ShieldCheck } from "lucide-react";
+import { 
+  Send, 
+  Moon, 
+  Globe, 
+  Check, 
+  Loader2, 
+  Sparkles, 
+  Flame, 
+  ShieldAlert, 
+  ShieldCheck,
+  Zap,
+  Key,
+  Copy,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  Radio
+} from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth-context";
 
-type ActiveTab = "sending" | "sleep" | "country" | "warmup";
+type ActiveTab = "sending" | "sleep" | "country" | "warmup" | "waba";
+
+interface WabaConfigData {
+  phoneNumberId: string;
+  wabaId: string;
+  accessToken: string;
+  webhookVerifyToken: string;
+  appId?: string;
+  displayPhoneNumber?: string;
+  verifiedName?: string;
+  qualityRating?: string;
+  messagingTier?: string;
+  codeVerificationStatus?: string;
+  status: "CONNECTED" | "DISCONNECTED" | "AUTH_ERROR";
+  lastTestedAt?: string;
+}
 
 interface SettingsData {
   switchAccountAfter: number;
@@ -75,6 +110,19 @@ export default function SettingsPage() {
     deliveryWindowEnd: "19:00",
   });
 
+  // WABA Official API State
+  const [wabaConfig, setWabaConfig] = useState<WabaConfigData>({
+    phoneNumberId: "",
+    wabaId: "",
+    accessToken: "",
+    webhookVerifyToken: "waba_secret_verify_token_2026",
+    appId: "",
+    status: "DISCONNECTED",
+  });
+  const [showToken, setShowToken] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [savingWaba, setSavingWaba] = useState(false);
+
   const getAuthHeaders = (): Record<string, string> => {
     if (typeof window === "undefined") return {};
     const token = localStorage.getItem("broadcast_token");
@@ -82,14 +130,42 @@ export default function SettingsPage() {
     return {};
   };
 
+  const fetchWabaConfig = async () => {
+    try {
+      const res = await fetch(`${backendUrl}/api/v1/waba/config`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setWabaConfig({
+            phoneNumberId: json.data.phoneNumberId || "",
+            wabaId: json.data.wabaId || "",
+            accessToken: json.data.accessToken || "",
+            webhookVerifyToken: json.data.webhookVerifyToken || "waba_secret_verify_token_2026",
+            appId: json.data.appId || "",
+            displayPhoneNumber: json.data.displayPhoneNumber,
+            verifiedName: json.data.verifiedName,
+            qualityRating: json.data.qualityRating,
+            messagingTier: json.data.messagingTier,
+            codeVerificationStatus: json.data.codeVerificationStatus,
+            status: json.data.status || "DISCONNECTED",
+            lastTestedAt: json.data.lastTestedAt,
+          });
+        }
+      }
+    } catch {}
+  };
+
   // Fetch settings on mount
   useEffect(() => {
     async function loadSettings() {
       try {
         setLoading(true);
-        const res = await fetch(`${backendUrl}/api/v1/settings`, {
-          headers: getAuthHeaders(),
-        });
+        const [res] = await Promise.all([
+          fetch(`${backendUrl}/api/v1/settings`, { headers: getAuthHeaders() }),
+          fetchWabaConfig()
+        ]);
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
@@ -123,6 +199,86 @@ export default function SettingsPage() {
 
     loadSettings();
   }, [backendUrl]);
+
+  // WABA Handlers
+  const handleSaveWaba = async () => {
+    if (!wabaConfig.phoneNumberId || !wabaConfig.wabaId || !wabaConfig.accessToken || !wabaConfig.webhookVerifyToken) {
+      toast.error("Please fill in Phone Number ID, WABA ID, Access Token, and Verify Token.");
+      return;
+    }
+    try {
+      setSavingWaba(true);
+      const res = await fetch(`${backendUrl}/api/v1/waba/config`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumberId: wabaConfig.phoneNumberId.trim(),
+          wabaId: wabaConfig.wabaId.trim(),
+          accessToken: wabaConfig.accessToken.trim(),
+          webhookVerifyToken: wabaConfig.webhookVerifyToken.trim(),
+          appId: wabaConfig.appId?.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message || "WABA credentials saved successfully!");
+        fetchWabaConfig();
+      } else {
+        toast.error(json.message || "Failed to save WABA configuration.");
+      }
+    } catch {
+      toast.error("Network error while saving WABA configuration.");
+    } finally {
+      setSavingWaba(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    try {
+      setTestingConnection(true);
+      const res = await fetch(`${backendUrl}/api/v1/waba/test-connection`, {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumberId: wabaConfig.phoneNumberId.trim(),
+          accessToken: wabaConfig.accessToken.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message || "Connected to Meta Cloud API successfully!");
+        fetchWabaConfig();
+      } else {
+        toast.error(json.message || "Connection test failed. Check your credentials.");
+        fetchWabaConfig();
+      }
+    } catch {
+      toast.error("Network error testing Meta Cloud API connection.");
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const generateRandomToken = () => {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+    let token = "waba_";
+    for (let i = 0; i < 24; i++) {
+      token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setWabaConfig((prev) => ({ ...prev, webhookVerifyToken: token }));
+    toast.info("Generated new secure webhook verify token.");
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard!`);
+  };
 
   // Save Settings Handler
   const handleSave = async () => {
@@ -234,6 +390,26 @@ export default function SettingsPage() {
           >
             <Flame className="w-3.5 h-3.5" />
             <span>Smart Warmup</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("waba")}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "waba"
+                ? "bg-emerald-600 text-white shadow-2xs"
+                : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5 fill-current text-amber-300" />
+            <span>Official API (WABA)</span>
+            <span className={`px-1.5 py-0.2 rounded-md text-[9px] font-black uppercase ${
+              wabaConfig.status === "CONNECTED"
+                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/40"
+                : "bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400"
+            }`}>
+              {wabaConfig.status === "CONNECTED" ? "Verified" : "Cloud API"}
+            </span>
           </button>
         </div>
 
@@ -840,6 +1016,345 @@ export default function SettingsPage() {
                 {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                 <span>Save Schedule</span>
               </button>
+            </div>
+
+          </div>
+        )}
+
+        {/* Tab 5: WhatsApp Official Cloud API (WABA) */}
+        {activeTab === "waba" && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* Header / Intro Banner */}
+            <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Zap className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <span>Meta WhatsApp Cloud API Integration</span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 text-[10px] font-bold">
+                      Official WABA v20.0
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                    Connect your official Meta Business Account to send verified WhatsApp broadcast templates, notifications, and 24-hour automated customer replies with zero ban risk and high throughput.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border ${
+                  wabaConfig.status === "CONNECTED"
+                    ? "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-700"
+                    : wabaConfig.status === "AUTH_ERROR"
+                    ? "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300 dark:border-rose-700"
+                    : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    wabaConfig.status === "CONNECTED" ? "bg-emerald-500 animate-pulse" : wabaConfig.status === "AUTH_ERROR" ? "bg-rose-500" : "bg-slate-400"
+                  }`} />
+                  <span>
+                    {wabaConfig.status === "CONNECTED"
+                      ? "Connected & Verified"
+                      : wabaConfig.status === "AUTH_ERROR"
+                      ? "Authentication Error"
+                      : "Not Configured"}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Grid: Credentials Form (Left) & Health Card + Webhook Helper (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              
+              {/* Left Column: Meta Cloud API Credentials Form (7 cols) */}
+              <div className="lg:col-span-7 space-y-6">
+                <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <h4 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Key className="w-4 h-4 text-emerald-600" />
+                    <span>Meta Cloud API Credentials</span>
+                  </h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Enter the access credentials from your Meta for Developers App dashboard.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Phone Number ID */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span className="text-rose-500 font-bold">*</span>
+                        <span>Phone Number ID</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">WhatsApp &gt; API Setup</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 102938475610293"
+                      value={wabaConfig.phoneNumberId}
+                      onChange={(e) => setWabaConfig((prev) => ({ ...prev, phoneNumberId: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      The numerical ID of the sending phone number in your Meta developer app.
+                    </p>
+                  </div>
+
+                  {/* WABA ID */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span className="text-rose-500 font-bold">*</span>
+                        <span>WhatsApp Business Account (WABA) ID</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">WhatsApp &gt; API Setup</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 293847561029384"
+                      value={wabaConfig.wabaId}
+                      onChange={(e) => setWabaConfig((prev) => ({ ...prev, wabaId: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      Your WhatsApp Business Account ID used to manage and approve templates.
+                    </p>
+                  </div>
+
+                  {/* Permanent Access Token */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span className="text-rose-500 font-bold">*</span>
+                        <span>Permanent System User Access Token</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">Meta Business Manager</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showToken ? "text" : "password"}
+                        placeholder="EAABwz..."
+                        value={wabaConfig.accessToken}
+                        onChange={(e) => setWabaConfig((prev) => ({ ...prev, accessToken: e.target.value }))}
+                        className="w-full pl-3.5 pr-10 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowToken(!showToken)}
+                        className="absolute right-2.5 top-2.5 p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        title={showToken ? "Hide Token" : "Show Token"}
+                      >
+                        {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Permanent token with <code className="text-[10px] px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800">whatsapp_business_messaging</code> and <code className="text-[10px] px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800">whatsapp_business_management</code> permissions.
+                    </p>
+                  </div>
+
+                  {/* Webhook Verify Token */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <span className="text-rose-500 font-bold">*</span>
+                        <span>Webhook Verify Token</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={generateRandomToken}
+                        className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                      >
+                        Generate Random Token
+                      </button>
+                    </label>
+                    <input
+                      type="text"
+                      value={wabaConfig.webhookVerifyToken}
+                      onChange={(e) => setWabaConfig((prev) => ({ ...prev, webhookVerifyToken: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <p className="text-[11px] text-slate-400">
+                      A secret token you define that Meta will send back during webhook verification handshake.
+                    </p>
+                  </div>
+
+                  {/* Meta App ID (Optional) */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <span>Meta App ID (Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 583920194857392"
+                      value={wabaConfig.appId || ""}
+                      onChange={(e) => setWabaConfig((prev) => ({ ...prev, appId: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Form Action Buttons */}
+                <div className="pt-2 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveWaba}
+                    disabled={savingWaba}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {savingWaba ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    <span>Save Credentials</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={testingConnection || !wabaConfig.phoneNumberId || !wabaConfig.accessToken}
+                    className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs transition-all shadow-2xs cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {testingConnection ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" /> : <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />}
+                    <span>Test Live Connection</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Column: Health Status & Webhook Setup Helper (5 cols) */}
+              <div className="lg:col-span-5 space-y-6">
+                
+                {/* 1. Verified Account Health Card */}
+                <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
+                    <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span>Account Verification</span>
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      wabaConfig.status === "CONNECTED"
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                    }`}>
+                      {wabaConfig.status}
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <span className="text-[11px] text-slate-400 block font-medium">Verified Business Name</span>
+                      <span className="font-bold text-slate-900 dark:text-white text-sm">
+                        {wabaConfig.verifiedName || "Not Connected Yet"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block font-medium">Display Number</span>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {wabaConfig.displayPhoneNumber || "—"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-400 block font-medium">Quality Rating</span>
+                        <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-black uppercase mt-0.5 ${
+                          wabaConfig.qualityRating === "GREEN"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : wabaConfig.qualityRating === "YELLOW"
+                            ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                            : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                        }`}>
+                          {wabaConfig.qualityRating || "UNKNOWN"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <span className="text-[11px] text-slate-400 block font-medium">Messaging Tier</span>
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {wabaConfig.messagingTier || "TIER_1K"}
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-[11px] text-slate-400 block font-medium">Last Verified</span>
+                        <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                          {wabaConfig.lastTestedAt ? new Date(wabaConfig.lastTestedAt).toLocaleDateString() : "Never"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Webhook Setup Helper Card */}
+                <div className="bg-slate-50 dark:bg-slate-950 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
+                    <span className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Radio className="w-4 h-4 text-emerald-600" />
+                      <span>Meta Webhook Configuration</span>
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Paste these two values into your <strong>Meta for Developers</strong> app under <strong>WhatsApp &gt; Configuration</strong> to receive live read receipts and customer replies:
+                  </p>
+
+                  {/* Callback URL */}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Callback URL</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        readOnly
+                        value={`${backendUrl}/api/v1/waba/webhook`}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-700 dark:text-slate-300 select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(`${backendUrl}/api/v1/waba/webhook`, "Callback URL")}
+                        className="p-2 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        title="Copy Callback URL"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Verify Token */}
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Verify Token</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        readOnly
+                        value={wabaConfig.webhookVerifyToken || "waba_secret_verify_token_2026"}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono text-slate-700 dark:text-slate-300 select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(wabaConfig.webhookVerifyToken || "waba_secret_verify_token_2026", "Verify Token")}
+                        className="p-2 rounded-lg bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+                        title="Copy Verify Token"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Setup Steps */}
+                  <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1.5">
+                    <div className="font-bold text-slate-700 dark:text-slate-300">Quick 3-Step Setup:</div>
+                    <ol className="list-decimal list-inside space-y-1 leading-relaxed">
+                      <li>Open Meta for Developers &gt; App &gt; <strong>WhatsApp &gt; Configuration</strong>.</li>
+                      <li>Click <strong>Edit</strong> on Webhook, paste Callback URL &amp; Verify Token, then click <strong>Verify and save</strong>.</li>
+                      <li>Under Webhook fields, click <strong>Manage</strong> and subscribe to <strong>messages</strong> and <strong>message_template_status_update</strong>.</li>
+                    </ol>
+                  </div>
+                </div>
+
+              </div>
+
             </div>
 
           </div>

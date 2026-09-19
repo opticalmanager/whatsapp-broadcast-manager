@@ -17,19 +17,13 @@ import {
   HelpCircle, 
   Layers, 
   Smartphone, 
-  Scissors, 
   Globe, 
-  Eraser, 
   Image as ImageIcon,
   Video,
-  Link as LinkIcon,
   MessageSquare,
-  BarChart2,
   MapPin,
-  UserCheck,
   Paperclip,
   Calendar,
-  Shuffle,
   ChevronDown,
   Check,
   Loader2,
@@ -43,28 +37,12 @@ import {
   ExternalLink,
   CornerDownLeft,
   Copy,
-  Menu,
-  CheckSquare,
-  Lock
+  Zap,
+  ShieldCheck
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useAuth } from "@/lib/auth-context";
 import { toast } from "sonner";
-import { 
-  normalizePublicMediaUrl, 
-  isLikelyImageUrl, 
-  isLikelyVideoUrl, 
-  isLikelyDocumentUrl, 
-  detectMediaTypeFromUrl 
-} from "@/lib/media-url-utils";
-
-interface WhatsAppInstance {
-  id: string;
-  instanceName: string;
-  phoneNumber: string | null;
-  displayName: string | null;
-  status: string;
-}
 
 interface ContactRow {
   id: string;
@@ -87,39 +65,6 @@ interface AudienceSegment {
   description?: string;
   contactCount: number;
 }
-
-interface AttachedFile {
-  id: string;
-  name: string;
-  size: string;
-  type: string;
-  url: string;
-}
-
-export type WhatsAppMessageType = 
-  | "Text"
-  | "Text With Media"
-  | "Poll"
-  | "Poll With Media";
-
-const PRESET_TEMPLATES: Record<string, { text: string; type: WhatsAppMessageType }> = {
-  "New Message": {
-    text: "",
-    type: "Text"
-  },
-  "Festival Offer": {
-    text: "Hello {{name}}! 🌟 Special Festival Offer: Enjoy 20% OFF on all designer spectacles and lenses at Optical Manager! Use coupon code: FESTIVAL20 when you visit. Valid till Sunday! 👓✨",
-    type: "Text With Media"
-  },
-  "Eye Test Appointment": {
-    text: "Dear {{name}}, this is a friendly reminder for your scheduled Comprehensive Eye Examination at Optical Manager. Our certified optometrist is ready to assist you. Location: {{city}} clinic. Reply 1 to confirm or 2 to reschedule.",
-    type: "Text"
-  },
-  "Order Ready for Pickup": {
-    text: "Great news {{name}}! 🎉 Your eyewear order is crafted and quality-checked. It is ready for pickup at our clinic. Please bring your receipt when visiting.",
-    type: "Text"
-  }
-};
 
 // High-Performance Client-Side Smart Image Compression (Max 1280px HD, Quality 0.82)
 async function compressImageFile(
@@ -212,6 +157,22 @@ function CampaignsStudioInner() {
     return `Campaign ${formatted}, ${time}`;
   });
 
+  // Channel Type State (WABA vs BAILEYS)
+  const [channelType, setChannelType] = useState<"WABA" | "BAILEYS">("WABA");
+  const [wabaConfig, setWabaConfig] = useState<{
+    status: string;
+    verifiedName?: string;
+    displayPhoneNumber?: string;
+    qualityRating?: string;
+    messagingTier?: string;
+    phoneNumberId?: string;
+  } | null>(null);
+  const [wabaLoading, setWabaLoading] = useState<boolean>(true);
+  const [selectedMetaTemplateId, setSelectedMetaTemplateId] = useState<string>("");
+  const [metaVariableMappings, setMetaVariableMappings] = useState<Record<string, string>>({});
+  const [metaHeaderMediaUrl, setMetaHeaderMediaUrl] = useState<string>("");
+  const [metaStaticValues, setMetaStaticValues] = useState<Record<string, string>>({});
+
   // Left Panel - 2. Recipients Tabs
   const [recipientTab, setRecipientTab] = useState<"CSV" | "Paste" | "Groups" | "Contacts">("Paste");
   
@@ -262,51 +223,11 @@ function CampaignsStudioInner() {
     toast.success(`Selected ${matchingIds.length} contact(s) from serial #${from} to #${to}.`);
   };
 
-  // Left Panel - 3. Template & 8 WhatsApp Message Types matching Image 1
+  // Template & WABA State
   const [dbTemplates, setDbTemplates] = useState<any[]>([]);
-  const [selectedTemplateKey, setSelectedTemplateKey] = useState<string>("New Message");
-  const [isVariableDropdownOpen, setIsVariableDropdownOpen] = useState(false);
-  const [isSpintaxDropdownOpen, setIsSpintaxDropdownOpen] = useState(false);
-  const [autoSpintaxEnabled, setAutoSpintaxEnabled] = useState(true);
-  const [messageType, setMessageType] = useState<WhatsAppMessageType>("Text");
-  const [mediaFormat, setMediaFormat] = useState<"NONE" | "IMAGE" | "DOCUMENT" | "VIDEO" | "POLL">("NONE");
-
-  // Left Panel - 4. Message Composer Text & Anti-Ban Spintax
-  const [messageText, setMessageText] = useState<string>("{Hello|Hi|Hey|Dear} ");
-  
-  // Attachments State (Starts CLEAN)
-  const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [compressionStats, setCompressionStats] = useState<string | null>(null);
-  const [textWithMediaMode, setTextWithMediaMode] = useState<"caption" | "separate">("caption");
-  const [publicMediaUrl, setPublicMediaUrl] = useState<string>("");
-  const [templateMediaUrl, setTemplateMediaUrl] = useState<string>("");
-
-  // Poll Builder State (for Poll & Poll With Media)
-  const [pollQuestion, setPollQuestion] = useState<string>("Would you like to schedule an eye checkup this week?");
-  const [pollOptions, setPollOptions] = useState<string[]>(["Yes, definitely!", "Maybe next week", "No, thanks"]);
-  const [pollMultipleAnswers, setPollMultipleAnswers] = useState<boolean>(false);
-
-  // Format Switcher Helper (Matching template modal cards)
-  const handleSelectMediaFormat = (format: "NONE" | "IMAGE" | "DOCUMENT" | "VIDEO" | "POLL") => {
-    setMediaFormat(format);
-    if (format === "NONE") {
-      setMessageType("Text");
-    } else if (format === "POLL") {
-      setMessageType("Poll");
-    } else {
-      setMessageType("Text With Media");
-    }
-  };
-
-  // Right Panel - Send Pacing State
-  const [useAccountDelay, setUseAccountDelay] = useState<boolean>(true);
-  const [warmupRamp, setWarmupRamp] = useState<boolean>(true);
-  const [batchSizeStr, setBatchSizeStr] = useState<string>("5");
-  const [batchPauseStr, setBatchPauseStr] = useState<string>("60");
-
-  // Right Panel - Send From Selected Instances
-  const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
-  const [selectedInstanceIds, setSelectedInstanceIds] = useState<string[]>([]);
+  const [isUploadingMedia, setIsUploadingMedia] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Modals State
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -331,40 +252,6 @@ function CampaignsStudioInner() {
   const [scheduledTime, setScheduledTime] = useState("10:00");
   const [scheduledDateTime, setScheduledDateTime] = useState("");
   const [sending, setSending] = useState(false);
-  const [broadcastSettings, setBroadcastSettings] = useState<{
-    minDelaySec: number;
-    maxDelaySec: number;
-    sleepEnabled: boolean;
-    sleepAfterMessages: number;
-    sleepForSeconds: number;
-  }>({
-    minDelaySec: 50,
-    maxDelaySec: 60,
-    sleepEnabled: true,
-    sleepAfterMessages: 10,
-    sleepForSeconds: 60,
-  });
-
-  const [unsubSettings, setUnsubSettings] = useState<{ enabled: boolean; optoutText: string }>({
-    enabled: true,
-    optoutText: "_Reply STOP to unsubscribe from promotional messages._",
-  });
-
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Determine if active message type requires media attachments
-  const isMediaRequired = useMemo(() => {
-    return (
-      messageType === "Text With Media" ||
-      messageType === "Poll With Media"
-    );
-  }, [messageType]);
-
-  // Determine if active message type is Poll
-  const isPollMode = useMemo(() => {
-    return messageType === "Poll" || messageType === "Poll With Media" || mediaFormat === "POLL";
-  }, [messageType, mediaFormat]);
 
   // ==========================================
   // 1. DATA FETCHING
@@ -375,6 +262,21 @@ function CampaignsStudioInner() {
       if (!isAuthenticated) return;
       const headers = getAuthHeaders();
 
+      // 0. Load Meta WABA Configuration
+      try {
+        setWabaLoading(true);
+        const wabaRes = await fetch(`${backendUrl}/api/v1/waba/config`, { headers });
+        if (wabaRes.ok) {
+          const wabaJson = await wabaRes.json();
+          if (wabaJson.success && wabaJson.data) {
+            setWabaConfig(wabaJson.data);
+            setChannelType("WABA");
+          }
+        }
+      } catch {} finally {
+        setWabaLoading(false);
+      }
+
       // 0. Load DB Templates from PostgreSQL
       try {
         const tRes = await fetch(`${backendUrl}/api/v1/templates`, { headers });
@@ -382,50 +284,12 @@ function CampaignsStudioInner() {
           const tJson = await tRes.json();
           if (tJson.success && Array.isArray(tJson.data)) {
             setDbTemplates(tJson.data);
-          }
-        }
-      } catch {}
-
-      // 0. Load Global Broadcast Settings for Real Pace Calculation
-      try {
-        const setRes = await fetch(`${backendUrl}/api/v1/settings`, { headers });
-        if (setRes.ok) {
-          const setJson = await setRes.json();
-          if (setJson.success && setJson.data) {
-            setBroadcastSettings({
-              minDelaySec: Number(setJson.data.minDelaySec) || 15,
-              maxDelaySec: Number(setJson.data.maxDelaySec) || 20,
-              sleepEnabled: setJson.data.sleepEnabled !== false,
-              sleepAfterMessages: Number(setJson.data.sleepAfterMessages) || 25,
-              sleepForSeconds: Number(setJson.data.sleepForSeconds) || 10,
-            });
-          }
-        }
-      } catch {}
-
-      // 0. Load Unsubscriber Settings
-      try {
-        const unRes = await fetch(`${backendUrl}/api/v1/unsubscribers/settings`, { headers });
-        if (unRes.ok) {
-          const unJson = await unRes.json();
-          if (unJson.success && unJson.data) {
-            setUnsubSettings({
-              enabled: unJson.data.enabled !== false,
-              optoutText: unJson.data.optoutText || "Reply STOP to unsubscribe from promotional messages.",
-            });
-          }
-        }
-      } catch {}
-
-      // 1. Load WhatsApp Instances
-      try {
-        const res = await fetch(`${backendUrl}/api/v1/whatsapp-numbers/instances`, { headers });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            setInstances(json.data);
-            const connectedIds = json.data.filter((i: any) => i.status === "CONNECTED").map((i: any) => i.id);
-            setSelectedInstanceIds(connectedIds.length > 0 ? connectedIds : (json.data[0] ? [json.data[0].id] : []));
+            const approved = tJson.data.filter(
+              (t: any) => t.metaStatus === "APPROVED" || t.meta_status === "APPROVED" || Boolean(t.metaTemplateName)
+            );
+            if (approved.length > 0 && !templateParam) {
+              setSelectedMetaTemplateId(approved[0].id);
+            }
           }
         }
       } catch {}
@@ -462,27 +326,12 @@ function CampaignsStudioInner() {
           if (tRes.ok) {
             const tJson = await tRes.json();
             const tpl = tJson.data || tJson;
-            if (tpl && tpl.bodyText) {
-              setMessageText(tpl.bodyText);
-              const tplMedia = tpl.mediaType || (tpl.mediaUrl ? "IMAGE" : "NONE");
-              setMediaFormat(tplMedia);
-              if (tplMedia === "POLL") {
-                setMessageType("Poll");
-                const q = tpl.variables?.find((v: any) => v.key === "poll_question")?.fallback;
-                if (q) setPollQuestion(q);
-                const opts = tpl.variables?.find((v: any) => v.key === "poll_options")?.fallback;
-                if (opts) {
-                  try { setPollOptions(JSON.parse(opts)); } catch {}
-                }
-                const mult = tpl.variables?.find((v: any) => v.key === "poll_multiple")?.fallback;
-                if (mult) setPollMultipleAnswers(mult === "true");
-              } else if (tplMedia === "IMAGE" || tplMedia === "DOCUMENT" || tplMedia === "VIDEO" || tpl.mediaUrl) {
-                setMessageType("Text With Media");
-                if (tpl.mediaUrl) setPublicMediaUrl(tpl.mediaUrl);
-              } else {
-                setMessageType("Text");
+            if (tpl) {
+              setSelectedMetaTemplateId(tpl.id);
+              if (tpl.mediaUrl) {
+                setMetaHeaderMediaUrl(tpl.mediaUrl);
               }
-              toast.success(`Loaded template: "${tpl.title}"`);
+              toast.success(`Loaded Meta template: "${tpl.title || tpl.metaTemplateName}"`);
             }
           }
         } catch {}
@@ -498,105 +347,95 @@ function CampaignsStudioInner() {
     loadInitialData();
   }, [isAuthenticated, templateParam, audienceParam]);
 
-  // Handle Template Switching with PostgreSQL DB templates
-  const handleSelectTemplate = (templateIdOrKey: string) => {
-    setSelectedTemplateKey(templateIdOrKey);
-    if (templateIdOrKey === "New Message") {
-      setMessageText("");
-      setMessageType("Text");
-      setMediaFormat("NONE");
-      setPublicMediaUrl("");
-      setTemplateMediaUrl("");
-      setAttachedFiles([]);
-      return;
+
+
+  // Filter DB templates for Meta-Approved templates
+  const metaApprovedTemplates = useMemo(() => {
+    return dbTemplates.filter(
+      (t) => t.metaStatus === "APPROVED" || (t as any).meta_status === "APPROVED" || Boolean(t.metaTemplateName)
+    );
+  }, [dbTemplates]);
+
+  // Selected Meta Template
+  const selectedMetaTemplate = useMemo(() => {
+    if (!selectedMetaTemplateId) {
+      if (metaApprovedTemplates.length > 0) return metaApprovedTemplates[0];
+      return null;
     }
+    return dbTemplates.find((t) => t.id === selectedMetaTemplateId) || metaApprovedTemplates[0] || null;
+  }, [selectedMetaTemplateId, dbTemplates, metaApprovedTemplates]);
 
-    // Check DB templates first
-    const dbTpl = dbTemplates.find((t) => t.id === templateIdOrKey);
-    if (dbTpl) {
-      setMessageText(dbTpl.bodyText);
-      const tplMedia = (dbTpl as any).mediaType || (dbTpl.mediaUrl ? "IMAGE" : "NONE");
-      setMediaFormat(tplMedia);
+  // Positional variable tokens in selected Meta template (e.g. {{1}}, {{2}})
+  const templateVariableTokens = useMemo(() => {
+    if (!selectedMetaTemplate || !selectedMetaTemplate.bodyText) return [];
+    const matches = selectedMetaTemplate.bodyText.match(/\{\{(\d+)\}\}/g) || [];
+    const uniqueKeys: string[] = Array.from(new Set<string>(matches.map((m: string) => m.replace(/\D/g, ""))))
+      .sort((a: string, b: string) => parseInt(a, 10) - parseInt(b, 10));
+    return uniqueKeys;
+  }, [selectedMetaTemplate]);
 
-      if (tplMedia === "POLL") {
-        setMessageType("Poll");
-        const q = dbTpl.variables?.find((v: any) => v.key === "poll_question")?.fallback;
-        if (q) setPollQuestion(q);
-        const opts = dbTpl.variables?.find((v: any) => v.key === "poll_options")?.fallback;
-        if (opts) {
-          try { setPollOptions(JSON.parse(opts)); } catch {}
-        }
-        const mult = dbTpl.variables?.find((v: any) => v.key === "poll_multiple")?.fallback;
-        if (mult) setPollMultipleAnswers(mult === "true");
-        setTemplateMediaUrl("");
-        setAttachedFiles([]);
-      } else if (tplMedia === "IMAGE" || tplMedia === "DOCUMENT" || tplMedia === "VIDEO" || dbTpl.mediaUrl) {
-        setMessageType("Text With Media");
-        if (dbTpl.mediaUrl) {
-          setTemplateMediaUrl(dbTpl.mediaUrl);
-          setAttachedFiles([
-            {
-              id: "tpl-media-" + dbTpl.id,
-              name: `${dbTpl.title} ${tplMedia === "DOCUMENT" ? "Document" : tplMedia === "VIDEO" ? "Video" : "Image"}`,
-              size: "Template Media",
-              type: tplMedia === "DOCUMENT" ? "application/pdf" : tplMedia === "VIDEO" ? "video/mp4" : "image/jpeg",
-              url: dbTpl.mediaUrl,
-            },
-          ]);
-        } else {
-          setTemplateMediaUrl("");
-          setAttachedFiles([]);
-        }
+  // Parsed sample values from template
+  const parsedSampleValues = useMemo(() => {
+    if (!selectedMetaTemplate) return {};
+    const raw = selectedMetaTemplate.sampleValues || (selectedMetaTemplate as any).sample_values;
+    if (!raw) return {};
+    if (typeof raw === "object") return raw;
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }, [selectedMetaTemplate]);
+
+  // Parsed buttons from template
+  const parsedMetaButtons = useMemo(() => {
+    if (!selectedMetaTemplate?.buttons) return [];
+    if (Array.isArray(selectedMetaTemplate.buttons)) return selectedMetaTemplate.buttons;
+    try {
+      return JSON.parse(selectedMetaTemplate.buttons);
+    } catch {
+      return [];
+    }
+  }, [selectedMetaTemplate]);
+
+  // Available CSV Columns from uploaded sheet
+  const availableCsvColumns = useMemo(() => {
+    if (rawSheetData && rawSheetData[headerRowIdx] && Array.isArray(rawSheetData[headerRowIdx])) {
+      return rawSheetData[headerRowIdx].map((h) => String(h || "").trim()).filter(Boolean);
+    }
+    return [];
+  }, [rawSheetData, headerRowIdx]);
+
+  // Auto-sync variable mappings when template changes
+  useEffect(() => {
+    if (templateVariableTokens.length > 0) {
+      setMetaVariableMappings((prev) => {
+        const next = { ...prev };
+        templateVariableTokens.forEach((k, idx) => {
+          if (!next[k]) {
+            if (idx === 0) next[k] = "name";
+            else if (idx === 1) next[k] = "city";
+            else next[k] = `var${idx}`;
+          }
+        });
+        return next;
+      });
+    }
+  }, [templateVariableTokens]);
+
+  // Auto-sync header media URL when template changes
+  useEffect(() => {
+    if (selectedMetaTemplate) {
+      const hType = (selectedMetaTemplate.headerType || "").toUpperCase();
+      if (["IMAGE", "VIDEO", "DOCUMENT"].includes(hType)) {
+        setMetaHeaderMediaUrl(selectedMetaTemplate.headerContent || selectedMetaTemplate.mediaUrl || "");
       } else {
-        setMessageType("Text");
-        setTemplateMediaUrl("");
-        setAttachedFiles([]);
+        setMetaHeaderMediaUrl("");
       }
-
-      // DO NOT overwrite publicMediaUrl input box with backend/template URL; keep it clean for manual entry
-      setPublicMediaUrl("");
-      toast.success(`Applied template: "${dbTpl.title}"`);
-      return;
     }
+  }, [selectedMetaTemplate]);
 
-    // Fallback to preset
-    const tpl = PRESET_TEMPLATES[templateIdOrKey];
-    if (tpl) {
-      setMessageText(tpl.text);
-      setMessageType(tpl.type);
-      setMediaFormat(tpl.type.includes("Poll") ? "POLL" : tpl.type.includes("Media") ? "IMAGE" : "NONE");
-    }
-  };
 
-  // Toggle Auto-Spintax
-  const handleToggleSpintax = (checked: boolean) => {
-    setAutoSpintaxEnabled(checked);
-    if (checked) {
-      if (!messageText.startsWith("{")) {
-        setMessageText("{Hello|Hi|Hey|Dear} " + messageText);
-      }
-    } else {
-      const cleaned = messageText.replace(/^\{[^\}]+\}\s*/, "");
-      setMessageText(cleaned);
-    }
-  };
-
-  // Generic Insert at Cursor
-  const insertAtCursor = (token: string) => {
-    if (!textareaRef.current) {
-      setMessageText((prev) => prev + " " + token);
-      return;
-    }
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart || 0;
-    const end = textarea.selectionEnd || 0;
-    const newText = messageText.substring(0, start) + token + messageText.substring(end);
-    setMessageText(newText);
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + token.length, start + token.length);
-    }, 50);
-  };
 
   // ==========================================
   // 2. RECIPIENTS COMPUTATION
@@ -635,10 +474,7 @@ function CampaignsStudioInner() {
     return 0;
   }, [recipientTab, parsedPastedNumbers, csvContacts, audienceSelectedCount, selectedDbContactIds]);
 
-  const activeSendingAccountsCount = useMemo(() => {
-    if (selectedInstanceIds.length > 0) return selectedInstanceIds.length;
-    return instances.filter((i) => i.status === "CONNECTED").length || 1;
-  }, [selectedInstanceIds, instances]);
+
 
   // Real Sample Recipient for Dynamic Variable Preview
   const sampleRecipientData = useMemo(() => {
@@ -682,127 +518,62 @@ function CampaignsStudioInner() {
     };
   }, [recipientTab, parsedPastedNumbers, csvContacts, selectedDbContactIds, allDbContacts]);
 
-  // Real Pace & Realistic Estimated Duration (Calculated from PostgreSQL broadcast_settings)
-  const { estimatedPacePerHour, estimatedDurationDisplay } = useMemo(() => {
-    const numAccounts = Math.max(1, activeSendingAccountsCount);
-    const avgDelay = (broadcastSettings.minDelaySec + broadcastSettings.maxDelaySec) / 2;
-    const sleepOverhead =
-      broadcastSettings.sleepEnabled && broadcastSettings.sleepAfterMessages > 0
-        ? broadcastSettings.sleepForSeconds / broadcastSettings.sleepAfterMessages
-        : 0;
-    const effectiveSecPerBroadcast = (avgDelay + sleepOverhead) / numAccounts;
-
-    const pace = Math.round(3600 / effectiveSecPerBroadcast);
-
-    if (totalRecipientsCount === 0) {
-      return {
-        estimatedPacePerHour: pace,
-        estimatedDurationDisplay: "—",
-      };
-    }
-
-    const totalSeconds = Math.round(totalRecipientsCount * effectiveSecPerBroadcast);
-    let durStr = "";
-    if (totalSeconds < 60) {
-      durStr = `~${totalSeconds} sec`;
-    } else if (totalSeconds < 3600) {
-      const mins = Math.floor(totalSeconds / 60);
-      const remSecs = totalSeconds % 60;
-      durStr = remSecs > 0 ? `~${mins} min ${remSecs}s` : `~${mins} min`;
-    } else {
-      const hours = Math.floor(totalSeconds / 3600);
-      const remMins = Math.round((totalSeconds % 3600) / 60);
-      durStr = `~${hours}h ${remMins}m`;
-    }
-
-    return {
-      estimatedPacePerHour: pace,
-      estimatedDurationDisplay: durStr,
-    };
-  }, [broadcastSettings, activeSendingAccountsCount, totalRecipientsCount]);
-
-  // ==========================================
-  // 3. UTILITIES & FORMATTING
-  // ==========================================
-
-  const insertVariable = (varCode: string) => {
-    if (!textareaRef.current) return;
-    const start = textareaRef.current.selectionStart;
-    const end = textareaRef.current.selectionEnd;
-    const text = messageText;
-    const replacement = `{{${varCode}}}`;
-    const updated = text.substring(0, start) + replacement + text.substring(end);
-    setMessageText(updated);
-    setIsVariableDropdownOpen(false);
-    setTimeout(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(start + replacement.length, start + replacement.length);
-    }, 50);
-  };
-
-  const insertSpintax = () => {
-    if (!textareaRef.current) return;
-    const start = textareaRef.current.selectionStart;
-    const end = textareaRef.current.selectionEnd;
-    const selected = messageText.substring(start, end);
-    const replacement = selected ? `{${selected}|option2|option3}` : "{hi|hello|hey}";
-    const updated = messageText.substring(0, start) + replacement + messageText.substring(end);
-    setMessageText(updated);
-    setTimeout(() => {
-      textareaRef.current?.focus();
-      textareaRef.current?.setSelectionRange(start + replacement.length, start + replacement.length);
-    }, 50);
-  };
-
-  // Preview Spintax resolver for real-time visualization with real recipient data
+  // Preview Meta Parameter resolver for real-time visualization with real recipient data
   const previewResolvedText = useMemo(() => {
-    if (!messageText && (!unsubSettings.enabled || !unsubSettings.optoutText)) return "";
-    let resolved = messageText || "";
-    // 1. Spintax resolution (picks 1st variation for preview)
-    resolved = resolved.replace(/\{([^{}]+)\}/g, (_, opts) => opts.split("|")[0]);
-    
-    // 2. Real dynamic variable substitutions
-    const previewName = sampleRecipientData.name && !sampleRecipientData.name.startsWith("Recipient") && sampleRecipientData.name !== "Customer" && sampleRecipientData.name !== "Valued Customer" ? sampleRecipientData.name : "";
-    resolved = resolved
-      .replace(/\{\{whatsapp[-_]?name\}\}/gi, previewName)
-      .replace(/\{\{push[-_]?name\}\}/gi, previewName)
-      .replace(/\{\{customer[-_]?name\}\}/gi, previewName)
-      .replace(/\{\{name\}\}/gi, previewName)
-      .replace(/\{\{(phone|number|whatsapp[-_]?number|mobile)\}\}/gi, sampleRecipientData.phone)
-      .replace(/\{\{(city|location)\}\}/gi, sampleRecipientData.city)
-      .replace(/\{\{(date|today)\}\}/gi, new Date().toLocaleDateString("en-GB"))
-      .replace(/\{\{var1\}\}/gi, sampleRecipientData.var1)
-      .replace(/\{\{var2\}\}/gi, sampleRecipientData.var2)
-      .replace(/\{\{(shop[-_]?name|business[-_]?name)\}\}/gi, "Dhaba Opticals")
-      .replace(/\{\{(coupon[-_]?code|voucher[-_]?code)\}\}/gi, "FESTIVAL20")
-      .replace(/\{\{discount\}\}/gi, "20%")
-      .replace(/ +([,!.?:;])/g, "$1")
-      .replace(/  +/g, " ");
+    if (!selectedMetaTemplate || !selectedMetaTemplate.bodyText) return "";
+    let resolved = selectedMetaTemplate.bodyText;
 
-    // 3. Opt-out compliance footer (rendered in italic)
-    if (unsubSettings.enabled && unsubSettings.optoutText) {
-      let opt = unsubSettings.optoutText.trim();
-      if (!opt.startsWith("_") && !opt.endsWith("_")) {
-        opt = `_${opt}_`;
+    templateVariableTokens.forEach((k) => {
+      const mapping = metaVariableMappings[k] || (k === "1" ? "name" : k === "2" ? "city" : `var${k}`);
+      let val = "";
+      if (mapping === "name") {
+        val = sampleRecipientData.name && !sampleRecipientData.name.startsWith("Recipient") && sampleRecipientData.name !== "Customer" && sampleRecipientData.name !== "Valued Customer" ? sampleRecipientData.name : "Rahul Sharma";
+      } else if (mapping === "phone") {
+        val = sampleRecipientData.phone || "+91 98765 43210";
+      } else if (mapping === "city") {
+        val = sampleRecipientData.city || "Mumbai";
+      } else if (mapping === "var1") {
+        val = sampleRecipientData.var1 || "Sample 1";
+      } else if (mapping === "var2") {
+        val = sampleRecipientData.var2 || "Sample 2";
+      } else if (mapping.startsWith("static:")) {
+        val = metaStaticValues[k] || mapping.replace("static:", "") || `Value ${k}`;
+      } else if (availableCsvColumns.includes(mapping)) {
+        if (csvContacts.length > 0) {
+          const firstRow = csvContacts[0] as any;
+          val = firstRow[mapping] || firstRow.name || `[${mapping}]`;
+        } else {
+          val = `[${mapping}]`;
+        }
+      } else {
+        val = (sampleRecipientData as any)[mapping] || parsedSampleValues[k] || `[Value ${k}]`;
       }
-      if (opt) {
-        resolved = (resolved ? resolved.trim() + "\n\n" : "") + opt;
-      }
+      resolved = resolved.replace(new RegExp(`\\{\\{${k}\\}\\}`, "g"), val);
+    });
+
+    if (selectedMetaTemplate.footerText) {
+      resolved = resolved.trim() + "\n\n" + `_${selectedMetaTemplate.footerText}_`;
     }
     return resolved;
-  }, [messageText, unsubSettings, sampleRecipientData]);
+  }, [
+    selectedMetaTemplate,
+    templateVariableTokens,
+    metaVariableMappings,
+    metaStaticValues,
+    availableCsvColumns,
+    csvContacts,
+    parsedSampleValues,
+    sampleRecipientData
+  ]);
 
-  // Smart File Upload Handling with High-Speed Compression & Instant Preview
+  // Smart File Upload Handling with High-Speed Compression for Header Media
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    if (attachedFiles.length >= 5) {
-      toast.error("Maximum 5 attachments allowed.");
-      return;
-    }
 
     const file = files[0];
     setCompressionStats(null);
+    setIsUploadingMedia(true);
 
     try {
       let finalBase64 = "";
@@ -811,14 +582,13 @@ function CampaignsStudioInner() {
       let displaySize = (file.size / 1024).toFixed(1) + " KB";
 
       if (file.type.startsWith("image/")) {
-        setMediaFormat("IMAGE");
         const compressed = await compressImageFile(file);
         finalBase64 = compressed.base64;
         mimeType = "image/jpeg";
         filename = file.name.replace(/\.[^/.]+$/, ".jpg");
         displaySize = compressed.compressedKB + " KB";
         const savedPct = Math.max(0, Math.round((1 - compressed.compressedKB / Math.max(compressed.originalKB, 1)) * 100));
-        setCompressionStats(`⚡ Smart Compressed: ${compressed.originalKB} KB → ${compressed.compressedKB} KB (${savedPct}% saved)`);
+        setCompressionStats(`⚡ Compressed: ${compressed.originalKB} KB → ${compressed.compressedKB} KB (${savedPct}% saved)`);
       } else {
         finalBase64 = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -830,7 +600,7 @@ function CampaignsStudioInner() {
 
       let finalMediaUrl = finalBase64;
 
-      // Try uploading to backend endpoint for permanent URL
+      // Upload to backend endpoint for permanent public URL
       try {
         const res = await fetch(`${backendUrl}/api/v1/media/upload-direct`, {
           method: "POST",
@@ -852,26 +622,14 @@ function CampaignsStudioInner() {
         }
       } catch {}
 
-      const newAttach: AttachedFile = {
-        id: "f-" + Date.now(),
-        name: filename,
-        size: displaySize,
-        type: mimeType,
-        url: finalMediaUrl,
-      };
-
-      setAttachedFiles((prev) => [...prev, newAttach].slice(0, 5));
-      setTemplateMediaUrl("");
-      setMediaFormat(mimeType.startsWith("image/") ? "IMAGE" : mimeType.includes("pdf") ? "DOCUMENT" : mimeType.startsWith("video/") ? "VIDEO" : "IMAGE");
-      setMessageType("Text With Media");
-      toast.success(`Attached ${filename} (${displaySize})`);
+      setMetaHeaderMediaUrl(finalMediaUrl);
+      toast.success(`Header media uploaded (${displaySize})`);
     } catch {
-      toast.error("Failed to process and compress attached file.");
+      toast.error("Failed to process header media file.");
+    } finally {
+      setIsUploadingMedia(false);
+      if (e.target) e.target.value = "";
     }
-  };
-
-  const handleRemoveAttachment = (id: string) => {
-    setAttachedFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
   // Paste Utilities
@@ -1035,8 +793,12 @@ function CampaignsStudioInner() {
       return;
     }
 
-    if (!messageText.trim() && !pollQuestion.trim()) {
-      toast.error("Message content cannot be empty.");
+    if (!wabaConfig || wabaConfig.status !== "CONNECTED") {
+      toast.error("Meta WhatsApp Cloud API is not connected. Please configure your credentials in Settings.");
+      return;
+    }
+    if (!selectedMetaTemplate) {
+      toast.error("Please select an approved Meta template for WhatsApp Cloud API broadcasts.");
       return;
     }
 
@@ -1125,24 +887,51 @@ function CampaignsStudioInner() {
       setSending(true);
       const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };
       
-      const payload: any = {
+      // In WABA mode, resolve variable mappings into effective recipient variables
+      const effectiveRecipients = finalRecipients.map((rec) => {
+        const vars: Record<string, string> = { ...(rec.variables || {}) };
+        templateVariableTokens.forEach((k) => {
+          const mappedField = metaVariableMappings[k] || (k === "1" ? "name" : k === "2" ? "city" : `var${k}`);
+          if (mappedField === "name") {
+            vars[k] = rec.name || "Customer";
+          } else if (mappedField === "phone") {
+            vars[k] = rec.phone || "";
+          } else if (mappedField === "city") {
+            vars[k] = (rec.variables?.city) || "";
+          } else if (mappedField === "var1") {
+            vars[k] = (rec.variables?.var1) || "";
+          } else if (mappedField === "var2") {
+            vars[k] = (rec.variables?.var2) || "";
+          } else if (mappedField.startsWith("static:")) {
+            vars[k] = metaStaticValues[k] || mappedField.replace("static:", "");
+          } else if ((rec as any)[mappedField]) {
+            vars[k] = String((rec as any)[mappedField]);
+          } else if (rec.variables && rec.variables[mappedField]) {
+            vars[k] = String(rec.variables[mappedField]);
+          } else {
+            vars[k] = vars[k] || "";
+          }
+        });
+        return {
+          id: rec.id,
+          phone: rec.phone,
+          name: rec.name,
+          variables: vars,
+        };
+      });
+
+      const payload = {
         name: campaignName.trim(),
-        messageText,
-        mediaUrl: normalizePublicMediaUrl(
-          publicMediaUrl.trim() || (attachedFiles[0]?.url ? attachedFiles[0].url : undefined) || (templateMediaUrl.trim() ? templateMediaUrl : undefined),
-          mediaFormat === "DOCUMENT" ? "DOCUMENT" : "IMAGE"
-        ) || undefined,
-        sendFromInstances: selectedInstanceIds.length > 0 ? selectedInstanceIds : undefined,
-        recipients: finalRecipients,
+        channelType: "WABA",
+        templateId: selectedMetaTemplate?.id,
+        metaTemplateName: selectedMetaTemplate?.metaTemplateName || selectedMetaTemplate?.title,
+        metaTemplateLanguage: selectedMetaTemplate?.language || "en_US",
+        variableMappings: metaVariableMappings,
+        headerMediaUrl: metaHeaderMediaUrl.trim() || undefined,
+        recipients: effectiveRecipients,
         targetAudienceType: recipientTab,
         audienceNames: recipientTab === "Groups" ? savedAudiences.filter((a) => selectedAudienceIds.includes(a.id)).map((a) => a.name) : undefined,
-        warmupRamp,
-        batchSize: Number(batchSizeStr) || 0,
-        batchPause: Number(batchPauseStr) || 60,
-        textWithMediaMode,
-        messageTypeOption: messageType,
-        pollData: isPollMode ? { question: pollQuestion, options: pollOptions, multiple: pollMultipleAnswers } : undefined,
-        scheduledAt: scheduleIso || undefined
+        scheduledAt: scheduleIso || undefined,
       };
 
       const res = await fetch(`${backendUrl}/api/v1/campaigns`, {
@@ -1156,11 +945,12 @@ function CampaignsStudioInner() {
           toast.success(`Campaign "${campaignName}" successfully scheduled for ${new Date(scheduleIso).toLocaleString()}!`);
           setIsScheduleModalOpen(false);
         } else {
-          toast.success(`Broadcast campaign "${campaignName}" launched across ${totalRecipientsCount} recipients!`);
-        setTimeout(() => router.push("/campaigns"), 600);
+          toast.success(`⚡ Meta Cloud API campaign "${campaignName}" launched across ${totalRecipientsCount} recipients!`);
+          setTimeout(() => router.push("/campaigns"), 600);
         }
       } else {
-        toast.error("Failed to launch campaign. Check active WhatsApp connection.");
+        const errJson = await res.json().catch(() => ({}));
+        toast.error(errJson.message || "Failed to launch campaign. Check connection.");
       }
     } catch {
       toast.error("Network error while dispatching campaign.");
@@ -1176,13 +966,22 @@ function CampaignsStudioInner() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80 dark:border-slate-800">
         <div>
           <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <Send className="w-5 h-5 text-emerald-600" />
-            <span>Campaigns</span>
+            <Zap className="w-5 h-5 text-emerald-600" />
+            <span>New Broadcast Campaign</span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-black border border-emerald-200 dark:border-emerald-800">
+              ⚡ Meta Cloud API
+            </span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Compose and broadcast multi-variable personalized messages with automatic load balancing and number warmup.
+            Compose and launch high-throughput WhatsApp broadcasts via official Meta WhatsApp Cloud API.
           </p>
         </div>
+        {wabaConfig?.status === "CONNECTED" && (
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-bold shadow-2xs">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>{wabaConfig.verifiedName || "WABA Connected"} ({wabaConfig.displayPhoneNumber})</span>
+          </div>
+        )}
       </div>
 
       {/* Main Two-Column Grid */}
@@ -1547,659 +1346,422 @@ function CampaignsStudioInner() {
 
           </div>
 
-          {/* Section 2: Template & Media Format Selection matching Template Modal & Image */}
+          {/* WABA Account Warning Banner if not connected */}
+          {wabaConfig?.status !== "CONNECTED" && (
+            <div className="p-4 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                <div>
+                  <p className="font-bold text-amber-900 dark:text-amber-200">
+                    Meta WhatsApp Cloud API Not Configured
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                    Configure your Meta Phone Number ID and Permanent Access Token in Settings to send campaigns.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push("/settings")}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shrink-0 cursor-pointer shadow-2xs"
+              >
+                Configure in Settings
+              </button>
+            </div>
+          )}
+
+          {/* Section 2: Approved Meta Template Selection */}
           <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                * Select Template (Optional)
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span>Select Approved Meta Template (Mandatory for Cloud API)</span>
               </label>
-              <div className="relative mt-1.5">
+              <button
+                type="button"
+                onClick={() => router.push("/templates")}
+                className="text-xs text-emerald-600 dark:text-emerald-400 font-bold hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <span>Template Studio</span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+
+            {metaApprovedTemplates.length === 0 ? (
+              <div className="p-6 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-center space-y-2">
+                <AlertCircle className="w-8 h-8 text-amber-500 mx-auto" />
+                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  No Meta-Approved Templates Found
+                </p>
+                <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                  WhatsApp Cloud API requires Meta-approved templates to initiate outbound broadcasts.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/templates")}
+                  className="mt-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-2xs cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Create Template in Studio</span>
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
                 <select
-                  value={selectedTemplateKey}
-                  onChange={(e) => handleSelectTemplate(e.target.value)}
+                  value={selectedMetaTemplate?.id || ""}
+                  onChange={(e) => setSelectedMetaTemplateId(e.target.value)}
                   className="w-full appearance-none px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 pr-8 cursor-pointer"
                 >
-                  <option value="New Message">Blank / Custom Message</option>
-                  {dbTemplates.length > 0 && (
-                    <optgroup label="Your Templates">
-                      {dbTemplates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.title}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
+                  {metaApprovedTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title} [{t.category}] ({t.language || "en_US"}) • ✓ APPROVED
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
               </div>
-            </div>
-
-            {/* Media Attachment Format: Prominent 5-card selector matching user design & template modal */}
-            <div className="space-y-2.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <ImageIcon className="w-4 h-4 text-emerald-600" />
-                <span>Media Attachment Format:</span>
-              </label>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-                {[
-                  { type: "NONE", label: "Text Only", icon: MessageSquare, desc: "No media" },
-                  { type: "IMAGE", label: "Image Banner", icon: ImageIcon, desc: "JPG / PNG" },
-                  { type: "DOCUMENT", label: "PDF Document", icon: FileText, desc: "PDF files" },
-                  { type: "VIDEO", label: "Video", icon: Video, desc: "MP4 files" },
-                  { type: "POLL", label: "WhatsApp Poll", icon: BarChart2, desc: "Interactive voting" },
-                ].map((m) => {
-                  const Icon = m.icon;
-                  const isSel = mediaFormat === m.type;
-                  return (
-                    <button
-                      key={m.type}
-                      type="button"
-                      onClick={() => handleSelectMediaFormat(m.type as any)}
-                      className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 shadow-2xs ${
-                        isSel
-                          ? "bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30"
-                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500/60"
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 ${isSel ? "text-white" : "text-emerald-600"}`} />
-                      <div className="leading-tight">
-                        <p className="text-xs font-bold">{m.label}</p>
-                        <p className={`text-[9px] ${isSel ? "text-emerald-100" : "text-slate-400"}`}>{m.desc}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Dynamic Message Composer Card matching Image 2 */}
-          <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-5">
-            
-            {/* 1. MEDIA ATTACHMENT SECTION (Shown when Image, Document, or Video is selected) */}
-            {(mediaFormat === "IMAGE" || mediaFormat === "DOCUMENT" || mediaFormat === "VIDEO" || isMediaRequired || attachedFiles.length > 0 || publicMediaUrl.trim().length > 0) && (
-              <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 text-emerald-600" />
-                  <span>Media Attachment ({mediaFormat === "NONE" || mediaFormat === "POLL" ? "Custom" : mediaFormat})</span>
-                </label>
-
-                {/* List of Attached Files */}
-                {attachedFiles.map((file) => (
-                  <div
-                    key={file.id}
-                    className="p-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-between shadow-2xs"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white font-bold text-xs">
-                        {file.name.endsWith(".jpg") || file.name.endsWith(".png") ? "IMG" : "DOC"}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-800 dark:text-white">{file.name}</p>
-                        <p className="text-[11px] text-slate-400">{file.size}</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAttachment(file.id)}
-                      className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-
-                {/* Add File Button & URL Input */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
-                  >
-                    <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{attachedFiles.length === 0 ? "Upload from device" : "Add another file"}</span>
-                    <span className="text-slate-400 font-normal">({attachedFiles.length}/5)</span>
-                  </button>
-
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={handleFileUpload}
-                  />
-
-                  <input
-                    type="text"
-                    value={publicMediaUrl}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const normalized = normalizePublicMediaUrl(val, mediaFormat === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
-                      setPublicMediaUrl(normalized);
-                      if (val.trim() && (mediaFormat === "NONE" || messageType === "Text")) {
-                        const detected = detectMediaTypeFromUrl(normalized);
-                        if (detected !== "NONE") {
-                          setMediaFormat(detected);
-                          setMessageType("Text With Media");
-                        }
-                      }
-                    }}
-                    placeholder="Or paste public Image / PDF / Video URL (Google Drive, Dropbox, direct link...)"
-                    className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono"
-                  />
-                </div>
-
-                {compressionStats && (
-                  <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-3 py-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/40">
-                    {compressionStats}
-                  </div>
-                )}
-
-                {/* TEXT WITH MEDIA Radio Options */}
-                <div className="pt-1.5 space-y-1.5 border-t border-slate-200/60 dark:border-slate-800/60">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    TEXT WITH MEDIA DISPLAY
-                  </label>
-
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="mediaMode"
-                        checked={textWithMediaMode === "caption"}
-                        onChange={() => setTextWithMediaMode("caption")}
-                        className="text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">As caption</span>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="mediaMode"
-                        checked={textWithMediaMode === "separate"}
-                        onChange={() => setTextWithMediaMode("separate")}
-                        className="text-emerald-600 focus:ring-emerald-500"
-                      />
-                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">As a separate message</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
             )}
 
-            {/* 2. POLL BUILDER (Shown when Poll is selected) */}
-            {(mediaFormat === "POLL" || isPollMode) && (
-              <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <BarChart2 className="w-4 h-4 text-emerald-600" />
-                      <span>WhatsApp Poll Builder</span>
-                    </h4>
-                    <p className="text-[11px] text-slate-400">Recipients can vote directly in WhatsApp</p>
-                  </div>
-
-                  <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={pollMultipleAnswers}
-                      onChange={(e) => setPollMultipleAnswers(e.target.checked)}
-                      className="rounded text-emerald-600"
-                    />
-                    <span>Allow multiple answers</span>
-                  </label>
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Poll Question
-                  </label>
-                  <input
-                    type="text"
-                    value={pollQuestion}
-                    onChange={(e) => setPollQuestion(e.target.value)}
-                    placeholder="e.g. Would you like to schedule an eye examination this week?"
-                    className="w-full mt-1.5 px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium"
-                  />
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Poll Options ({pollOptions.length}/12)
-                  </label>
-                  {pollOptions.map((opt, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}.</span>
-                      <input
-                        type="text"
-                        value={opt}
-                        onChange={(e) => {
-                          const updated = [...pollOptions];
-                          updated[idx] = e.target.value;
-                          setPollOptions(updated);
-                        }}
-                        className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs"
-                      />
-                      {pollOptions.length > 2 && (
-                        <button
-                          type="button"
-                          onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
-                          className="text-rose-500 p-1"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  {pollOptions.length < 12 && (
-                    <button
-                      type="button"
-                      onClick={() => setPollOptions([...pollOptions, `Option ${pollOptions.length + 1}`])}
-                      className="text-xs font-bold text-emerald-600 hover:underline mt-1 cursor-pointer flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Option</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 3. TEXT COMPOSER (Matching Image 2 & Template Editor) */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between pb-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  MESSAGE
-                </label>
-
-                {/* Variable, Spintax & Spintax Toggle Switch matching user screenshot */}
-                <div className="flex items-center gap-3">
-                  {/* Insert Variable Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsVariableDropdownOpen(!isVariableDropdownOpen)}
-                      className="flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 cursor-pointer"
-                    >
-                      <span>&#123; &#125; Insert variable</span>
-                    </button>
-
-                    {isVariableDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1.5 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl p-1.5 z-30 animate-in fade-in">
-                        <button type="button" onClick={() => insertVariable("whatsapp-name")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium text-emerald-600 dark:text-emerald-400 font-bold">{"{{whatsapp-name}} (WhatsApp Name)"}</button>
-                        <button type="button" onClick={() => insertVariable("name")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{name}} (Full Name)"}</button>
-                        <button type="button" onClick={() => insertVariable("phone")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{phone}} (Number)"}</button>
-                        <button type="button" onClick={() => insertVariable("city")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{city}} (City/Location)"}</button>
-                        <button type="button" onClick={() => insertVariable("date")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{date}} (Current Date)"}</button>
-                        <button type="button" onClick={() => insertVariable("var1")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{var1}} (Custom Var 1)"}</button>
-                        <button type="button" onClick={() => insertVariable("var2")} className="w-full text-left px-2.5 py-1.5 text-xs rounded hover:bg-slate-100 dark:hover:bg-slate-800 font-medium">{"{{var2}} (Custom Var 2)"}</button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Insert Spintax Button */}
-                  <button
-                    type="button"
-                    onClick={insertSpintax}
-                    className="flex items-center gap-1 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 cursor-pointer"
-                  >
-                    <Shuffle className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Insert spintax</span>
-                  </button>
-
-                  {/* Spintax Switch Toggle */}
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={autoSpintaxEnabled}
-                    onClick={() => handleToggleSpintax(!autoSpintaxEnabled)}
-                    title={autoSpintaxEnabled ? "Auto-Spintax is ON" : "Auto-Spintax is OFF"}
-                    className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      autoSpintaxEnabled ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-700"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                        autoSpintaxEnabled ? "translate-x-3.5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Integrated Textarea Frame with Docked Locked Footer */}
-              <div className="border border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50 dark:bg-slate-950 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/40 transition-all">
-                <textarea
-                  ref={textareaRef}
-                  rows={6}
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  placeholder="Type your message here... Use {{name}} to personalize, or use {Hello|Hi|Hey} for anti-spam randomization."
-                  className="w-full p-3.5 bg-transparent border-none text-xs text-slate-800 dark:text-white focus:outline-none leading-relaxed font-sans resize-y"
-                />
-
-                {/* Locked Opt-Out Footer Docked at Bottom of Textarea */}
-                {unsubSettings.enabled && (
-                  <div className="px-3.5 py-2.5 bg-slate-100/90 dark:bg-slate-900/90 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 min-w-0 font-mono text-[11px]">
-                      <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="truncate">
-                        {unsubSettings.optoutText}
-                      </span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0 uppercase tracking-wider">
-                      [Locked Opt-Out Footer]
+            {/* Template Summary Header */}
+            {selectedMetaTemplate && (
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-slate-900 dark:text-white text-[11px]">
+                      {selectedMetaTemplate.metaTemplateName || selectedMetaTemplate.title}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold">
+                      ✓ APPROVED
                     </span>
                   </div>
-                )}
-              </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold">
+                      {selectedMetaTemplate.category || "MARKETING"}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-mono">
+                      {selectedMetaTemplate.language || "en_US"}
+                    </span>
+                  </div>
+                </div>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-0.5">
-                <span>⚡ Anti-spam spintax {autoSpintaxEnabled ? "active" : "disabled"}</span>
-                <span>{messageText.length} characters</span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono bg-white dark:bg-slate-900 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 leading-relaxed">
+                  {selectedMetaTemplate.bodyText}
+                </p>
               </div>
-            </div>
-
+            )}
           </div>
+
+          {/* Section 3: Template Configuration & Parameter Mapping Card */}
+          {selectedMetaTemplate && (
+            <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-6 shadow-2xs space-y-5">
+              
+              {/* Header Media URL if headerType is IMAGE / VIDEO / DOCUMENT */}
+              {["IMAGE", "VIDEO", "DOCUMENT"].includes((selectedMetaTemplate.headerType || "").toUpperCase()) && (
+                <div className="space-y-2 p-3.5 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-emerald-600" />
+                    <span>Header {selectedMetaTemplate.headerType} Media URL:</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={metaHeaderMediaUrl}
+                      onChange={(e) => setMetaHeaderMediaUrl(e.target.value)}
+                      placeholder="Enter public media URL (https://...jpg, .png, .mp4, .pdf)"
+                      className="flex-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono"
+                    />
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept={
+                        (selectedMetaTemplate.headerType || "").toUpperCase() === "VIDEO"
+                          ? "video/mp4,video/3gpp"
+                          : (selectedMetaTemplate.headerType || "").toUpperCase() === "DOCUMENT"
+                          ? "application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          : "image/jpeg,image/png,image/webp"
+                      }
+                      onChange={handleFileUpload}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingMedia}
+                      className="px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50"
+                    >
+                      {isUploadingMedia ? (
+                        <Loader2 className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                      ) : (
+                        <Paperclip className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                      <span>{isUploadingMedia ? "Uploading..." : "Upload"}</span>
+                    </button>
+                  </div>
+                  {compressionStats && (
+                    <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                      {compressionStats}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-400">
+                    Direct HTTPS link to the {selectedMetaTemplate.headerType.toLowerCase()} asset that will appear at the top of the WhatsApp message.
+                  </p>
+                </div>
+              )}
+
+              {/* Dynamic Parameter Mapping Card */}
+              {templateVariableTokens.length > 0 ? (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-emerald-600" />
+                      <span>Dynamic Parameter Mapping ({templateVariableTokens.length} Tokens)</span>
+                    </label>
+                    <span className="text-[10px] text-slate-400">
+                      Positional parameters map into Meta components
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {templateVariableTokens.map((tok) => {
+                      const currentMapping = metaVariableMappings[tok] || (tok === "1" ? "name" : tok === "2" ? "city" : `var${tok}`);
+                      const isStatic = currentMapping.startsWith("static:") || currentMapping === "static";
+                      const sampleVal = parsedSampleValues[tok] || `Sample ${tok}`;
+
+                      return (
+                        <div
+                          key={tok}
+                          className="p-3 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl space-y-2"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 rounded-md bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 font-mono font-extrabold text-xs">
+                                {"{{" + tok + "}}"}
+                              </span>
+                              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                Sample: <span className="italic font-semibold text-slate-700 dark:text-slate-300">"{sampleVal}"</span>
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 flex-1 max-w-sm justify-end">
+                              <span className="text-[11px] text-slate-400 font-semibold whitespace-nowrap">Map to:</span>
+                              <select
+                                value={isStatic ? "static" : currentMapping}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === "static") {
+                                    setMetaVariableMappings((prev) => ({ ...prev, [tok]: "static:" }));
+                                  } else {
+                                    setMetaVariableMappings((prev) => ({ ...prev, [tok]: val }));
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              >
+                                <optgroup label="Standard CRM Fields">
+                                  <option value="name">Customer Name</option>
+                                  <option value="phone">Phone Number</option>
+                                  <option value="city">City / Location</option>
+                                  <option value="var1">Custom Variable 1</option>
+                                  <option value="var2">Custom Variable 2</option>
+                                </optgroup>
+                                {availableCsvColumns.length > 0 && (
+                                  <optgroup label="CSV File Columns">
+                                    {availableCsvColumns.map((col) => (
+                                      <option key={col} value={col}>
+                                        Column: {col}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                )}
+                                <optgroup label="Custom Static Value">
+                                  <option value="static">Static Custom Text</option>
+                                </optgroup>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Static Text Input if static selected */}
+                          {isStatic && (
+                            <div className="pt-1">
+                              <input
+                                type="text"
+                                value={metaStaticValues[tok] || currentMapping.replace("static:", "")}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setMetaStaticValues((prev) => ({ ...prev, [tok]: val }));
+                                  setMetaVariableMappings((prev) => ({ ...prev, [tok]: `static:${val}` }));
+                                }}
+                                placeholder={`Enter static text for {{${tok}}} (e.g. 20% OFF or Dhaba Opticals)`}
+                                className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-500">
+                  This template does not require any dynamic body variables. It will be dispatched exactly as written to all recipients.
+                </div>
+              )}
+
+              {/* Buttons Preview Pill */}
+              {parsedMetaButtons.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    Interactive Buttons Attached:
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {parsedMetaButtons.map((b: any, i: number) => (
+                      <span
+                        key={i}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-xs font-bold flex items-center gap-1.5"
+                      >
+                        {b.type === "PHONE_NUMBER" ? <PhoneCall className="w-3 h-3" /> : b.type === "URL" ? <ExternalLink className="w-3 h-3" /> : <CornerDownLeft className="w-3 h-3" />}
+                        <span>{b.text || b.displayText}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
 
         </div>
 
         {/* =========================================================================
-            RIGHT PANEL: Live Preview, Send Pacing, Instance Selector (5 cols)
+            RIGHT PANEL: Live Preview & Launch Campaign (5 cols)
             ========================================================================= */}
         <div className="lg:col-span-5 space-y-5">
           
           {/* 1. Live WhatsApp Message Preview Bubble (Real-Time Media + Text) */}
           <div className="p-4 bg-[#efeae2] dark:bg-[#0b141a] border border-slate-300/80 dark:border-emerald-950 rounded-2xl shadow-inner min-h-[160px] flex flex-col justify-center select-none">
-            {(() => {
-              const rawMedia = publicMediaUrl.trim() || attachedFiles[0]?.url || templateMediaUrl;
-              const mediaPreview = normalizePublicMediaUrl(rawMedia, mediaFormat === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
-              const hasText = Boolean(previewResolvedText && previewResolvedText.trim().length > 0);
-              const hasMedia = Boolean(mediaPreview);
-              const hasPoll = Boolean(isPollMode && pollQuestion);
+            {!selectedMetaTemplate ? (
+              <p className="text-xs text-center text-slate-400 italic">
+                Select an approved Meta template to view preview
+              </p>
+            ) : (() => {
+              const isMediaHeader = ["IMAGE", "VIDEO", "DOCUMENT"].includes((selectedMetaTemplate.headerType || "").toUpperCase());
+              const headerMedia = metaHeaderMediaUrl.trim() || selectedMetaTemplate.headerContent || selectedMetaTemplate.mediaUrl || "";
 
-              if (!hasText && !hasMedia && !hasPoll) {
-                return (
-                  <p className="text-xs text-center text-slate-400 italic">
-                    Your live WhatsApp message preview will appear here
-                  </p>
-                );
-              }
-
-              const isImage = 
-                mediaFormat === "IMAGE" ||
-                (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.startsWith("image/")) ||
-                isLikelyImageUrl(mediaPreview);
-
-              const isVideo = 
-                mediaFormat === "VIDEO" ||
-                (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.startsWith("video/")) ||
-                isLikelyVideoUrl(mediaPreview);
-
-              const isDoc = 
-                mediaFormat === "DOCUMENT" ||
-                (attachedFiles[0] && attachedFiles[0].type && attachedFiles[0].type.includes("pdf")) ||
-                isLikelyDocumentUrl(mediaPreview);
-
-              // If user selected "As a separate message" with an attached image
-              if (textWithMediaMode === "separate" && hasMedia && hasText) {
-                return (
-                  <div className="space-y-2 max-w-xs ml-auto w-full">
-                    {/* Bubble 1: Media Item */}
-                    <div className="bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-2 rounded-2xl rounded-tr-xs shadow-xs space-y-1 ml-auto">
-                      {isImage ? (
-                        <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 max-h-56 shadow-2xs">
-                          <img
-                            src={mediaPreview}
-                            alt="Message Media"
-                            className="w-full h-auto object-cover max-h-56 rounded-lg"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      ) : isDoc ? (
-                        <div className="p-2.5 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2.5 text-xs font-medium border border-emerald-900/10">
-                          <FileText className="w-5 h-5 text-red-500 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-bold text-[11px]">{attachedFiles[0]?.name || "Document.pdf"}</p>
-                            <p className="text-[9px] text-slate-500 dark:text-slate-300 uppercase">{attachedFiles[0]?.size || "PDF Document"}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2 text-xs font-medium">
-                          <Video className="w-5 h-5 text-purple-600" />
-                          <span>Video Attachment</span>
-                        </div>
-                      )}
-                      <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300 pr-1">
-                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
-                      </div>
-                    </div>
-
-                    {/* Bubble 2: Separate Text Message */}
-                    <div className="bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-3 rounded-2xl rounded-tr-xs shadow-xs space-y-1.5 ml-auto">
-                      <p className="text-xs whitespace-pre-line leading-relaxed font-normal">
-                        {previewResolvedText}
-                      </p>
-                      <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300">
-                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Single Unified Bubble (Caption Mode or Media Only / Text Only)
               return (
-                <div className="max-w-xs ml-auto w-full bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-2.5 rounded-2xl rounded-tr-xs shadow-xs space-y-2">
-                  
-                  {/* Media Header */}
-                  {hasMedia && (
-                    <>
-                      {isImage ? (
-                        <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 max-h-56 shadow-2xs">
-                          <img
-                            src={mediaPreview}
-                            alt="Message Banner"
-                            className="w-full h-auto object-cover max-h-56 rounded-lg"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
-                      ) : isDoc ? (
-                        <div className="p-2.5 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2.5 text-xs font-medium border border-emerald-900/10">
-                          <FileText className="w-5 h-5 text-red-500 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-bold text-[11px]">{attachedFiles[0]?.name || "Document.pdf"}</p>
-                            <p className="text-[9px] text-slate-500 dark:text-slate-300 uppercase">{attachedFiles[0]?.size || "PDF Document"}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="p-3 bg-white/80 dark:bg-black/20 rounded-xl flex items-center gap-2 text-xs font-medium">
-                          <Video className="w-5 h-5 text-purple-600" />
-                          <span>Video Attachment</span>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* Caption / Text */}
-                  {hasText && (
-                    <p className="text-xs whitespace-pre-line leading-relaxed font-normal px-1">
-                      {previewResolvedText}
+                <div className="max-w-xs ml-auto w-full bg-[#d9fdd3] dark:bg-[#005c4b] text-slate-900 dark:text-white p-3 rounded-2xl rounded-tr-xs shadow-xs space-y-2.5">
+                  {/* Header */}
+                  {selectedMetaTemplate.headerType === "TEXT" && selectedMetaTemplate.headerContent && (
+                    <p className="text-xs font-black text-slate-900 dark:text-white pb-1 border-b border-black/5 dark:border-white/10">
+                      {selectedMetaTemplate.headerContent}
                     </p>
                   )}
 
-                  {/* Poll */}
-                  {hasPoll && (
-                    <div className="p-2.5 bg-white/70 dark:bg-black/30 rounded-xl space-y-1.5 text-xs">
-                      <p className="font-bold">{pollQuestion}</p>
-                      {pollOptions.map((opt, i) => (
-                        <div key={i} className="px-2 py-1 bg-white/90 dark:bg-black/50 rounded text-[11px] flex items-center gap-1.5">
-                          {pollMultipleAnswers ? <CheckSquare className="w-3 h-3 text-emerald-600" /> : <span>○</span>}
-                          <span>{opt}</span>
+                  {isMediaHeader && (
+                    <div className="rounded-xl overflow-hidden bg-black/10 border border-black/10 max-h-52 shadow-2xs">
+                      {selectedMetaTemplate.headerType === "VIDEO" ? (
+                        <div className="p-4 bg-black/20 flex items-center justify-center gap-2 text-xs font-bold">
+                          <Video className="w-5 h-5 text-emerald-600" />
+                          <span>Video Header</span>
+                        </div>
+                      ) : selectedMetaTemplate.headerType === "DOCUMENT" ? (
+                        <div className="p-3 bg-white/80 dark:bg-black/30 rounded-lg flex items-center gap-2.5 text-xs font-bold">
+                          <FileText className="w-5 h-5 text-red-500 shrink-0" />
+                          <span className="truncate">Document Attachment</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={headerMedia || "/placeholder-image.jpg"}
+                          alt="Template Header"
+                          className="w-full h-auto object-cover max-h-52 rounded-lg"
+                          onError={(e) => { (e.target as any).style.display = "none"; }}
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Body with substituted parameters */}
+                  <p className="text-xs whitespace-pre-line leading-relaxed font-normal px-0.5">
+                    {previewResolvedText || selectedMetaTemplate.bodyText}
+                  </p>
+
+                  {/* Action Buttons */}
+                  {parsedMetaButtons.length > 0 && (
+                    <div className="pt-2 space-y-1.5 border-t border-black/5 dark:border-white/10">
+                      {parsedMetaButtons.map((btn: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="w-full py-1.5 px-3 bg-white/90 dark:bg-black/40 rounded-xl text-center text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-600/20 flex items-center justify-center gap-1.5 shadow-2xs"
+                        >
+                          {btn.type === "PHONE_NUMBER" ? (
+                            <PhoneCall className="w-3.5 h-3.5" />
+                          ) : btn.type === "URL" ? (
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          ) : (
+                            <CornerDownLeft className="w-3.5 h-3.5" />
+                          )}
+                          <span>{btn.text || btn.displayText || "Button"}</span>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  <div className="flex justify-end text-[9px] text-slate-500 dark:text-slate-300 pr-1">
-                    {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓
+                  <div className="flex items-center justify-between text-[9px] text-slate-500 dark:text-slate-300 pt-0.5">
+                    <span className="font-mono flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-bold">
+                      <ShieldCheck className="w-3 h-3" /> Meta Cloud API
+                    </span>
+                    <span>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} ✓✓</span>
                   </div>
                 </div>
               );
             })()}
           </div>
 
-          {/* 2. Summary Card */}
-          <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-2.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Recipients</span>
-              <span className="font-bold text-slate-800 dark:text-white font-mono">{totalRecipientsCount}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Sending accounts</span>
-              <span className="font-bold text-slate-800 dark:text-white font-mono">{activeSendingAccountsCount}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Pace</span>
-              <span className="font-bold text-slate-800 dark:text-white font-mono">{estimatedPacePerHour}/h</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-slate-500">Estimated time</span>
-              <span className="font-bold text-slate-800 dark:text-white font-mono">
-                {estimatedDurationDisplay}
+          {/* 2. Meta WhatsApp Cloud API Channel Status Card */}
+          <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h4 className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Meta WhatsApp Cloud API</span>
+              </h4>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-extrabold text-[9px] uppercase border border-emerald-300 dark:border-emerald-700">
+                Official Channel
               </span>
             </div>
-          </div>
 
-          {/* 3. Send Pacing Card */}
-          <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-4">
-            <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
-              Send pacing
-            </h4>
-
-            {/* Checkbox 1: Use each account delay */}
-            <label className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useAccountDelay}
-                onChange={(e) => setUseAccountDelay(e.target.checked)}
-                className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-              />
-              <span>Use each account's delay (Settings)</span>
-            </label>
-
-            {/* Checkbox 2: Warmup ramp */}
-            <div className="space-y-1">
-              <label className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={warmupRamp}
-                  onChange={(e) => setWarmupRamp(e.target.checked)}
-                  className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                />
-                <span className="font-semibold">Warmup ramp (slower at start)</span>
-              </label>
-              <p className="text-[11px] text-slate-400 pl-5 leading-tight">
-                First ~30% of sends use up to 2x delay, then normal pace — safer for cold numbers.
-              </p>
-            </div>
-
-            {/* Batch Inputs (Only these two, smooth editable) */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div>
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  Batch size (0=off)
-                </label>
-                <input
-                  type="text"
-                  value={batchSizeStr}
-                  onChange={(e) => setBatchSizeStr(e.target.value)}
-                  placeholder="5"
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold"
-                />
+            <div className="p-3 bg-slate-50 dark:bg-slate-950/60 rounded-xl space-y-1.5 border border-slate-200/60 dark:border-slate-800 text-xs">
+              <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <span className="text-[11px]">Dispatch Number:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  {wabaConfig?.displayPhoneNumber || "Verified Number"}
+                </span>
               </div>
-              <div>
-                <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                  Batch pause (sec)
-                </label>
-                <input
-                  type="text"
-                  value={batchPauseStr}
-                  onChange={(e) => setBatchPauseStr(e.target.value)}
-                  placeholder="60"
-                  className="w-full mt-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold"
-                />
+              <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <span className="text-[11px]">Meta Quality Rating:</span>
+                <span className="font-bold text-emerald-600">{wabaConfig?.qualityRating || "GREEN (High)"}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <span className="text-[11px]">Messaging Tier:</span>
+                <span className="font-bold">{wabaConfig?.messagingTier || "1,000 / day"}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700 dark:text-slate-300">
+                <span className="text-[11px]">Audience Count:</span>
+                <span className="font-bold font-mono text-slate-900 dark:text-white">{totalRecipientsCount} Recipients</span>
               </div>
             </div>
+
+            <div className="text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+              <p>• <strong>5 Parallel Async Workers:</strong> Dispatches directly to Meta Graph API v20.0.</p>
+              <p>• <strong>Zero Phone Dependency:</strong> Zero phone socket drops, zero WhatsApp Web QR issues.</p>
+              <p>• <strong>Live Webhook Tracking:</strong> Real-time status receipts (SENT ➔ DELIVERED ➔ READ).</p>
+            </div>
           </div>
 
-          {/* 4. SEND FROM (SELECT ONE OR MORE) - Placed directly above Start Campaign */}
-          <div className="bg-white dark:bg-[#111726] rounded-2xl border border-slate-200/90 dark:border-slate-800 p-5 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-                SEND FROM (SELECT ONE OR MORE)
-              </label>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const allIds = instances.map((i) => i.id);
-                  if (selectedInstanceIds.length === allIds.length) {
-                    setSelectedInstanceIds([]);
-                  } else {
-                    setSelectedInstanceIds(allIds);
-                  }
-                }}
-                className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-              >
-                {selectedInstanceIds.length === instances.length ? "Deselect All" : "⚡ Select All (Load Balanced)"}
-              </button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              {instances.length === 0 ? (
-                <p className="text-xs text-slate-400">No paired devices found. Pair a device in the Devices page.</p>
-              ) : (
-                instances.map((inst) => {
-                  const isSelected = selectedInstanceIds.includes(inst.id);
-                  return (
-                    <button
-                      key={inst.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedInstanceIds((prev) =>
-                          isSelected ? prev.filter((id) => id !== inst.id) : [...prev, inst.id]
-                        );
-                      }}
-                      className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                        isSelected
-                          ? "bg-emerald-100 text-emerald-800 border-2 border-emerald-500 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-600"
-                          : "bg-slate-100 text-slate-600 border border-slate-300 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800"
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3" />}
-                      <span>{inst.instanceName}</span>
-                    </button>
-                  );
-                })
-              )}
-            </div>
-
-            <p className="text-[11px] text-slate-400">
-              • Broadcast volume will be distributed across the selected connected devices.
-            </p>
-          </div>
-
-          {/* 5. Action Buttons: Start campaign & Schedule */}
+          {/* 3. Action Buttons: Launch Broadcast & Schedule */}
           <div className="flex items-center gap-3 pt-1">
             <button
               type="button"
-              disabled={sending || totalRecipientsCount === 0}
+              disabled={sending || totalRecipientsCount === 0 || !selectedMetaTemplate}
               onClick={() => handleStartCampaign()}
-              className="flex-1 py-3.5 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-extrabold shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="flex-1 py-3.5 px-5 rounded-xl bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-extrabold shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
               {sending ? (
                 <>
@@ -2208,8 +1770,8 @@ function CampaignsStudioInner() {
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
-                  <span>Start campaign</span>
+                  <Zap className="w-4 h-4" />
+                  <span>Launch Meta Cloud API Broadcast</span>
                 </>
               )}
             </button>
@@ -2217,7 +1779,7 @@ function CampaignsStudioInner() {
             <button
               type="button"
               onClick={() => setIsScheduleModalOpen(true)}
-              className="py-3.5 px-5 rounded-xl bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-2xs flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="py-3.5 px-5 rounded-xl bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold shadow-2xs flex items-center justify-center gap-2 cursor-pointer transition-all hover:scale-[1.01] active:scale-[0.99]"
             >
               <Calendar className="w-4 h-4" />
               <span>Schedule</span>
@@ -2510,7 +2072,7 @@ function CampaignsStudioInner() {
 
                     <div className="pt-1 flex items-center gap-4 text-[11px] text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-800">
                       <span>👥 {totalRecipientsCount} Recipients</span>
-                      <span>📱 {selectedInstanceIds.length || 1} Senders</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">⚡ Meta Cloud API</span>
                     </div>
                   </div>
                 )}

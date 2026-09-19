@@ -102,6 +102,9 @@ export interface CampaignReportData {
     contentType?: string;
     targetAudienceType?: string;
     audienceNames?: string[];
+    channelType?: "WABA" | "BAILEYS";
+    metaTemplateName?: string;
+    metaTemplateLanguage?: string;
   };
   kpis: {
     totalMessages: number;
@@ -462,6 +465,20 @@ export default function CampaignReportFullPage() {
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold border border-emerald-200 dark:border-emerald-800">
                 {data.campaign.name}
               </span>
+              {data.campaign.channelType === "WABA" ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[9px] font-black border border-indigo-200 dark:border-indigo-800 flex items-center gap-1">
+                  <span>⚡</span> Meta WABA
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[9px] font-bold border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                  <span>📱</span> Baileys
+                </span>
+              )}
+              {data.campaign.metaTemplateName && (
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-[9px] font-bold border border-blue-200 dark:border-blue-800 flex items-center gap-1 font-mono">
+                  Template: {data.campaign.metaTemplateName} ({data.campaign.metaTemplateLanguage || "en_US"})
+                </span>
+              )}
               <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase border ${
                 data.campaign.status === "PROCESSING"
                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 animate-pulse"
@@ -843,11 +860,18 @@ export default function CampaignReportFullPage() {
           <div className="bg-white dark:bg-[#131b2e] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3.5 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                <span>📱</span> Broadcast Preview
+                <span>{data.campaign.channelType === "WABA" ? "⚡" : "📱"}</span> Broadcast Preview
               </span>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-extrabold text-[9px] uppercase">
-                {data.campaign.contentType || "MESSAGE"}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {data.campaign.channelType === "WABA" && (
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 font-extrabold text-[9px] uppercase border border-indigo-200 dark:border-indigo-800">
+                    META WABA
+                  </span>
+                )}
+                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-extrabold text-[9px] uppercase">
+                  {data.campaign.contentType || "MESSAGE"}
+                </span>
+              </div>
             </div>
 
             {/* WhatsApp Bubble Preview */}
@@ -1002,10 +1026,17 @@ export default function CampaignReportFullPage() {
 
                       {/* Sender Number (Clean Compact Chip) */}
                       <td className="py-3.5 px-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 font-mono text-[11px] font-bold shadow-2xs whitespace-nowrap">
-                          <Phone className="w-3 h-3 text-emerald-600" />
-                          <span>{rec.instanceNumber || rec.senderInstance?.replace(/^.*\(|\).*$/g, '') || rec.senderInstance || "+918178962366"}</span>
-                        </span>
+                        {data.campaign.channelType === "WABA" || rec.senderInstance?.includes("Meta") ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-800 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 font-mono text-[11px] font-bold shadow-2xs whitespace-nowrap">
+                            <span className="text-indigo-600 dark:text-indigo-400 font-black">⚡</span>
+                            <span>{rec.instanceNumber || rec.senderInstance || "Meta Cloud API"}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 font-mono text-[11px] font-bold shadow-2xs whitespace-nowrap">
+                            <Phone className="w-3 h-3 text-emerald-600" />
+                            <span>{rec.instanceNumber || rec.senderInstance?.replace(/^.*\(|\).*$/g, '') || rec.senderInstance || "+918178962366"}</span>
+                          </span>
+                        )}
                       </td>
 
                       {/* Action / Customer Choice */}

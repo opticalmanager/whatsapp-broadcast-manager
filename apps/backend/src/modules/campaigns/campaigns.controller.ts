@@ -33,13 +33,32 @@ export class CreateCampaignDto {
   @IsOptional()
   templateId?: string;
 
+  @IsString()
+  @IsOptional()
+  channelType?: "WABA" | "BAILEYS";
+
+  @IsString()
+  @IsOptional()
+  metaTemplateName?: string;
+
+  @IsString()
+  @IsOptional()
+  metaTemplateLanguage?: string;
+
+  @IsOptional()
+  variableMappings?: Record<string, string>;
+
+  @IsString()
+  @IsOptional()
+  headerMediaUrl?: string;
+
   @IsArray()
   @IsOptional()
   recipients?: Array<{ id: string; phone: string; name?: string; variables?: Record<string, string>; status?: string }>;
 
   @IsString()
-  @IsNotEmpty()
-  messageText: string;
+  @IsOptional()
+  messageText?: string;
 
   @IsString()
   @IsOptional()

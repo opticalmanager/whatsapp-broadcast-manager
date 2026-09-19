@@ -194,6 +194,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           poll_data JSONB
         );
       `;
+      // Safe Column Migrations for campaigns (Phase 3: WABA Broadcast Engine)
+      await this.sql`ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS channel_type VARCHAR(20) DEFAULT 'WABA';`.catch(() => {});
+      await this.sql`ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS template_id VARCHAR(255);`.catch(() => {});
+      await this.sql`ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS meta_template_name VARCHAR(512);`.catch(() => {});
+      await this.sql`ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS meta_template_language VARCHAR(20) DEFAULT 'en_US';`.catch(() => {});
+      await this.sql`ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS variable_mappings JSONB DEFAULT '{}'::jsonb;`.catch(() => {});
+      await this.sql`ALTER TABLE public.campaigns ADD COLUMN IF NOT EXISTS header_media_url TEXT;`.catch(() => {});
 
       // 6. Campaign Recipients Table
       await this.sql`
@@ -219,6 +226,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           button_clicked_at TIMESTAMPTZ
         );
       `;
+      // Safe Column Migrations for campaign_recipients (Phase 3: WABA Broadcast Engine)
+      await this.sql`ALTER TABLE public.campaign_recipients ADD COLUMN IF NOT EXISTS variables JSONB DEFAULT '{}'::jsonb;`.catch(() => {});
 
       // 7. Auto-Reply Rules & Settings Tables
       await this.sql`
@@ -291,6 +300,21 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
       `;
+      // Safe Column Migrations for broadcast_templates (WABA Meta Template Studio)
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'MARKETING';`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS button_text VARCHAR(255);`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS button_url TEXT;`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS icon VARCHAR(50) DEFAULT 'MessageSquare';`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS meta_template_id VARCHAR(100);`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS meta_template_name VARCHAR(512);`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS meta_status VARCHAR(50) DEFAULT 'LOCAL_DRAFT';`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS meta_rejection_reason TEXT;`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS language VARCHAR(20) DEFAULT 'en_US';`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS header_type VARCHAR(20) DEFAULT 'NONE';`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS header_content TEXT;`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS footer_text VARCHAR(100);`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS buttons JSONB DEFAULT '[]'::jsonb;`.catch(() => {});
+      await this.sql`ALTER TABLE public.broadcast_templates ADD COLUMN IF NOT EXISTS sample_values JSONB DEFAULT '{}'::jsonb;`.catch(() => {});
 
       // 10. Broadcast Global Settings Table
       await this.sql`
@@ -406,6 +430,32 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       await this.sql`CREATE INDEX IF NOT EXISTS idx_welcome_settings_org_inst ON public.welcome_message_settings (organization_id, instance_id);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_welcome_logs_org_phone ON public.welcome_message_logs (organization_id, phone);`;
       await this.sql`CREATE INDEX IF NOT EXISTS idx_templates_org ON public.broadcast_templates (organization_id);`;
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_templates_org_meta_name ON public.broadcast_templates (organization_id, meta_template_name);`.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_campaigns_channel ON public.campaigns (channel_type);`.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_campaign_recipients_status ON public.campaign_recipients (campaign_id, status);`.catch(() => {});
+
+      // 14. WhatsApp Official API (WABA) Configurations Table
+      await this.sql`
+        CREATE TABLE IF NOT EXISTS public.waba_configurations (
+          organization_id VARCHAR(64) PRIMARY KEY,
+          phone_number_id VARCHAR(100),
+          waba_id VARCHAR(100),
+          access_token TEXT,
+          webhook_verify_token VARCHAR(255),
+          app_id VARCHAR(100),
+          display_phone_number VARCHAR(50),
+          verified_name VARCHAR(255),
+          quality_rating VARCHAR(50) DEFAULT 'UNKNOWN',
+          messaging_tier VARCHAR(50) DEFAULT 'UNKNOWN',
+          code_verification_status VARCHAR(50) DEFAULT 'NOT_VERIFIED',
+          status VARCHAR(50) DEFAULT 'DISCONNECTED',
+          last_tested_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW()
+        );
+      `;
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_waba_phone_number_id ON public.waba_configurations (phone_number_id);`.catch(() => {});
+      await this.sql`CREATE INDEX IF NOT EXISTS idx_waba_waba_id ON public.waba_configurations (waba_id);`.catch(() => {});
 
       this.logger.log("Database schema & performance indexes verified successfully.");
     } catch (migErr: any) {

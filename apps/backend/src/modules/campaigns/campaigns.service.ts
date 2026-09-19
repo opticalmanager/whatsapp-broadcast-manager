@@ -3,6 +3,7 @@ import { WhatsAppSessionManagerService, IncomingResponseEvent } from "../whatsap
 import { DatabaseService } from "../../database/database.service";
 import { SettingsService } from "../settings/settings.service";
 import { normalizePublicMediaUrl } from "../media/media-url.utils";
+import { WabaService } from "../waba/waba.service";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -23,6 +24,7 @@ export interface RecipientRecord {
   buttonClicked?: string;
   buttonClickedAt?: Date;
   listItemSelected?: string;
+  variables?: Record<string, string>;
 }
 
 export interface CampaignItem {
@@ -48,6 +50,12 @@ export interface CampaignItem {
   contentType?: string;
   pollQuestion?: string;
   createdAt: Date;
+  // WABA Fields
+  channelType?: "WABA" | "BAILEYS";
+  metaTemplateName?: string;
+  metaTemplateLanguage?: string;
+  variableMappings?: Record<string, string>;
+  headerMediaUrl?: string;
 }
 
 import { UnsubscribersService } from "../unsubscribers/unsubscribers.service";
@@ -64,7 +72,8 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     private readonly baileysService: WhatsAppSessionManagerService,
     private readonly db: DatabaseService,
     private readonly settingsService: SettingsService,
-    private readonly unsubscribersService: UnsubscribersService
+    private readonly unsubscribersService: UnsubscribersService,
+    private readonly wabaService: WabaService
   ) {}
 
   async onModuleInit() {
@@ -124,9 +133,15 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           `;
         } catch {}
 
-        this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
-          this.logger.error(`[Scheduler] Failed to dispatch scheduled campaign ${cmp.id}: ${err.message}`);
-        });
+        if (cmp.channelType === "WABA" || cmp.metaTemplateName) {
+          this.startLiveWabaDispatch(cmp).catch((err) => {
+            this.logger.error(`[Scheduler] Failed to dispatch scheduled WABA campaign ${cmp.id}: ${err.message}`);
+          });
+        } else {
+          this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
+            this.logger.error(`[Scheduler] Failed to dispatch scheduled campaign ${cmp.id}: ${err.message}`);
+          });
+        }
       }
     }
   }
@@ -193,6 +208,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             actionButtons: parseJson(r.action_buttons),
             buttons: parseJson(r.action_buttons),
             menuData: parseJson(r.menu_data),
+            channelType: r.channel_type || (r.meta_template_name ? "WABA" : "BAILEYS"),
+            metaTemplateName: r.meta_template_name || undefined,
+            metaTemplateLanguage: r.meta_template_language || undefined,
+            variableMappings: parseJson(r.variable_mappings),
+            headerMediaUrl: r.header_media_url || undefined,
           };
 
           this.campaignsStore.set(cmp.id, cmp);
@@ -656,6 +676,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
             actionButtons: parseJson(r.action_buttons),
             buttons: parseJson(r.action_buttons),
             menuData: parseJson(r.menu_data),
+            channelType: r.channel_type || (r.meta_template_name ? "WABA" : "BAILEYS"),
+            metaTemplateName: r.meta_template_name || undefined,
+            metaTemplateLanguage: r.meta_template_language || undefined,
+            variableMappings: parseJson(r.variable_mappings),
+            headerMediaUrl: r.header_media_url || undefined,
           };
           this.campaignsStore.set(cmp.id, cmp);
         }
@@ -993,6 +1018,9 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
         contentType: cmp.contentType,
         targetAudienceType: cmp.targetAudienceType,
         audienceNames: cmp.audienceNames,
+        channelType: cmp.channelType || (cmp.metaTemplateName ? "WABA" : "BAILEYS"),
+        metaTemplateName: cmp.metaTemplateName,
+        metaTemplateLanguage: cmp.metaTemplateLanguage,
       },
       kpis: {
         totalMessages,
@@ -1139,7 +1167,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       audienceNames?: string[];
       templateId?: string;
       recipients?: Array<{ id: string; phone: string; name?: string; variables?: Record<string, string> }>;
-      messageText: string;
+      messageText?: string;
       mediaUrl?: string;
       scheduledAt?: string;
       warmupRamp?: boolean;
@@ -1147,6 +1175,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       batchPause?: number;
       textWithMediaMode?: "caption" | "separate";
       contentType?: string;
+      channelType?: "WABA" | "BAILEYS";
+      metaTemplateName?: string;
+      metaTemplateLanguage?: string;
+      variableMappings?: Record<string, string>;
+      headerMediaUrl?: string;
     }
   ): Promise<CampaignItem> {
     const rawRecipients = payload.recipients || [];
@@ -1163,6 +1196,7 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       phone: r.phone,
       name: r.name || "Customer",
       status: "PENDING",
+      variables: r.variables || {},
     }));
 
     const rawPollData = (payload as any).pollData;
@@ -1176,6 +1210,12 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
 
     const msgType = rawMsgType || (isPoll ? (payload.mediaUrl ? "Poll With Media" : "Poll") : isButton ? (payload.mediaUrl ? "Button With Media" : "Button") : isMenu ? (payload.mediaUrl ? "List/Menu With Media" : "List/Menu") : (payload.mediaUrl ? "Text With Media" : "Text"));
     const contentType = isPoll ? "poll" : isButton ? "button" : isMenu ? "list" : (payload.mediaUrl ? "media" : "text");
+
+    const channelType = (payload as any).channelType || ((payload as any).metaTemplateName ? "WABA" : "WABA");
+    const metaTemplateName = (payload as any).metaTemplateName || null;
+    const metaTemplateLanguage = (payload as any).metaTemplateLanguage || "en_US";
+    const variableMappings = (payload as any).variableMappings || {};
+    const headerMediaUrl = (payload as any).headerMediaUrl || payload.mediaUrl || null;
 
     const newCampaign: CampaignItem & Record<string, any> = {
       id: `cmp-${Date.now()}`,
@@ -1211,6 +1251,11 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
       actionButtons: rawButtons,
       buttons: rawButtons,
       menuData: rawMenu,
+      channelType,
+      metaTemplateName,
+      metaTemplateLanguage,
+      variableMappings,
+      headerMediaUrl,
     };
 
     this.campaignsStore.set(newCampaign.id, newCampaign);
@@ -1222,7 +1267,8 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           id, organization_id, whatsapp_session_id, name, target_audience_type, 
           message_text, media_url, status, scheduled_at, total_recipients, 
           sent_count, delivered_count, read_count, failed_count, created_at, updated_at,
-          content_type, poll_question, poll_options, action_buttons, menu_data, poll_data
+          content_type, poll_question, poll_options, action_buttons, menu_data, poll_data,
+          channel_type, template_id, meta_template_name, meta_template_language, variable_mappings, header_media_url
         ) VALUES (
           ${newCampaign.id}, ${newCampaign.organizationId}, ${newCampaign.whatsappNumberId}, ${newCampaign.name},
           ${newCampaign.targetAudienceType}, ${newCampaign.messageText || ''}, ${newCampaign.mediaUrl || null},
@@ -1232,33 +1278,319 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           ${newCampaign.pollOptions ? JSON.stringify(newCampaign.pollOptions) : null}::jsonb,
           ${newCampaign.actionButtons ? JSON.stringify(newCampaign.actionButtons) : null}::jsonb,
           ${newCampaign.menuData ? JSON.stringify(newCampaign.menuData) : null}::jsonb,
-          ${newCampaign.pollData ? JSON.stringify(newCampaign.pollData) : null}::jsonb
+          ${newCampaign.pollData ? JSON.stringify(newCampaign.pollData) : null}::jsonb,
+          ${channelType},
+          ${newCampaign.templateId || null},
+          ${metaTemplateName},
+          ${metaTemplateLanguage},
+          ${JSON.stringify(variableMappings)}::jsonb,
+          ${headerMediaUrl}
         )
       `;
 
       for (const rec of recipientsList) {
         await this.db.sql`
-          INSERT INTO campaign_recipients (id, campaign_id, organization_id, phone, name, status, created_at)
-          VALUES (${rec.id}, ${newCampaign.id}, ${newCampaign.organizationId}, ${rec.phone}, ${rec.name || 'Customer'}, 'PENDING', NOW())
+          INSERT INTO campaign_recipients (id, campaign_id, organization_id, phone, name, status, variables, created_at)
+          VALUES (
+            ${rec.id}, 
+            ${newCampaign.id}, 
+            ${newCampaign.organizationId}, 
+            ${rec.phone}, 
+            ${rec.name || 'Customer'}, 
+            'PENDING', 
+            ${JSON.stringify(rec.variables || {})}::jsonb, 
+            NOW()
+          )
           ON CONFLICT (id) DO NOTHING
         `;
       }
-      this.logger.log(`Persisted campaign ${newCampaign.id} and ${recipientsList.length} recipients to Supabase.`);
+      this.logger.log(`Persisted campaign ${newCampaign.id} (${channelType}) and ${recipientsList.length} recipients to Supabase.`);
     } catch (dbErr: any) {
       this.logger.warn(`Failed to save campaign to Supabase: ${dbErr.message}`);
     }
 
     if (!isScheduled && recipientsList.length > 0) {
-      this.startLiveBaileysDispatch(newCampaign, payload.messageText, newCampaign.mediaUrl).catch((err) => {
-        this.logger.error(`Critical error in dispatch loop for ${newCampaign.id}: ${err.message}`, err.stack);
-      });
+      if (channelType === "WABA" || metaTemplateName) {
+        this.startLiveWabaDispatch(newCampaign).catch((err) => {
+          this.logger.error(`Critical error in WABA dispatch loop for ${newCampaign.id}: ${err.message}`, err.stack);
+        });
+      } else {
+        this.startLiveBaileysDispatch(newCampaign, payload.messageText || "", newCampaign.mediaUrl).catch((err) => {
+          this.logger.error(`Critical error in dispatch loop for ${newCampaign.id}: ${err.message}`, err.stack);
+        });
+      }
     }
 
     this.logger.log(`Created campaign ${newCampaign.id} (${newCampaign.name}) with ${newCampaign.totalRecipients} recipients.`);
     return newCampaign;
   }
 
-  
+  /**
+   * High-Speed Concurrent Meta Cloud API (WABA) Campaign Dispatcher
+   */
+  private async startLiveWabaDispatch(campaign: CampaignItem & Record<string, any>) {
+    if (this.activeDispatches.has(campaign.id)) {
+      this.logger.log(`[WABA Dispatch] Dispatch loop for campaign ${campaign.id} is already running.`);
+      return;
+    }
+
+    this.activeDispatches.add(campaign.id);
+    this.logger.log(`[WABA Dispatch] Starting high-speed Meta Cloud API dispatch for campaign ${campaign.id} ("${campaign.name}")...`);
+
+    try {
+      const orgId = campaign.organizationId;
+      const wabaConfig = await this.wabaService.getConfig(orgId);
+      if (!wabaConfig || !wabaConfig.phoneNumberId || !wabaConfig.accessToken) {
+        throw new Error("WABA credentials (Phone Number ID & Access Token) not configured. Please configure in Settings.");
+      }
+
+      // Load Template Details if templateId is present
+      let templateDetails: any = null;
+      if (campaign.templateId && campaign.templateId !== "tpl-custom") {
+        try {
+          const tplRows = await this.db.sql`
+            SELECT * FROM broadcast_templates 
+            WHERE id = ${campaign.templateId} AND (organization_id = ${orgId} OR organization_id = 'system')
+            LIMIT 1
+          `;
+          if (tplRows && tplRows.length > 0) {
+            templateDetails = tplRows[0];
+          }
+        } catch (err: any) {
+          this.logger.warn(`Could not load template details for ${campaign.templateId}: ${err.message}`);
+        }
+      }
+
+      const metaTemplateName = campaign.metaTemplateName || templateDetails?.meta_template_name;
+      if (!metaTemplateName) {
+        throw new Error("No Meta template specified for WABA campaign dispatch.");
+      }
+      const metaLang = campaign.metaTemplateLanguage || templateDetails?.language || "en_US";
+      const headerType = (templateDetails?.header_type || "NONE").toUpperCase();
+      const defaultHeaderContent = campaign.headerMediaUrl || templateDetails?.header_content || templateDetails?.media_url;
+      const variableMappings = campaign.variableMappings || {};
+
+      // Load pending recipients from DB
+      const pendingRows = await this.db.sql`
+        SELECT * FROM campaign_recipients
+        WHERE campaign_id = ${campaign.id} AND status = 'PENDING'
+        ORDER BY created_at ASC
+      `;
+
+      this.logger.log(`[WABA Dispatch] Found ${pendingRows.length} pending recipients for campaign ${campaign.id}. Launching parallel worker pool...`);
+
+      const CONCURRENCY = 5; // 5 parallel HTTP workers to respect Cloud API rate limits
+      let currentIndex = 0;
+      let processedBatchCount = 0;
+
+      const processRecipient = async (rec: any) => {
+        if (campaign.status === "PAUSED") {
+          return;
+        }
+
+        const phone = (rec.phone || "").replace(/\D/g, "");
+        if (!phone || phone.length < 10) {
+          await this.db.sql`
+            UPDATE campaign_recipients
+            SET status = 'FAILED', error_message = 'Invalid phone number format'
+            WHERE id = ${rec.id}
+          `;
+          campaign.failedCount = (campaign.failedCount || 0) + 1;
+          const target = (campaign.recipients || []).find((r: any) => r.id === rec.id);
+          if (target) {
+            target.status = "FAILED";
+            target.errorMessage = "Invalid phone number format";
+          }
+          return;
+        }
+
+        // Parse recipient variables if string
+        let recVars = rec.variables;
+        if (typeof recVars === "string") {
+          try { recVars = JSON.parse(recVars); } catch { recVars = {}; }
+        }
+
+        // Build Meta components array
+        const components: any[] = [];
+
+        // 1. Header Component
+        if (headerType === "TEXT" && defaultHeaderContent) {
+          components.push({
+            type: "header",
+            parameters: [{ type: "text", text: defaultHeaderContent }]
+          });
+        } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+          const mediaUrl = recVars?.header_media_url || defaultHeaderContent;
+          if (mediaUrl && mediaUrl.startsWith("http")) {
+            components.push({
+              type: "header",
+              parameters: [{
+                type: headerType.toLowerCase(),
+                [headerType.toLowerCase()]: { link: mediaUrl }
+              }]
+            });
+          }
+        }
+
+        // 2. Body Component with positional parameters {{1}}, {{2}}, ...
+        const bodyParams: Array<{ type: "text"; text: string }> = [];
+        const paramKeys = Object.keys(variableMappings)
+          .filter(k => /^\d+$/.test(k))
+          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+        if (paramKeys.length > 0) {
+          for (const k of paramKeys) {
+            const mappedField = variableMappings[k];
+            let val = "";
+            if (rec[mappedField] !== undefined) {
+              val = String(rec[mappedField]);
+            } else if (recVars && recVars[mappedField] !== undefined) {
+              val = String(recVars[mappedField]);
+            } else if (recVars && recVars[k] !== undefined) {
+              val = String(recVars[k]);
+            } else {
+              val = mappedField; // Static text constant
+            }
+            bodyParams.push({ type: "text", text: val || `Val ${k}` });
+          }
+        } else if (recVars && typeof recVars === "object") {
+          const recKeys = Object.keys(recVars)
+            .filter(k => /^\d+$/.test(k))
+            .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+          for (const k of recKeys) {
+            bodyParams.push({ type: "text", text: String(recVars[k] || "") });
+          }
+        }
+
+        if (bodyParams.length > 0) {
+          components.push({
+            type: "body",
+            parameters: bodyParams
+          });
+        }
+
+        // Send via Meta Cloud API
+        const sendRes = await this.wabaService.sendTemplateMessage(
+          orgId,
+          phone,
+          metaTemplateName,
+          metaLang,
+          components
+        );
+
+        if (sendRes.success && sendRes.messageId) {
+          await this.db.sql`
+            UPDATE campaign_recipients
+            SET 
+              status = 'SENT',
+              message_id = ${sendRes.messageId},
+              sent_at = NOW(),
+              error_message = NULL
+            WHERE id = ${rec.id}
+          `;
+          campaign.sentCount = (campaign.sentCount || 0) + 1;
+          const target = (campaign.recipients || []).find((r: any) => r.id === rec.id);
+          if (target) {
+            target.status = "SENT";
+            target.messageId = sendRes.messageId;
+            target.sentAt = new Date();
+          }
+        } else {
+          const errorMsg = sendRes.error || "Meta Cloud API delivery failed";
+          await this.db.sql`
+            UPDATE campaign_recipients
+            SET 
+              status = 'FAILED',
+              error_message = ${errorMsg}
+            WHERE id = ${rec.id}
+          `;
+          campaign.failedCount = (campaign.failedCount || 0) + 1;
+          const target = (campaign.recipients || []).find((r: any) => r.id === rec.id);
+          if (target) {
+            target.status = "FAILED";
+            target.errorMessage = errorMsg;
+          }
+        }
+
+        processedBatchCount++;
+        if (processedBatchCount % 10 === 0) {
+          await this.db.sql`
+            UPDATE campaigns
+            SET 
+              sent_count = ${campaign.sentCount},
+              failed_count = ${campaign.failedCount},
+              updated_at = NOW()
+            WHERE id = ${campaign.id}
+          `.catch(() => {});
+        }
+      };
+
+      // Launch concurrent workers
+      const workers = Array.from({ length: CONCURRENCY }, async () => {
+        while (currentIndex < pendingRows.length) {
+          if (campaign.status === "PAUSED") {
+            this.logger.log(`[WABA Dispatch] Campaign ${campaign.id} paused. Halting worker.`);
+            break;
+          }
+          const index = currentIndex++;
+          if (index < pendingRows.length) {
+            await processRecipient(pendingRows[index]);
+            // Tiny 20ms pause between worker iterations
+            await new Promise(r => setTimeout(r, 20));
+          }
+        }
+      });
+
+      await Promise.all(workers);
+
+      // Final count sync
+      const finalCounts = await this.db.sql`
+        SELECT 
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE status IN ('SENT', 'DELIVERED', 'READ'))::int as sent,
+          COUNT(*) FILTER (WHERE status IN ('DELIVERED', 'READ'))::int as delivered,
+          COUNT(*) FILTER (WHERE status = 'READ')::int as read,
+          COUNT(*) FILTER (WHERE status = 'FAILED')::int as failed,
+          COUNT(*) FILTER (WHERE status = 'PENDING')::int as pending
+        FROM campaign_recipients
+        WHERE campaign_id = ${campaign.id}
+      `;
+
+      const counts = finalCounts[0] || {};
+      campaign.sentCount = counts.sent || campaign.sentCount;
+      campaign.deliveredCount = counts.delivered || 0;
+      campaign.readCount = counts.read || 0;
+      campaign.failedCount = counts.failed || campaign.failedCount;
+
+      if (campaign.status !== "PAUSED") {
+        campaign.status = (counts.pending || 0) === 0 ? "COMPLETED" : "PROCESSING";
+      }
+
+      await this.db.sql`
+        UPDATE campaigns
+        SET 
+          status = ${campaign.status},
+          sent_count = ${campaign.sentCount},
+          delivered_count = ${campaign.deliveredCount},
+          read_count = ${campaign.readCount},
+          failed_count = ${campaign.failedCount},
+          updated_at = NOW()
+        WHERE id = ${campaign.id}
+      `;
+
+      this.logger.log(`[WABA Dispatch] Finished dispatch for ${campaign.id}: Status=${campaign.status}, Sent=${campaign.sentCount}, Failed=${campaign.failedCount}`);
+    } catch (err: any) {
+      this.logger.error(`[WABA Dispatch] Error dispatching campaign ${campaign.id}: ${err.message}`, err.stack);
+      campaign.status = "FAILED";
+      await this.db.sql`
+        UPDATE campaigns SET status = 'FAILED', updated_at = NOW() WHERE id = ${campaign.id}
+      `.catch(() => {});
+    } finally {
+      this.activeDispatches.delete(campaign.id);
+      this.saveToDisk();
+    }
+  }
+
   public getLocalTimeMinutes(timeZoneStr?: string): number {
     try {
       const tz = timeZoneStr || "Asia/Kolkata";
@@ -1866,9 +2198,15 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     // Clear any previous dispatch registration to prevent getting blocked by isAlreadyRunning guard
     this.activeDispatches.delete(id);
 
-    this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
-      this.logger.error(`Error in resumed dispatch loop for ${id}: ${err.message}`);
-    });
+    if (cmp.channelType === "WABA" || cmp.metaTemplateName) {
+      this.startLiveWabaDispatch(cmp).catch((err) => {
+        this.logger.error(`Error in resumed WABA dispatch loop for ${id}: ${err.message}`);
+      });
+    } else {
+      this.startLiveBaileysDispatch(cmp, cmp.messageText || "", cmp.mediaUrl).catch((err) => {
+        this.logger.error(`Error in resumed dispatch loop for ${id}: ${err.message}`);
+      });
+    }
 
     return cmp;
   }

@@ -17,6 +17,7 @@ import { WelcomeMessageModule } from "./modules/welcome-message/welcome-message.
 import { ChatModule } from "./modules/chat/chat.module";
 import { HealthModule } from "./modules/health/health.module";
 import { SettingsModule } from "./modules/settings/settings.module";
+import { WabaModule } from "./modules/waba/waba.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SettingsModule } from "./modules/settings/settings.module";
     HealthModule,
     AuthModule,
     WhatsAppSessionModule,
+    WabaModule,
     ChatModule,
     SettingsModule,
     UnsubscribersModule,

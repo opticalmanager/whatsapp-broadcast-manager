@@ -2,7 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, HttpCode, HttpS
 import { TemplatesService } from "./templates.service";
 import { TenantAuthGuard } from "../auth/guards/tenant-auth.guard";
 import { CurrentOrg } from "../auth/decorators/tenant.decorator";
-import { IsNotEmpty, IsString, IsEnum, IsOptional } from "class-validator";
+import { IsNotEmpty, IsString, IsOptional } from "class-validator";
 
 export class CreateTemplateDto {
   @IsString()
@@ -15,11 +15,11 @@ export class CreateTemplateDto {
 
   @IsString()
   @IsOptional()
-  category?: "RECALL" | "PRODUCT" | "VIP" | "PROMO" | "FESTIVAL" | "TRANSACTIONAL" | "GENERAL";
+  category?: string;
 
-  @IsEnum(["NONE", "IMAGE", "DOCUMENT", "VIDEO"])
+  @IsString()
   @IsOptional()
-  mediaType?: "NONE" | "IMAGE" | "DOCUMENT" | "VIDEO";
+  mediaType?: "NONE" | "IMAGE" | "DOCUMENT" | "VIDEO" | "POLL";
 
   @IsString()
   @IsOptional()
@@ -39,6 +39,33 @@ export class CreateTemplateDto {
 
   @IsOptional()
   variables?: Array<{ key: string; description: string; fallback?: string }>;
+
+  // WABA Meta Fields
+  @IsString()
+  @IsOptional()
+  metaTemplateName?: string;
+
+  @IsString()
+  @IsOptional()
+  language?: string;
+
+  @IsString()
+  @IsOptional()
+  headerType?: "NONE" | "TEXT" | "IMAGE" | "DOCUMENT" | "VIDEO";
+
+  @IsString()
+  @IsOptional()
+  headerContent?: string;
+
+  @IsString()
+  @IsOptional()
+  footerText?: string;
+
+  @IsOptional()
+  buttons?: any[];
+
+  @IsOptional()
+  sampleValues?: Record<string, string>;
 }
 
 @UseGuards(TenantAuthGuard)
@@ -52,12 +79,23 @@ export class TemplatesController {
   async findAll(
     @CurrentOrg() orgId: string,
     @Query("category") category?: string,
-    @Query("search") search?: string
+    @Query("search") search?: string,
+    @Query("metaStatus") metaStatus?: string
   ) {
-    const data = await this.templatesService.findAll(orgId, category, search);
+    const data = await this.templatesService.findAll(orgId, category, search, metaStatus);
     return {
       success: true,
       data,
+    };
+  }
+
+  @Post("sync-from-meta")
+  async syncFromMeta(@CurrentOrg() orgId: string) {
+    const res = await this.templatesService.syncFromMeta(orgId);
+    return {
+      success: true,
+      message: res.message,
+      count: res.count,
     };
   }
 
@@ -82,13 +120,20 @@ export class TemplatesController {
     const template = await this.templatesService.create(orgId, {
       title: dto.title,
       bodyText: dto.bodyText,
-      category: dto.category || "GENERAL",
+      category: dto.category || "MARKETING",
       mediaType: dto.mediaType || "NONE",
       mediaUrl: dto.mediaUrl,
       buttonText: dto.buttonText,
       buttonUrl: dto.buttonUrl,
       icon: dto.icon,
       variables: dto.variables,
+      metaTemplateName: dto.metaTemplateName,
+      language: dto.language,
+      headerType: dto.headerType,
+      headerContent: dto.headerContent,
+      footerText: dto.footerText,
+      buttons: dto.buttons,
+      sampleValues: dto.sampleValues,
     });
     return {
       success: true,
@@ -107,6 +152,19 @@ export class TemplatesController {
     return {
       success: true,
       message: "Template updated successfully.",
+      data: template,
+    };
+  }
+
+  @Post(":id/submit-to-meta")
+  async submitToMeta(
+    @CurrentOrg() orgId: string,
+    @Param("id") id: string
+  ) {
+    const template = await this.templatesService.submitToMeta(orgId, id);
+    return {
+      success: true,
+      message: `Template submitted to Meta successfully! Current status: ${template.metaStatus}`,
       data: template,
     };
   }

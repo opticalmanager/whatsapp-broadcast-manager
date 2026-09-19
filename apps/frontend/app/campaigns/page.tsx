@@ -43,6 +43,9 @@ interface CampaignItem {
   scheduledAt?: string;
   messageText?: string;
   mediaUrl?: string;
+  channelType?: "WABA" | "BAILEYS";
+  metaTemplateName?: string;
+  metaTemplateLanguage?: string;
 }
 
 interface WhatsAppInstance {
@@ -258,9 +261,16 @@ export default function CampaignsDashboardPage() {
                   <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-[10px] font-bold">
                     Running
                   </span>
+                  {(primarySendingCampaign.channelType === "WABA" || primarySendingCampaign.metaTemplateName) && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold">
+                      <Zap className="w-3 h-3" />
+                      <span>Meta Cloud API</span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-slate-400 mt-1">
-                  Sent: {primarySendingCampaign.sentCount || primarySendingCampaign.deliveredCount || 0} · Failed: {primarySendingCampaign.failedCount || 0} / {primarySendingCampaign.totalRecipients} · Workers: {activeWorkersCount}
+                  Sent: {primarySendingCampaign.sentCount || 0} · Delivered: {primarySendingCampaign.deliveredCount || 0} · Read: {primarySendingCampaign.readCount || 0} · Failed: {primarySendingCampaign.failedCount || 0} / {primarySendingCampaign.totalRecipients}
+                  {primarySendingCampaign.channelType !== "WABA" && ` · Workers: ${activeWorkersCount}`}
                 </p>
               </div>
 
@@ -400,12 +410,29 @@ export default function CampaignsDashboardPage() {
                       
                       {/* Name */}
                       <td className="py-3.5 px-5 font-bold text-slate-800 dark:text-white">
-                        <button
-                          onClick={() => router.push(`/campaigns/${camp.id}`)}
-                          className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline text-left cursor-pointer font-bold block"
-                        >
-                          {camp.name}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => router.push(`/campaigns/${camp.id}`)}
+                            className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline text-left cursor-pointer font-bold block"
+                          >
+                            {camp.name}
+                          </button>
+                          {camp.channelType === "WABA" || camp.metaTemplateName ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-extrabold">
+                              <Zap className="w-3 h-3" />
+                              <span>Meta WABA</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-[10px] font-medium">
+                              <span>Phone</span>
+                            </span>
+                          )}
+                        </div>
+                        {camp.metaTemplateName && (
+                          <p className="text-[10px] font-mono text-slate-400 font-normal mt-0.5">
+                            Template: {camp.metaTemplateName}
+                          </p>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -450,16 +477,32 @@ export default function CampaignsDashboardPage() {
 
                       {/* Progress */}
                       <td className="py-3.5 px-4">
-                        <div className="space-y-1 min-w-[130px] max-w-[180px]">
-                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div className="space-y-1 min-w-[140px] max-w-[200px]">
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
                             <div
-                              className="h-full bg-indigo-200 dark:bg-indigo-700 rounded-full transition-all"
-                              style={{ width: `${progressPct}%` }}
+                              className="h-full bg-emerald-500 transition-all"
+                              style={{ width: `${Math.min(100, Math.round(((camp.deliveredCount || 0) / Math.max(camp.totalRecipients, 1)) * 100))}%` }}
+                              title={`Delivered: ${camp.deliveredCount || 0}`}
+                            />
+                            <div
+                              className="h-full bg-indigo-400 dark:bg-indigo-600 transition-all"
+                              style={{ width: `${Math.min(100, Math.round((Math.max(0, (camp.sentCount || 0) - (camp.deliveredCount || 0)) / Math.max(camp.totalRecipients, 1)) * 100))}%` }}
+                              title={`Sent: ${camp.sentCount || 0}`}
+                            />
+                            <div
+                              className="h-full bg-rose-500 transition-all"
+                              style={{ width: `${Math.min(100, Math.round(((camp.failedCount || 0) / Math.max(camp.totalRecipients, 1)) * 100))}%` }}
+                              title={`Failed: ${camp.failedCount || 0}`}
                             />
                           </div>
-                          <span className="text-[11px] font-mono text-slate-400">
-                            {progressRatio}
-                          </span>
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span>{progressRatio}</span>
+                            {(camp.deliveredCount || 0) > 0 && (
+                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                                {camp.deliveredCount} del
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
 

@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { getBackendUrl } from "@/lib/backend-url";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { normalizePublicMediaUrl, isLikelyImageUrl, detectMediaTypeFromUrl } from "@/lib/media-url-utils";
+import { normalizePublicMediaUrl, isLikelyImageUrl } from "@/lib/media-url-utils";
 import {
   FileText,
   Plus,
@@ -42,16 +42,18 @@ import {
   Link as LinkIcon,
   ShieldCheck,
   AlertTriangle,
-  Shuffle,
   Smile,
   User,
   PhoneCall,
   Mail,
   Building2,
   FileCheck,
-  Sparkle,
   CheckCheck,
-  Lock
+  Lock,
+  RefreshCw,
+  PauseCircle,
+  Globe,
+  HelpCircle
 } from "lucide-react";
 
 function getAuthHeaders(): Record<string, string> {
@@ -63,73 +65,78 @@ function getAuthHeaders(): Record<string, string> {
 
 const BACKEND_URL = getBackendUrl();
 
-type TemplateCategory = "ALL" | "PROMO" | "GREETING" | "REMINDER" | "VIP" | "TRANSACTIONAL" | "GENERAL";
+export interface TemplateButton {
+  type: "QUICK_REPLY" | "URL" | "PHONE_NUMBER";
+  text: string;
+  url?: string;
+  phoneNumber?: string;
+}
 
-interface TemplateItem {
+export interface TemplateItem {
   id: string;
   organizationId: string;
   shopId?: string;
   title: string;
   bodyText: string;
-  category: "PROMO" | "GREETING" | "REMINDER" | "VIP" | "TRANSACTIONAL" | "GENERAL";
+  category: "MARKETING" | "UTILITY" | "AUTHENTICATION" | "PROMO" | "GREETING" | "REMINDER" | "VIP" | "TRANSACTIONAL" | "GENERAL" | string;
   mediaType: "NONE" | "IMAGE" | "DOCUMENT" | "VIDEO" | "POLL";
   mediaUrl?: string;
+  buttonText?: string;
+  buttonUrl?: string;
   icon?: string;
   variables: Array<{ key: string; description: string; fallback?: string }>;
+  // WABA Meta Fields
+  metaTemplateId?: string;
+  metaTemplateName?: string;
+  metaStatus: "LOCAL_DRAFT" | "PENDING" | "APPROVED" | "REJECTED" | "PAUSED";
+  metaRejectionReason?: string;
+  language: string;
+  headerType: "NONE" | "TEXT" | "IMAGE" | "DOCUMENT" | "VIDEO";
+  headerContent?: string;
+  footerText?: string;
+  buttons: TemplateButton[];
+  sampleValues: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 }
 
+type MetaStatusFilter = "ALL" | "APPROVED" | "PENDING" | "LOCAL_DRAFT" | "REJECTED";
+
 const CATEGORY_DEFINITIONS: Array<{
-  id: TemplateCategory;
+  id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
 }> = [
-  { id: "ALL", label: "All Templates", icon: Layers, color: "text-slate-700 dark:text-slate-300" },
-  { id: "PROMO", label: "Offers & Promos", icon: Sun, color: "text-orange-600 dark:text-orange-400" },
-  { id: "GREETING", label: "Greetings & Welcome", icon: Sparkles, color: "text-purple-600 dark:text-purple-400" },
-  { id: "REMINDER", label: "Follow-up & Reminders", icon: Calendar, color: "text-emerald-600 dark:text-emerald-400" },
-  { id: "VIP", label: "VIP & Loyalty Perks", icon: Crown, color: "text-amber-600 dark:text-amber-400" },
-  { id: "TRANSACTIONAL", label: "Orders & Invoices", icon: CheckCircle2, color: "text-teal-600 dark:text-teal-400" },
-  { id: "GENERAL", label: "General Broadcast", icon: MessageSquare, color: "text-slate-600 dark:text-slate-400" },
+  { id: "ALL", label: "All Categories", icon: Layers, color: "text-slate-700 dark:text-slate-300" },
+  { id: "MARKETING", label: "Marketing", icon: Sun, color: "text-orange-600 dark:text-orange-400" },
+  { id: "UTILITY", label: "Utility & Alerts", icon: CheckCircle2, color: "text-blue-600 dark:text-blue-400" },
+  { id: "AUTHENTICATION", label: "Authentication (OTP)", icon: ShieldCheck, color: "text-purple-600 dark:text-purple-400" },
+  { id: "PROMO", label: "Offers & Promos", icon: Tag, color: "text-rose-600 dark:text-rose-400" },
+  { id: "VIP", label: "VIP & Loyalty", icon: Crown, color: "text-amber-600 dark:text-amber-400" },
 ];
 
-// Universal CRM Variable Categories (Applicable to any business)
-const UNIVERSAL_VARIABLES = [
-  { key: "{{name}}", label: "Contact Name (DB)", sample: "Rahul Sharma", icon: User, group: "Name" },
-  { key: "{{whatsapp_name}}", label: "WhatsApp Profile Name", sample: "Rahul S.", icon: Smile, group: "Name" },
-  { key: "{{phone}}", label: "Phone Number", sample: "+91 98765 43210", icon: PhoneCall, group: "Contact" },
-  { key: "{{city}}", label: "City / Area", sample: "Delhi", icon: Tag, group: "Contact" },
-  { key: "{{email}}", label: "Email Address", sample: "rahul@gmail.com", icon: Mail, group: "Contact" },
-  { key: "{{business_name}}", label: "Your Business Name", sample: "OpticalManager", icon: Building2, group: "Business" },
-  { key: "{{discount}}", label: "Discount % or ₹", sample: "20%", icon: Percent, group: "Offers" },
-  { key: "{{coupon_code}}", label: "Coupon / Voucher Code", sample: "FESTIVE500", icon: Gift, group: "Offers" },
-  { key: "{{expiry_date}}", label: "Offer Expiry Date", sample: "this Sunday", icon: Clock, group: "Offers" },
-  { key: "{{order_number}}", label: "Order / Invoice #", sample: "#INV-8920", icon: FileCheck, group: "Orders" },
-  { key: "{{due_date}}", label: "Appointment / Due Date", sample: "14 May 2025", icon: Calendar, group: "Orders" },
-  { key: "{{custom_1}}", label: "Custom Field 1", sample: "Premium Lens", icon: Tag, group: "Custom" },
-];
-
-const SPINTAX_PRESETS = [
-  { label: "Friendly Greeting", pattern: "{Hello|Hi|Hey|Dear}" },
-  { label: "Time-based Greeting", pattern: "{Good morning|Good afternoon|Greetings|Hello}" },
-  { label: "Regional Friendly", pattern: "{Namaste|Hello|Hi|Greetings}" },
-  { label: "VIP / Formal", pattern: "{Dear Valued Customer|Greetings|Hello|Dear}" },
+const CRM_VARIABLE_SHORTCUTS = [
+  { key: "{{1}}", label: "Customer Name", sample: "Rahul Sharma", icon: User },
+  { key: "{{2}}", label: "Store / Business Name", sample: "OpticalManager", icon: Building2 },
+  { key: "{{3}}", label: "City / Branch", sample: "Delhi Downtown", icon: Tag },
+  { key: "{{4}}", label: "Promo / Order #", sample: "FESTIVE500", icon: Gift },
 ];
 
 function getCategoryIcon(category: string): React.ComponentType<{ className?: string }> {
   switch (category) {
+    case "MARKETING":
     case "PROMO":
       return Sun;
-    case "GREETING":
-      return Sparkles;
-    case "REMINDER":
-      return Calendar;
-    case "VIP":
-      return Crown;
+    case "UTILITY":
     case "TRANSACTIONAL":
       return CheckCircle2;
+    case "AUTHENTICATION":
+      return ShieldCheck;
+    case "VIP":
+      return Crown;
+    case "REMINDER":
+      return Calendar;
     default:
       return MessageSquare;
   }
@@ -205,7 +212,12 @@ export default function WhatsAppTemplatesPage() {
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<TemplateCategory>("ALL");
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedStatus, setSelectedStatus] = useState<MetaStatusFilter>("ALL");
+
+  // Syncing and Submitting States
+  const [syncingMeta, setSyncingMeta] = useState(false);
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
 
   // Modal State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -234,6 +246,51 @@ export default function WhatsAppTemplatesPage() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // 1-Click Sync Templates from Meta Cloud API
+  const handleSyncFromMeta = async () => {
+    try {
+      setSyncingMeta(true);
+      const res = await fetch(`${BACKEND_URL}/api/v1/templates/sync-from-meta`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(json.message || `Synchronized ${json.count || 0} templates from Meta!`);
+        fetchTemplates();
+      } else {
+        toast.error(json.message || "Failed to sync templates from Meta. Please check WABA credentials in Settings.");
+      }
+    } catch (err: any) {
+      toast.error("Network error while syncing templates from Meta.");
+    } finally {
+      setSyncingMeta(false);
+    }
+  };
+
+  // 1-Click Submit Template to Meta for Verification
+  const handleSubmitToMeta = async (id: string, title: string) => {
+    try {
+      setSubmittingId(id);
+      const res = await fetch(`${BACKEND_URL}/api/v1/templates/${id}/submit-to-meta`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        toast.success(`"${title}" submitted to Meta for verification! Status: ${json.data?.metaStatus || "PENDING"}`);
+        fetchTemplates();
+      } else {
+        toast.error(json.message || "Meta rejected template submission. Check parameter requirements.");
+        fetchTemplates();
+      }
+    } catch {
+      toast.error("Error submitting template to Meta Cloud API.");
+    } finally {
+      setSubmittingId(null);
+    }
+  };
 
   // Duplicate template
   const handleDuplicate = async (id: string) => {
@@ -279,15 +336,20 @@ export default function WhatsAppTemplatesPage() {
       if (selectedCategory !== "ALL" && t.category !== selectedCategory) {
         return false;
       }
+      if (selectedStatus !== "ALL") {
+        if (selectedStatus === "LOCAL_DRAFT" && t.metaStatus && t.metaStatus !== "LOCAL_DRAFT") return false;
+        if (selectedStatus !== "LOCAL_DRAFT" && t.metaStatus !== selectedStatus) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchesTitle = t.title.toLowerCase().includes(q);
         const matchesBody = t.bodyText.toLowerCase().includes(q);
-        if (!matchesTitle && !matchesBody) return false;
+        const matchesSlug = t.metaTemplateName?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesBody && !matchesSlug) return false;
       }
       return true;
     });
-  }, [templates, selectedCategory, searchQuery]);
+  }, [templates, selectedCategory, selectedStatus, searchQuery]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4.5rem)] max-w-full overflow-hidden bg-slate-50/50 dark:bg-slate-950/50 p-4 sm:p-6 space-y-4">
@@ -298,52 +360,94 @@ export default function WhatsAppTemplatesPage() {
           <div className="flex items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2.5">
               <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-              WhatsApp Message Templates
+              Meta WhatsApp Template Studio
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
               {templates.length} Templates
             </span>
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Build reusable promotional flyers, customer follow-up reminders, and loyalty broadcast templates with anti-spam Spintax & dynamic CRM tags
+            Create, test, and submit official WhatsApp Cloud API templates to Meta for instant verification. Sync existing templates in 1-click.
           </p>
         </div>
 
-        {/* Primary CTA */}
-        <button
-          onClick={() => {
-            setEditingTemplate(null);
-            setIsEditorOpen(true);
-          }}
-          className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer flex items-center gap-2 shadow-sm transition-all shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create New Template</span>
-        </button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            onClick={handleSyncFromMeta}
+            disabled={syncingMeta}
+            className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer flex items-center gap-2 shadow-2xs transition-all disabled:opacity-50"
+            title="Fetch all verified templates directly from your Meta Business account"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${syncingMeta ? "animate-spin" : ""}`} />
+            <span>{syncingMeta ? "Syncing..." : "Sync from Meta"}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setEditingTemplate(null);
+              setIsEditorOpen(true);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer flex items-center gap-2 shadow-sm transition-all shrink-0"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Meta Template</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2. CONTROLS BAR: SEARCH & CATEGORY TABS */}
+      {/* 2. CONTROLS BAR: SEARCH, STATUS TABS & CATEGORY PILLS */}
       <div className="space-y-3 shrink-0">
         
-        {/* Search & Stats */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <div className="relative flex-1 sm:max-w-md">
+        {/* Search & Status Badges Filter Bar */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          
+          {/* Search */}
+          <div className="relative flex-1 md:max-w-md">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search templates by title or keywords..."
+              placeholder="Search by title, body, or meta_template_name..."
               className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-emerald-500"
             />
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span>Showing <strong>{filteredTemplates.length}</strong> of {templates.length} templates</span>
+          {/* Meta Status Filters */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+            {[
+              { id: "ALL", label: "All Status", count: templates.length },
+              { id: "APPROVED", label: "Approved", count: templates.filter((t) => t.metaStatus === "APPROVED").length, color: "text-emerald-600" },
+              { id: "PENDING", label: "Pending", count: templates.filter((t) => t.metaStatus === "PENDING").length, color: "text-amber-600" },
+              { id: "LOCAL_DRAFT", label: "Drafts", count: templates.filter((t) => !t.metaStatus || t.metaStatus === "LOCAL_DRAFT").length, color: "text-slate-500" },
+              { id: "REJECTED", label: "Rejected", count: templates.filter((t) => t.metaStatus === "REJECTED").length, color: "text-rose-600" },
+            ].map((st) => {
+              const isSel = selectedStatus === st.id;
+              return (
+                <button
+                  key={st.id}
+                  onClick={() => setSelectedStatus(st.id as any)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    isSel
+                      ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-xs"
+                      : "bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300"
+                  }`}
+                >
+                  <span>{st.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                    isSel ? "bg-white/20 text-white dark:bg-black/20 dark:text-black" : "bg-slate-200 dark:bg-slate-800 text-slate-600"
+                  }`}>
+                    {st.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
+
         </div>
 
-        {/* Category Filter Pills with Real Lucide Icons */}
+        {/* Category Filter Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
           {CATEGORY_DEFINITIONS.map((cat) => {
             const Icon = cat.icon;
@@ -379,7 +483,7 @@ export default function WhatsAppTemplatesPage() {
         {loading ? (
           <div className="h-64 flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-            <p className="text-xs font-medium">Loading WhatsApp templates...</p>
+            <p className="text-xs font-medium">Loading Meta WhatsApp templates...</p>
           </div>
         ) : filteredTemplates.length === 0 ? (
           <div className="h-80 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-3xl flex flex-col items-center justify-center text-center p-8 space-y-4 bg-white/50 dark:bg-slate-900/50">
@@ -389,33 +493,43 @@ export default function WhatsAppTemplatesPage() {
             <div className="space-y-1">
               <h3 className="text-sm font-bold text-slate-800 dark:text-white">No templates found</h3>
               <p className="text-xs text-slate-500 max-w-sm">
-                {searchQuery || selectedCategory !== "ALL"
-                  ? "No templates match your active search or category filter."
-                  : "Create your first reusable WhatsApp template with dynamic tokens to power your marketing campaigns."}
+                {searchQuery || selectedCategory !== "ALL" || selectedStatus !== "ALL"
+                  ? "No templates match your active filters or search criteria."
+                  : "Create your first template or click 'Sync from Meta' to import existing verified templates."}
               </p>
             </div>
-            <button
-              onClick={() => {
-                setEditingTemplate(null);
-                setIsEditorOpen(true);
-              }}
-              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create First Template</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSyncFromMeta}
+                className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Sync from Meta</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingTemplate(null);
+                  setIsEditorOpen(true);
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer inline-flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create First Template</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTemplates.map((tmpl) => {
               const CategoryIcon = getCategoryIcon(tmpl.category);
+              const isSubmitting = submittingId === tmpl.id;
 
               return (
                 <div
                   key={tmpl.id}
-                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3.5 group"
+                  className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between space-y-3.5 group relative"
                 >
-                  {/* Top: Icon, Title, Badges */}
+                  {/* Top: Icon, Title, Meta Status Badges */}
                   <div className="space-y-2.5">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">
@@ -426,69 +540,122 @@ export default function WhatsAppTemplatesPage() {
                           <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors line-clamp-1">
                             {tmpl.title}
                           </h3>
-                          <span className="text-[10px] text-slate-400 block font-mono">
-                            {tmpl.category} • Updated {new Date(tmpl.updatedAt).toLocaleDateString()}
-                          </span>
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-mono mt-0.5">
+                            <span className="font-semibold text-slate-600 dark:text-slate-300">{tmpl.category}</span>
+                            <span>•</span>
+                            <span>{tmpl.language || "en_US"}</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Media Badge */}
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                        {tmpl.mediaType === "IMAGE" && <ImageIcon className="w-3 h-3 text-emerald-600" />}
-                        {tmpl.mediaType === "DOCUMENT" && <FileText className="w-3 h-3 text-blue-600" />}
-                        {tmpl.mediaType === "VIDEO" && <Video className="w-3 h-3 text-purple-600" />}
-                        {tmpl.mediaType === "NONE" && <MessageSquare className="w-3 h-3 text-slate-400" />}
-                        <span>{tmpl.mediaType}</span>
-                      </span>
+                      {/* Meta Status Badge */}
+                      {tmpl.metaStatus === "APPROVED" && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 flex items-center gap-1 shadow-2xs">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                          <span>Approved</span>
+                        </span>
+                      )}
+                      {tmpl.metaStatus === "PENDING" && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 flex items-center gap-1 shadow-2xs">
+                          <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400 animate-spin" />
+                          <span>Pending</span>
+                        </span>
+                      )}
+                      {tmpl.metaStatus === "REJECTED" && (
+                        <span
+                          title={tmpl.metaRejectionReason || "Template was rejected by Meta"}
+                          className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60 flex items-center gap-1 shadow-2xs cursor-help"
+                        >
+                          <AlertTriangle className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                          <span>Rejected</span>
+                        </span>
+                      )}
+                      {(!tmpl.metaStatus || tmpl.metaStatus === "LOCAL_DRAFT") && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 flex items-center gap-1 shadow-2xs">
+                          <FileText className="w-3 h-3 text-slate-500" />
+                          <span>Draft</span>
+                        </span>
+                      )}
                     </div>
 
-                    {/* Image Preview Thumbnail if media exists */}
-                    {(tmpl.mediaType === "IMAGE" || isLikelyImageUrl(tmpl.mediaUrl)) && tmpl.mediaUrl && (
+                    {/* Meta Identifier Slug */}
+                    {tmpl.metaTemplateName && (
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200/80 dark:border-slate-800 text-[10px] font-mono text-slate-600 dark:text-slate-400 truncate">
+                        <span className="text-emerald-600 font-bold">meta:</span>
+                        <span className="truncate">{tmpl.metaTemplateName}</span>
+                      </div>
+                    )}
+
+                    {/* Rejection Alert if rejected */}
+                    {tmpl.metaStatus === "REJECTED" && tmpl.metaRejectionReason && (
+                      <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-[11px] text-rose-700 dark:text-rose-300 flex items-start gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{tmpl.metaRejectionReason}</span>
+                      </div>
+                    )}
+
+                    {/* Image / Media Preview Thumbnail */}
+                    {(tmpl.mediaType === "IMAGE" || tmpl.headerType === "IMAGE" || isLikelyImageUrl(tmpl.mediaUrl)) && tmpl.mediaUrl && (
                       <div className="h-28 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={normalizePublicMediaUrl(tmpl.mediaUrl)}
                           alt={tmpl.title}
-                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = "none";
+                          }}
                         />
                       </div>
                     )}
 
-                    {/* Message Body Preview */}
-                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-100 dark:border-slate-800/80 text-xs text-slate-700 dark:text-slate-300 font-sans leading-relaxed whitespace-pre-wrap line-clamp-3">
+                    {/* Message Body Snippet */}
+                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed font-sans bg-slate-50/70 dark:bg-slate-950/40 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800/80">
                       {tmpl.bodyText}
-                    </div>
+                    </p>
 
-                    {/* Dynamic Variable Chips */}
-                    {tmpl.variables && tmpl.variables.length > 0 && (
-                      <div className="flex items-center gap-1 flex-wrap pt-0.5">
-                        {tmpl.variables.map((v) => (
+                    {/* Interactive Buttons Pill Summary */}
+                    {Array.isArray(tmpl.buttons) && tmpl.buttons.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {tmpl.buttons.map((b, idx) => (
                           <span
-                            key={v.key}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 text-[10px] font-mono font-bold"
+                            key={idx}
+                            className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40 flex items-center gap-1"
                           >
-                            <Tag className="w-2.5 h-2.5 text-emerald-600" />
-                            <span>{v.key}</span>
+                            {b.type === "URL" ? <ExternalLink className="w-2.5 h-2.5" /> : b.type === "PHONE_NUMBER" ? <PhoneCall className="w-2.5 h-2.5" /> : <MessageSquare className="w-2.5 h-2.5" />}
+                            <span>{b.text}</span>
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  {/* Bottom Actions -> DIRECTLY REDIRECT TO ACTIVE CAMPAIGN STUDIO (/send-message) */}
-                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                  {/* Bottom: Action Buttons */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                     
-                    {/* Launch Campaign with this Template */}
-                    <button
-                      onClick={() => router.push(`/send-message?template=${tmpl.id}`)}
-                      className="flex-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                    >
-                      <Send className="w-3 h-3" />
-                      <span>Use in Campaign</span>
-                    </button>
+                    {/* Submit to Meta Action (If not already approved) */}
+                    {tmpl.metaStatus !== "APPROVED" ? (
+                      <button
+                        onClick={() => handleSubmitToMeta(tmpl.id, tmpl.title)}
+                        disabled={isSubmitting}
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200 dark:border-emerald-800/50 cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-50"
+                        title="Submit to Meta Graph API for official template approval"
+                      >
+                        {isSubmitting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        )}
+                        <span>{isSubmitting ? "Submitting..." : tmpl.metaStatus === "REJECTED" ? "Re-submit to Meta" : "Submit to Meta"}</span>
+                      </button>
+                    ) : (
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Ready for Broadcasts</span>
+                      </span>
+                    )}
 
-                    {/* Edit, Duplicate, Delete */}
+                    {/* Edit, Duplicate, Delete Actions */}
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => {
@@ -524,9 +691,9 @@ export default function WhatsAppTemplatesPage() {
         )}
       </div>
 
-      {/* 4. TEMPLATE EDITOR MODAL */}
+      {/* 4. OFFICIAL META TEMPLATE STUDIO MODAL */}
       {isEditorOpen && (
-        <TemplateEditorModal
+        <MetaTemplateEditorModal
           isOpen={isEditorOpen}
           initialData={editingTemplate}
           onClose={() => {
@@ -544,9 +711,9 @@ export default function WhatsAppTemplatesPage() {
 }
 
 /* ========================================================================= */
-/* COMPONENT: TEMPLATE EDITOR MODAL (WITH DUAL MEDIA, SPINTAX & COMPRESSION) */
+/* COMPONENT: OFFICIAL META TEMPLATE STUDIO MODAL                            */
 /* ========================================================================= */
-function TemplateEditorModal({
+function MetaTemplateEditorModal({
   isOpen,
   initialData,
   onClose,
@@ -557,94 +724,90 @@ function TemplateEditorModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  // Form State
+  // 1. Basic Info
   const [title, setTitle] = useState(initialData?.title || "");
-  const [category, setCategory] = useState<TemplateItem["category"]>(initialData?.category || "PROMO");
-  
-  // Media State (Dual: Upload vs Public URL)
-  const [mediaType, setMediaType] = useState<TemplateItem["mediaType"]>(initialData?.mediaType || "NONE");
+  const [metaTemplateName, setMetaTemplateName] = useState(
+    initialData?.metaTemplateName || 
+    (initialData?.title ? initialData.title.toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 64) : "")
+  );
+  const [category, setCategory] = useState<string>(initialData?.category || "MARKETING");
+  const [language, setLanguage] = useState<string>(initialData?.language || "en_US");
+
+  // 2. Header Component
+  const [headerType, setHeaderType] = useState<"NONE" | "TEXT" | "IMAGE" | "DOCUMENT" | "VIDEO">(
+    initialData?.headerType || (initialData?.mediaType && initialData.mediaType !== "POLL" ? initialData.mediaType : "NONE")
+  );
+  const [headerContent, setHeaderContent] = useState(initialData?.headerContent || "");
+  const [headerSample, setHeaderSample] = useState(initialData?.sampleValues?.["header_1"] || "Special Announcement");
   const [mediaSourceMode, setMediaSourceMode] = useState<"UPLOAD" | "URL">(initialData?.mediaUrl ? "URL" : "UPLOAD");
   const [mediaUrl, setMediaUrl] = useState(initialData?.mediaUrl || "");
   const [uploadingMedia, setUploadingMedia] = useState(false);
   const [compressionStats, setCompressionStats] = useState<string | null>(null);
 
-  // Message & Spintax State (Auto-Spintax Enabled by default)
-  const [autoSpintaxEnabled, setAutoSpintaxEnabled] = useState(true);
-  const [isVariableDropdownOpen, setIsVariableDropdownOpen] = useState(false);
-  const [isSpintaxDropdownOpen, setIsSpintaxDropdownOpen] = useState(false);
-  const [spintaxPattern, setSpintaxPattern] = useState("{Hello|Hi|Hey|Dear}");
+  // 3. Body Component & Positional Variables
   const [bodyText, setBodyText] = useState(
-    initialData?.bodyText || "{Hello|Hi|Hey|Dear} "
+    initialData?.bodyText || "Hello {{1}},\n\nWe have a special announcement from {{2}}! Your order {{3}} is ready."
   );
-  const [unsubSettings, setUnsubSettings] = useState<{ enabled: boolean; optoutText: string }>({
-    enabled: true,
-    optoutText: "_Reply STOP to unsubscribe from promotional messages._",
+  const [sampleValues, setSampleValues] = useState<Record<string, string>>(() => {
+    return initialData?.sampleValues || {
+      "1": "Rahul Sharma",
+      "2": "OpticalManager",
+      "3": "OM-8920",
+    };
   });
 
-  useEffect(() => {
-    async function loadUnsub() {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/v1/unsubscribers/settings`, { headers: getAuthHeaders() });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            setUnsubSettings({
-              enabled: json.data.enabled !== false,
-              optoutText: json.data.optoutText || "Reply STOP to unsubscribe from promotional messages.",
-            });
-          }
-        }
-      } catch {}
-    }
-    loadUnsub();
-  }, []);
+  // 4. Footer Component
+  const [footerText, setFooterText] = useState(initialData?.footerText || "Reply STOP to unsubscribe");
 
-  // Poll Builder State (when mediaType is POLL)
-  const [pollQuestion, setPollQuestion] = useState<string>(
-    initialData?.variables?.find((v: any) => v.key === "poll_question")?.fallback ||
-    "Would you like to schedule an eye checkup this week?"
-  );
-  const [pollOptions, setPollOptions] = useState<string[]>(() => {
-    const raw = initialData?.variables?.find((v: any) => v.key === "poll_options")?.fallback;
-    if (raw) {
-      try { return JSON.parse(raw); } catch {}
+  // 5. Buttons Component (Up to 3)
+  const [buttons, setButtons] = useState<TemplateButton[]>(() => {
+    if (initialData?.buttons && Array.isArray(initialData.buttons) && initialData.buttons.length > 0) {
+      return initialData.buttons;
     }
-    return ["Yes, definitely!", "Maybe next week", "No, thanks"];
+    return [
+      { type: "QUICK_REPLY", text: "Contact Support" }
+    ];
   });
-  const [pollMultipleAnswers, setPollMultipleAnswers] = useState<boolean>(
-    initialData?.variables?.find((v: any) => v.key === "poll_multiple")?.fallback === "true"
-  );
 
   const [saving, setSaving] = useState(false);
+  const [submittingToMeta, setSubmittingToMeta] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const isSubmittingRef = useRef(false);
 
-  // Handle Spintax Toggle Switch
-  const handleToggleSpintax = (checked: boolean) => {
-    setAutoSpintaxEnabled(checked);
-    if (checked) {
-      if (!bodyText.startsWith("{")) {
-        setBodyText(spintaxPattern + " " + bodyText);
-      }
-    } else {
-      const cleaned = bodyText.replace(/^{[^}]+}s*/, "");
-      setBodyText(cleaned);
+  // Auto-slugify meta name when user changes title (if not manually edited)
+  const handleTitleChange = (newTitle: string) => {
+    setTitle(newTitle);
+    if (!initialData) {
+      const slug = newTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64);
+      setMetaTemplateName(slug);
     }
   };
 
-  // Change Spintax Preset Pattern
-  const handleApplySpintaxPreset = (newPattern: string) => {
-    setSpintaxPattern(newPattern);
-    if (autoSpintaxEnabled) {
-      if (bodyText.startsWith("{")) {
-        const afterSpintax = bodyText.replace(/^{[^}]+}s*/, "");
-        setBodyText(newPattern + " " + afterSpintax);
-      } else {
-        setBodyText(newPattern + " " + bodyText);
-      }
+  // Detect variables {{1}}, {{2}} or {{name}} in body text
+  const detectedVariables = useMemo(() => {
+    const matches = bodyText.match(/{{([a-zA-Z0-9_-]+)}}/g);
+    if (!matches) return [];
+    return Array.from(new Set(matches)).map((m) => m.replace(/[{}]/g, ""));
+  }, [bodyText]);
+
+  // Handle inserting variable token at cursor position
+  const handleInsertToken = (token: string) => {
+    if (!textareaRef.current) {
+      setBodyText((prev) => prev + " " + token);
+      return;
     }
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const newText = bodyText.substring(0, start) + token + bodyText.substring(end);
+    setBodyText(newText);
+
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(start + token.length, start + token.length);
+      }
+    }, 50);
   };
 
   // Handle Device File Upload with Client-Side Compression
@@ -661,23 +824,12 @@ function TemplateEditorModal({
       let filename = file.name;
 
       if (file.type.startsWith("image/")) {
-        setMediaType("IMAGE");
         const compressed = await compressImageFile(file);
         finalBase64 = compressed.base64;
         mimeType = "image/jpeg";
         filename = file.name.replace(/\.[^/.]+$/, ".jpg");
-        setCompressionStats(`Compressed: ${compressed.originalKB} KB → ${compressed.compressedKB} KB (${Math.round((1 - compressed.compressedKB / compressed.originalKB) * 100)}% saved)`);
-      } else if (file.type === "application/pdf") {
-        setMediaType("DOCUMENT");
-        finalBase64 = await new Promise((res, rej) => {
-          const reader = new FileReader();
-          reader.onload = () => res(reader.result as string);
-          reader.onerror = rej;
-          reader.readAsDataURL(file);
-        });
-        setCompressionStats(`Size: ${Math.round(file.size / 1024)} KB`);
+        setCompressionStats(`Compressed: ${compressed.originalKB} KB → ${compressed.compressedKB} KB`);
       } else {
-        setMediaType("VIDEO");
         finalBase64 = await new Promise((res, rej) => {
           const reader = new FileReader();
           reader.onload = () => res(reader.result as string);
@@ -701,107 +853,125 @@ function TemplateEditorModal({
         }),
       });
 
-      const json = await res.json();
-      if (res.ok && json.success && json.data?.fileUrl) {
-        setMediaUrl(json.data.fileUrl);
-        toast.success("Media uploaded successfully!");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data?.url) {
+          setMediaUrl(json.data.url);
+          setHeaderContent(json.data.url);
+          toast.success("Header media uploaded successfully!");
+        }
       } else {
-        setMediaUrl(finalBase64);
-        toast.success("Media loaded into template!");
+        toast.error("Failed to upload media file.");
       }
-    } catch {
-      toast.error("Failed to upload media file.");
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message}`);
     } finally {
       setUploadingMedia(false);
     }
   };
 
-  // Handle URL change & auto-detect media type
-  const handleUrlChange = (val: string) => {
-    const normalized = normalizePublicMediaUrl(val, mediaType === "DOCUMENT" ? "DOCUMENT" : "IMAGE");
-    setMediaUrl(normalized);
-    if (val.trim() && mediaType === "NONE") {
-      const detected = detectMediaTypeFromUrl(normalized);
-      if (detected !== "NONE") setMediaType(detected);
-    }
-  };
-
-  // Insert variable token at cursor position in textarea
-  const handleInsertVariable = (token: string) => {
-    if (!textareaRef.current) {
-      setBodyText((prev) => prev + " " + token);
+  // Handle Add Button (Max 3)
+  const handleAddButton = () => {
+    if (buttons.length >= 3) {
+      toast.error("Meta limits message templates to a maximum of 3 buttons.");
       return;
     }
-
-    const textarea = textareaRef.current;
-    const start = textarea.selectionStart || 0;
-    const end = textarea.selectionEnd || 0;
-    const newText = bodyText.substring(0, start) + token + bodyText.substring(end);
-
-    setBodyText(newText);
-
-    setTimeout(() => {
-      textarea.focus();
-      textarea.setSelectionRange(start + token.length, start + token.length);
-    }, 50);
+    setButtons([...buttons, { type: "QUICK_REPLY", text: `Button ${buttons.length + 1}` }]);
   };
 
-  // Submit Handler
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (saving || isSubmittingRef.current) return;
-
+  // Handle Save Template (as Draft or submit to Meta)
+  const handleSave = async (submitDirectly: boolean = false) => {
     if (!title.trim()) {
       toast.error("Please enter a template title.");
       return;
     }
     if (!bodyText.trim()) {
-      toast.error("Please write the message body.");
+      toast.error("Please enter message body text.");
       return;
     }
 
+    const cleanSlug = metaTemplateName.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 64);
+    if (!cleanSlug) {
+      toast.error("Meta Template Identifier must contain lowercase letters and underscores only.");
+      return;
+    }
+
+    const mergedSampleValues = { ...sampleValues };
+    if (headerType === "TEXT" && headerSample) {
+      mergedSampleValues["header_1"] = headerSample;
+    }
+
+    const payload = {
+      title: title.trim(),
+      metaTemplateName: cleanSlug,
+      category,
+      language,
+      headerType,
+      headerContent: headerType === "TEXT" ? headerContent : (mediaUrl || headerContent),
+      mediaType: ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) ? (headerType as any) : "NONE",
+      mediaUrl: ["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) ? mediaUrl : undefined,
+      bodyText: bodyText.trim(),
+      footerText: footerText.trim() || undefined,
+      buttons,
+      sampleValues: mergedSampleValues,
+    };
+
     try {
-      isSubmittingRef.current = true;
-      setSaving(true);
-
-      const payload = {
-        title: title.trim(),
-        category,
-        mediaType,
-        mediaUrl: (mediaType !== "NONE" && mediaType !== "POLL") ? (mediaUrl.trim() || undefined) : undefined,
-        bodyText: bodyText.trim(),
-        variables: mediaType === "POLL" ? [
-          { key: "poll_question", description: pollQuestion, fallback: pollQuestion },
-          { key: "poll_options", description: "Poll Options", fallback: JSON.stringify(pollOptions) },
-          { key: "poll_multiple", description: "Multiple Answers", fallback: String(pollMultipleAnswers) }
-        ] : undefined,
-      };
-
-      const url = initialData ? `${BACKEND_URL}/api/v1/templates/${initialData.id}` : `${BACKEND_URL}/api/v1/templates`;
-      const method = initialData ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json();
-      if (res.ok && json.success) {
-        toast.success(initialData ? "Template updated successfully!" : "Template created successfully!");
-        onSuccess();
-        onClose();
+      if (submitDirectly) {
+        setSubmittingToMeta(true);
       } else {
-        toast.error(json.message || "Failed to save template.");
+        setSaving(true);
       }
-    } catch {
-      toast.error("Error saving template.");
+
+      let savedTemplateId = initialData?.id;
+
+      if (initialData?.id) {
+        // Update existing template
+        const res = await fetch(`${BACKEND_URL}/api/v1/templates/${initialData.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to update template.");
+        }
+      } else {
+        // Create new template
+        const res = await fetch(`${BACKEND_URL}/api/v1/templates`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify(payload),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.message || "Failed to create template.");
+        }
+        savedTemplateId = json.data?.id;
+      }
+
+      if (submitDirectly && savedTemplateId) {
+        // Immediately submit to Meta for verification
+        const submitRes = await fetch(`${BACKEND_URL}/api/v1/templates/${savedTemplateId}/submit-to-meta`, {
+          method: "POST",
+          headers: getAuthHeaders(),
+        });
+        const submitJson = await submitRes.json();
+        if (!submitRes.ok || !submitJson.success) {
+          throw new Error(submitJson.message || "Failed to submit to Meta API.");
+        }
+        toast.success(`Template submitted to Meta successfully! Status: ${submitJson.data?.metaStatus || "PENDING"}`);
+      } else {
+        toast.success(initialData ? "Template saved successfully!" : "Template created successfully!");
+      }
+
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      toast.error(err.message || "Error saving template.");
     } finally {
-      isSubmittingRef.current = false;
       setSaving(false);
+      setSubmittingToMeta(false);
     }
   };
 
@@ -815,14 +985,14 @@ function TemplateEditorModal({
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center">
-              <FileText className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-white">
-                {initialData ? "Edit WhatsApp Template" : "Create New WhatsApp Template"}
+                {initialData ? "Edit Meta WhatsApp Template" : "Create Official Meta WhatsApp Template"}
               </h2>
               <p className="text-xs text-slate-500">
-                Universal business broadcast template with anti-spam Spintax and dynamic CRM variables
+                Configure your template components with positional variables, sample values, and live smartphone preview
               </p>
             </div>
           </div>
@@ -834,540 +1004,449 @@ function TemplateEditorModal({
           </button>
         </div>
 
-        {/* 2-Column Body: Left Form + Right Live WhatsApp Preview */}
+        {/* 2-Column Body: Left Form + Right Live WhatsApp Smartphone Preview */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0 overflow-y-auto pr-1">
           
           {/* Left Column: Form Controls (7 cols) */}
-          <form onSubmit={handleSubmit} className="lg:col-span-7 space-y-4">
+          <div className="lg:col-span-7 space-y-4">
             
-            {/* Title & Category */}
+            {/* 1. Title & Meta Identifier Slug */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Template Title *</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  Template Title *
+                </label>
                 <input
                   type="text"
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Festival Special Offer, Appointment Reminder"
-                  required
-                  disabled={saving}
+                  onChange={(e) => handleTitleChange(e.target.value)}
+                  placeholder="e.g. Summer Polarized Sunglasses Offer"
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white font-bold focus:outline-none focus:border-emerald-500"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Category *</label>
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <span>Meta Identifier *</span>
+                  <span className="text-[10px] text-slate-400 font-normal">(lowercase & underscores)</span>
+                </label>
+                <input
+                  type="text"
+                  value={metaTemplateName}
+                  onChange={(e) => setMetaTemplateName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_"))}
+                  placeholder="e.g. summer_sunglasses_offer"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* 2. Category & Language */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Official Category *</label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
-                  disabled={saving}
+                  onChange={(e) => setCategory(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer"
                 >
-                  <option value="PROMO">☀️ Offers & Promos</option>
-                  <option value="GREETING">✨ Greetings & Welcome</option>
-                  <option value="REMINDER">📅 Follow-up & Reminders</option>
-                  <option value="VIP">👑 VIP & Loyalty Perks</option>
-                  <option value="TRANSACTIONAL">✅ Orders & Invoices</option>
-                  <option value="GENERAL">💬 General Broadcast</option>
+                  <option value="MARKETING">☀️ MARKETING (Offers, promos, discounts)</option>
+                  <option value="UTILITY">✅ UTILITY (Confirmations, orders, reminders)</option>
+                  <option value="AUTHENTICATION">🔒 AUTHENTICATION (OTP codes, verifications)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Language *</label>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-emerald-500 cursor-pointer font-mono"
+                >
+                  <option value="en_US">en_US (English - US)</option>
+                  <option value="en_GB">en_GB (English - UK)</option>
+                  <option value="hi">hi (Hindi)</option>
+                  <option value="es">es (Spanish)</option>
+                  <option value="pt_BR">pt_BR (Portuguese - BR)</option>
+                  <option value="ar">ar (Arabic)</option>
                 </select>
               </div>
             </div>
 
-            {/* ========================================================================= */}
-            {/* MEDIA ATTACHMENT: PROMINENT BUTTONS + DUAL UPLOAD + PUBLIC LINK + NOTICE  */}
-            {/* ========================================================================= */}
-            <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-3.5">
-              <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                <ImageIcon className="w-4 h-4 text-emerald-600" />
-                <span>Media Attachment Format:</span>
-              </label>
+            {/* 3. Header Component (Optional) */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-emerald-600" />
+                  <span>Header Format (Optional)</span>
+                </label>
+                <span className="text-[10px] text-slate-400">Add bold title or media banner</span>
+              </div>
 
-              {/* Prominent Media Format Selector Buttons with Icons */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="grid grid-cols-5 gap-1.5">
                 {[
-                  { type: "NONE", label: "Text Only", icon: MessageSquare, desc: "No media" },
-                  { type: "IMAGE", label: "Image Banner", icon: ImageIcon, desc: "JPG / PNG" },
-                  { type: "DOCUMENT", label: "PDF Document", icon: FileText, desc: "PDF files" },
-                  { type: "VIDEO", label: "Video", icon: Video, desc: "MP4 files" },
-                  { type: "POLL", label: "WhatsApp Poll", icon: BarChart2, desc: "Interactive voting" },
-                ].map((m) => {
-                  const Icon = m.icon;
-                  const isSel = mediaType === m.type;
+                  { type: "NONE", label: "None", icon: X },
+                  { type: "TEXT", label: "Text", icon: MessageSquare },
+                  { type: "IMAGE", label: "Image", icon: ImageIcon },
+                  { type: "DOCUMENT", label: "Document", icon: FileText },
+                  { type: "VIDEO", label: "Video", icon: Video },
+                ].map((h) => {
+                  const Icon = h.icon;
+                  const isSel = headerType === h.type;
                   return (
                     <button
-                      key={m.type}
+                      key={h.type}
                       type="button"
-                      onClick={() => {
-                        setMediaType(m.type as any);
-                        if (m.type !== "NONE" && m.type !== "POLL" && !mediaUrl) {
-                          setMediaSourceMode("UPLOAD");
-                        }
-                      }}
-                      className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 shadow-2xs ${
+                      onClick={() => setHeaderType(h.type as any)}
+                      className={`p-2 rounded-xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
                         isSel
-                          ? "bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-500/30"
+                          ? "bg-emerald-600 border-emerald-600 text-white shadow-xs"
                           : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:border-emerald-500/60"
                       }`}
                     >
-                      <Icon className={`w-5 h-5 ${isSel ? "text-white" : "text-emerald-600"}`} />
-                      <div className="leading-tight">
-                        <p className="text-xs font-bold">{m.label}</p>
-                        <p className={`text-[9px] ${isSel ? "text-emerald-100" : "text-slate-400"}`}>{m.desc}</p>
-                      </div>
+                      <Icon className={`w-3.5 h-3.5 ${isSel ? "text-white" : "text-emerald-600"}`} />
+                      <span className="text-[10px] font-bold">{h.label}</span>
                     </button>
                   );
                 })}
               </div>
 
-              {/* Poll Configuration (When POLL is selected) */}
-              {mediaType === "POLL" && (
-                <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <BarChart2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>WhatsApp Poll Configuration</span>
-                    </label>
-
-                    <label className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={pollMultipleAnswers}
-                        onChange={(e) => setPollMultipleAnswers(e.target.checked)}
-                        className="rounded text-emerald-600"
-                      />
-                      <span>Allow multiple answers</span>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                      Poll Question
-                    </label>
+              {/* Text Header Field */}
+              {headerType === "TEXT" && (
+                <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-800">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">Header Headline Text (Max 60 chars)</label>
                     <input
                       type="text"
-                      value={pollQuestion}
-                      onChange={(e) => setPollQuestion(e.target.value)}
-                      placeholder="e.g. Would you like to schedule an eye examination this week?"
-                      className="w-full mt-1 px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:outline-none focus:border-emerald-500"
+                      maxLength={60}
+                      value={headerContent}
+                      onChange={(e) => setHeaderContent(e.target.value)}
+                      placeholder="e.g. Exclusive Weekend Special!"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:outline-none focus:border-emerald-500"
                     />
-                  </div>
-
-                  <div className="space-y-2 pt-1">
-                    <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                      Poll Options ({pollOptions.length}/12)
-                    </label>
-                    {pollOptions.map((opt, idx) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-400 w-4">{idx + 1}.</span>
-                        <input
-                          type="text"
-                          value={opt}
-                          onChange={(e) => {
-                            const updated = [...pollOptions];
-                            updated[idx] = e.target.value;
-                            setPollOptions(updated);
-                          }}
-                          className="flex-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
-                        />
-                        {pollOptions.length > 2 && (
-                          <button
-                            type="button"
-                            onClick={() => setPollOptions(pollOptions.filter((_, i) => i !== idx))}
-                            className="text-rose-500 hover:text-rose-700 p-1"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-
-                    {pollOptions.length < 12 && (
-                      <button
-                        type="button"
-                        onClick={() => setPollOptions([...pollOptions, `Option ${pollOptions.length + 1}`])}
-                        className="text-xs font-bold text-emerald-600 hover:underline mt-1 cursor-pointer flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Option</span>
-                      </button>
-                    )}
                   </div>
                 </div>
               )}
 
-              {mediaType !== "NONE" && mediaType !== "POLL" && (
-                <div className="space-y-3 pt-1 border-t border-slate-200 dark:border-slate-800">
-                  {/* Mode Selector Tabs: Upload from Device vs Public Link */}
+              {/* Media Header (Image / Video / Document) */}
+              {["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType) && (
+                <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-800">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setMediaSourceMode("UPLOAD")}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
                         mediaSourceMode === "UPLOAD"
                           ? "bg-white dark:bg-slate-900 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs"
                           : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
                       }`}
                     >
-                      <Upload className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Upload from Device</span>
+                      <Upload className="w-3 h-3 text-emerald-600" />
+                      <span>Upload Sample Media</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setMediaSourceMode("URL")}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all border cursor-pointer flex items-center gap-1.5 ${
                         mediaSourceMode === "URL"
                           ? "bg-white dark:bg-slate-900 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs"
                           : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
                       }`}
                     >
-                      <LinkIcon className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Paste Public Link</span>
+                      <LinkIcon className="w-3 h-3 text-blue-600" />
+                      <span>Paste Public URL</span>
                     </button>
                   </div>
 
-                  {/* Mode 1: Upload from Device (with automatic client-side compression) */}
-                  {mediaSourceMode === "UPLOAD" && (
-                    <div className="space-y-2">
+                  {mediaSourceMode === "UPLOAD" ? (
+                    <div className="space-y-1">
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept={
-                          mediaType === "IMAGE"
-                            ? "image/*"
-                            : mediaType === "DOCUMENT"
-                            ? "application/pdf"
-                            : "video/mp4,video/*"
-                        }
+                        accept={headerType === "IMAGE" ? "image/*" : headerType === "DOCUMENT" ? "application/pdf" : "video/*"}
                         onChange={handleFileUpload}
                         className="hidden"
                       />
-
                       <div
                         onClick={() => fileInputRef.current?.click()}
-                        className="p-4 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 rounded-2xl bg-white dark:bg-slate-900/80 flex flex-col items-center justify-center text-center cursor-pointer transition-all space-y-1.5"
+                        className="p-3 border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-emerald-500 rounded-xl bg-white dark:bg-slate-900 flex items-center justify-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer"
                       >
                         {uploadingMedia ? (
-                          <div className="flex items-center gap-2 text-xs font-bold text-emerald-600">
+                          <div className="flex items-center gap-2 text-emerald-600">
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Compressing & uploading media...</span>
+                            <span>Uploading media sample...</span>
                           </div>
                         ) : mediaUrl ? (
-                          <div className="flex items-center gap-2 text-xs font-bold text-emerald-600">
+                          <div className="flex items-center gap-2 text-emerald-600">
                             <CheckCircle2 className="w-4 h-4" />
-                            <span>Media attached successfully! Click to replace</span>
+                            <span>Media attached! Click to replace</span>
                           </div>
                         ) : (
-                          <>
-                            <Upload className="w-5 h-5 text-emerald-600" />
-                            <p className="text-xs font-bold text-slate-800 dark:text-white">
-                              Click to choose {mediaType.toLowerCase()} file from your device
-                            </p>
-                            <p className="text-[10px] text-slate-400">
-                              Images are automatically compressed to ensure fast delivery
-                            </p>
-                          </>
+                          <div className="flex items-center gap-2">
+                            <Upload className="w-4 h-4 text-emerald-600" />
+                            <span>Choose sample {headerType.toLowerCase()} file</span>
+                          </div>
                         )}
                       </div>
-
                       {compressionStats && (
-                        <div className="text-[11px] font-mono text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800/40">
-                          ⚡ {compressionStats}
-                        </div>
+                        <p className="text-[10px] text-emerald-600 font-mono">⚡ {compressionStats}</p>
                       )}
                     </div>
+                  ) : (
+                    <input
+                      type="text"
+                      value={mediaUrl}
+                      onChange={(e) => {
+                        setMediaUrl(e.target.value);
+                        setHeaderContent(e.target.value);
+                      }}
+                      placeholder="https://example.com/banner.jpg"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono focus:outline-none focus:border-emerald-500"
+                    />
                   )}
-
-                  {/* Mode 2: Paste Public URL (100% Pastable and Editable with Instant Thumbnail) */}
-                  {mediaSourceMode === "URL" && (
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <label className="text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                          Paste Direct Media URL
-                        </label>
-                        <input
-                          type="text"
-                          value={mediaUrl}
-                          onChange={(e) => handleUrlChange(e.target.value)}
-                          onPaste={(e) => {
-                            const pasted = e.clipboardData.getData("text");
-                            if (pasted) {
-                              handleUrlChange(pasted.trim());
-                              toast.success("Public URL pasted!");
-                            }
-                          }}
-                          placeholder="https://example.com/banner.jpg or https://d1.awsstatic.com/..."
-                          className="w-full px-3 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 font-mono"
-                        />
-                      </div>
-
-                      {/* Instant URL Thumbnail Confirmation */}
-                      {mediaUrl && (mediaType === "IMAGE" || isLikelyImageUrl(mediaUrl)) && (
-                        <div className="flex items-center gap-2 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={normalizePublicMediaUrl(mediaUrl)}
-                              alt="URL Preview"
-                              referrerPolicy="no-referrer"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = "none";
-                              }}
-                            />
-                          </div>
-                          <div className="truncate flex-1">
-                            <p className="text-[11px] font-bold text-slate-800 dark:text-white truncate">{mediaUrl}</p>
-                            <p className="text-[9px] text-emerald-600 font-semibold flex items-center gap-1">
-                              <Check className="w-2.5 h-2.5" />
-                              <span>Image link verified & active</span>
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 30-Day Expiry Yellow Warning Notice */}
-                  <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 flex items-start gap-2 text-amber-800 dark:text-amber-300 text-[11px] leading-tight">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Notice:</strong> Files uploaded directly from your device are retained on the CDN for 30 days. For permanent long-term broadcast campaigns, you can also paste a permanent public link.
-                    </span>
-                  </div>
                 </div>
               )}
             </div>
 
-            {/* ========================================================================= */}
-            {/* MESSAGE COMPOSER WITH TOP-RIGHT INSERT VARIABLE & INSERT SPINTAX DROPDOWNS */}
-            {/* ========================================================================= */}
+            {/* 4. Body Component (Mandatory) */}
             <div className="space-y-2">
-              
-              {/* Header row with MESSAGE label on left, Insert Variable & Insert Spintax on right */}
-              <div className="flex items-center justify-between pb-1">
-                <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                  MESSAGE
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <span>Message Body *</span>
+                  <span className="text-[10px] text-slate-400 font-normal">(Use positional variables &#123;&#123;1&#125;&#125;, &#123;&#123;2&#125;&#125;)</span>
                 </label>
-
-                {/* Right Controls: {} Insert variable | 🔀 Insert spintax (with dropdowns & small toggle) */}
-                <div className="flex items-center gap-4 relative">
-                  
-                  {/* 1. Insert Variable Dropdown */}
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsVariableDropdownOpen(!isVariableDropdownOpen);
-                        setIsSpintaxDropdownOpen(false);
-                      }}
-                      className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
-                    >
-                      <span className="font-mono text-emerald-600 font-bold">&#123; &#125;</span>
-                      <span>Insert variable</span>
-                    </button>
-
-                    {isVariableDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 duration-150 divide-y divide-slate-100 dark:divide-slate-800">
-                        <div className="py-1">
-                          <button type="button" onClick={() => { handleInsertVariable("{{name}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{name}}"}</span>
-                            <span className="text-[11px] text-slate-400">Full Name</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{whatsapp_name}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{whatsapp_name}}"}</span>
-                            <span className="text-[11px] text-slate-400">WhatsApp Name</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{phone}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{phone}}"}</span>
-                            <span className="text-[11px] text-slate-400">Number</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{city}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{city}}"}</span>
-                            <span className="text-[11px] text-slate-400">City/Location</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{date}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{date}}"}</span>
-                            <span className="text-[11px] text-slate-400">Current Date</span>
-                          </button>
-                        </div>
-                        <div className="py-1">
-                          <button type="button" onClick={() => { handleInsertVariable("{{business_name}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{business_name}}"}</span>
-                            <span className="text-[11px] text-slate-400">Business Name</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{discount}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{discount}}"}</span>
-                            <span className="text-[11px] text-slate-400">Discount Offer</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{coupon_code}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{coupon_code}}"}</span>
-                            <span className="text-[11px] text-slate-400">Coupon Code</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{due_date}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{due_date}}"}</span>
-                            <span className="text-[11px] text-slate-400">Due Date</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{var1}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{var1}}"}</span>
-                            <span className="text-[11px] text-slate-400">Custom Var 1</span>
-                          </button>
-                          <button type="button" onClick={() => { handleInsertVariable("{{var2}}"); setIsVariableDropdownOpen(false); }} className="w-full text-left px-3 py-1.5 text-xs rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex items-center justify-between group cursor-pointer">
-                            <span className="font-mono font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{"{{var2}}"}</span>
-                            <span className="text-[11px] text-slate-400">Custom Var 2</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 2. Insert Spintax Dropdown & Toggle Switch */}
-                  <div className="flex items-center gap-2">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsSpintaxDropdownOpen(!isSpintaxDropdownOpen);
-                          setIsVariableDropdownOpen(false);
-                        }}
-                        className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 cursor-pointer transition-colors"
-                      >
-                        <Shuffle className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Insert spintax</span>
-                      </button>
-
-                      {isSpintaxDropdownOpen && (
-                        <div className="absolute right-0 top-full mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-1.5">
-                          <div className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            Anti-Spam Variations
-                          </div>
-                          {[
-                            { pattern: "{Hello|Hi|Hey|Dear}", label: "Friendly Greeting" },
-                            { pattern: "{Good morning|Good afternoon|Greetings|Hello}", label: "Time-based Greeting" },
-                            { pattern: "{Namaste|Hello|Hi|Greetings}", label: "Regional Friendly" },
-                            { pattern: "{Dear Valued Customer|Greetings|Hello|Dear}", label: "VIP / Formal" },
-                            { pattern: "{Thanks|Thank you|Many thanks}", label: "Appreciation" },
-                          ].map((s) => (
-                            <button
-                              key={s.pattern}
-                              type="button"
-                              onClick={() => {
-                                handleInsertVariable(s.pattern);
-                                setIsSpintaxDropdownOpen(false);
-                              }}
-                              className="w-full text-left p-2 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/50 flex flex-col group cursor-pointer"
-                            >
-                              <span className="font-mono text-xs font-bold text-slate-900 dark:text-white group-hover:text-emerald-600">{s.pattern}</span>
-                              <span className="text-[10px] text-slate-400">{s.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Small Spintax Switch Toggle */}
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={autoSpintaxEnabled}
-                      onClick={() => handleToggleSpintax(!autoSpintaxEnabled)}
-                      title={autoSpintaxEnabled ? "Auto-Spintax is ON" : "Auto-Spintax is OFF"}
-                      className={`relative inline-flex h-4.5 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        autoSpintaxEnabled ? "bg-emerald-600" : "bg-slate-300 dark:bg-slate-700"
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                          autoSpintaxEnabled ? "translate-x-3.5" : "translate-x-0"
-                        }`}
-                      />
-                    </button>
-                  </div>
-
-                </div>
+                <span className="text-[10px] text-slate-400 font-mono">{bodyText.length}/1024</span>
               </div>
 
-              {/* Message Body Textarea with Docked Locked Footer */}
-              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-950 overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500/20 focus-within:border-emerald-500/40 transition-all shadow-inner">
-                <textarea
-                  ref={textareaRef}
-                  value={bodyText}
-                  onChange={(e) => setBodyText(e.target.value)}
-                  rows={6}
-                  required
-                  disabled={saving}
-                  placeholder="Type your message here... Use {{name}} to personalize, or use {Hello|Hi|Hey} for anti-spam randomization."
-                  className="w-full p-3.5 bg-transparent border-none text-xs text-slate-900 dark:text-white font-sans leading-relaxed focus:outline-none resize-y"
-                />
+              {/* Fast Token Insertion Buttons */}
+              <div className="flex flex-wrap items-center gap-1.5 pb-1">
+                {["{{1}}", "{{2}}", "{{3}}", "{{4}}"].map((token) => (
+                  <button
+                    key={token}
+                    type="button"
+                    onClick={() => handleInsertToken(token)}
+                    className="px-2 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50 text-[10px] font-mono font-bold cursor-pointer transition-all"
+                  >
+                    + {token}
+                  </button>
+                ))}
 
-                {/* Locked Opt-Out Footer Docked at Bottom of Template Textarea */}
-                {unsubSettings.enabled && (
-                  <div className="px-3.5 py-2.5 bg-slate-100/90 dark:bg-slate-900/90 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 min-w-0 font-mono text-[11px]">
-                      <Lock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="truncate">
-                        {unsubSettings.optoutText}
-                      </span>
+                <div className="h-4 w-px bg-slate-200 dark:bg-slate-800 mx-1" />
+
+                {CRM_VARIABLE_SHORTCUTS.map((crm) => (
+                  <button
+                    key={crm.label}
+                    type="button"
+                    onClick={() => {
+                      handleInsertToken(crm.key);
+                      setSampleValues((prev) => ({ ...prev, [crm.key.replace(/[{}]/g, "")]: crm.sample }));
+                    }}
+                    className="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-semibold cursor-pointer transition-all flex items-center gap-1"
+                  >
+                    <crm.icon className="w-2.5 h-2.5 text-slate-500" />
+                    <span>{crm.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <textarea
+                ref={textareaRef}
+                rows={5}
+                maxLength={1024}
+                value={bodyText}
+                onChange={(e) => setBodyText(e.target.value)}
+                placeholder="Type your WhatsApp message here. Use {{1}} for customer name, {{2}} for store name..."
+                required
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs leading-relaxed focus:outline-none focus:border-emerald-500 text-slate-900 dark:text-white"
+              />
+            </div>
+
+            {/* 5. Variable Sample Values (Required by Meta Cloud API) */}
+            {detectedVariables.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 space-y-2.5">
+                <div className="flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Sample Values for Meta Approval (Required)
+                  </span>
+                </div>
+                <p className="text-[10px] text-amber-800 dark:text-amber-300">
+                  Meta requires realistic sample values for all variables to verify your message context before approving the template.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {detectedVariables.map((vKey) => (
+                    <div key={vKey} className="space-y-1">
+                      <label className="text-[10px] font-mono font-bold text-amber-900 dark:text-amber-200">
+                        &#123;&#123;{vKey}&#125;&#125; Sample:
+                      </label>
+                      <input
+                        type="text"
+                        value={sampleValues[vKey] || ""}
+                        onChange={(e) => setSampleValues({ ...sampleValues, [vKey]: e.target.value })}
+                        placeholder={`e.g. Rahul Sharma`}
+                        className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-800/60 rounded-xl text-xs focus:outline-none focus:border-amber-500"
+                      />
                     </div>
-                    <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 shrink-0 uppercase tracking-wider">
-                      [Locked Opt-Out Footer]
-                    </span>
-                  </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 6. Footer Component (Optional) */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Footer Text (Optional)</label>
+                <span className="text-[10px] text-slate-400 font-mono">{footerText.length}/60</span>
+              </div>
+              <input
+                type="text"
+                maxLength={60}
+                value={footerText}
+                onChange={(e) => setFooterText(e.target.value)}
+                placeholder="e.g. Reply STOP to unsubscribe"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* 7. Interactive Buttons Component (Optional - Max 3) */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <span>Interactive Buttons ({buttons.length}/3)</span>
+                </label>
+                {buttons.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={handleAddButton}
+                    className="text-xs font-bold text-emerald-600 hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Button</span>
+                  </button>
                 )}
               </div>
 
-              <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono pt-0.5">
-                <span>⚡ Anti-spam spintax {autoSpintaxEnabled ? "active" : "disabled"}</span>
-                <span>{bodyText.length} characters</span>
-              </div>
+              {buttons.map((btn, idx) => (
+                <div key={idx} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-1">
+                      <select
+                        value={btn.type}
+                        onChange={(e) => {
+                          const updated = [...buttons];
+                          updated[idx].type = e.target.value as any;
+                          setButtons(updated);
+                        }}
+                        className="px-2 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold cursor-pointer"
+                      >
+                        <option value="QUICK_REPLY">🔘 Quick Reply</option>
+                        <option value="URL">🔗 Call to Action: URL</option>
+                        <option value="PHONE_NUMBER">📞 Call to Action: Phone</option>
+                      </select>
+
+                      <input
+                        type="text"
+                        maxLength={25}
+                        value={btn.text}
+                        onChange={(e) => {
+                          const updated = [...buttons];
+                          updated[idx].text = e.target.value;
+                          setButtons(updated);
+                        }}
+                        placeholder="Button Label (Max 25 chars)"
+                        className="flex-1 px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setButtons(buttons.filter((_, i) => i !== idx))}
+                      className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {btn.type === "URL" && (
+                    <input
+                      type="url"
+                      value={btn.url || ""}
+                      onChange={(e) => {
+                        const updated = [...buttons];
+                        updated[idx].url = e.target.value;
+                        setButtons(updated);
+                      }}
+                      placeholder="https://example.com/shop"
+                      className="w-full px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  )}
+
+                  {btn.type === "PHONE_NUMBER" && (
+                    <input
+                      type="tel"
+                      value={btn.phoneNumber || ""}
+                      onChange={(e) => {
+                        const updated = [...buttons];
+                        updated[idx].phoneNumber = e.target.value;
+                        setButtons(updated);
+                      }}
+                      placeholder="+919876543210 (Country code required)"
+                      className="w-full px-2.5 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono focus:outline-none focus:border-emerald-500"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
 
-            {/* Modal Bottom Action Buttons */}
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            {/* Bottom Actions */}
+            <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                disabled={saving}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 border-none cursor-pointer"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer"
               >
                 Cancel
               </button>
+
               <button
-                type="submit"
-                disabled={saving}
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer flex items-center gap-2 shadow-sm disabled:opacity-50"
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={saving || submittingToMeta}
+                className="px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-500 text-xs font-bold cursor-pointer shadow-2xs disabled:opacity-50"
               >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving Template...</span>
-                  </>
+                {saving ? "Saving Draft..." : "Save as Draft"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSave(true)}
+                disabled={saving || submittingToMeta}
+                className="px-4.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {submittingToMeta ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <span>{initialData ? "Update Template" : "Save Template 🚀"}</span>
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 )}
+                <span>{submittingToMeta ? "Submitting to Meta..." : "Submit to Meta for Verification"}</span>
               </button>
             </div>
 
-          </form>
+          </div>
 
-          {/* Right Column: Live WhatsApp Chat Mobile Preview (Light Background Theme) */}
-          <div className="lg:col-span-5 flex flex-col items-center justify-center p-3 rounded-2xl bg-slate-100/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800">
-            <div className="w-full flex items-center justify-between mb-2 px-1">
-              <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Live WhatsApp Preview (Light Theme)</span>
-              </span>
-              <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">Real-Time</span>
-            </div>
-
-            <WhatsAppTemplateLivePreview
-              bodyText={bodyText}
-              mediaType={mediaType}
+          {/* Right Column: Live WhatsApp Smartphone Mockup Preview (5 cols) */}
+          <div className="lg:col-span-5 flex flex-col items-center justify-start py-2">
+            <LiveWhatsAppSmartphonePreview
+              headerType={headerType}
+              headerContent={headerContent}
+              headerSample={headerSample}
               mediaUrl={mediaUrl}
-              pollQuestion={pollQuestion}
-              pollOptions={pollOptions}
-              pollMultiple={pollMultipleAnswers}
-              optoutText={unsubSettings.enabled ? unsubSettings.optoutText : undefined}
+              bodyText={bodyText}
+              sampleValues={sampleValues}
+              footerText={footerText}
+              buttons={buttons}
             />
           </div>
 
@@ -1379,156 +1458,118 @@ function TemplateEditorModal({
 }
 
 /* ========================================================================= */
-/* COMPONENT: WHATSAPP TEMPLATE LIVE PHONE PREVIEW (LIGHT BACKGROUND THEME)  */
+/* COMPONENT: LIVE WHATSAPP SMARTPHONE MOCKUP PREVIEW                        */
 /* ========================================================================= */
-function WhatsAppTemplateLivePreview({
-  bodyText,
-  mediaType,
+function LiveWhatsAppSmartphonePreview({
+  headerType,
+  headerContent,
+  headerSample,
   mediaUrl,
-  pollQuestion,
-  pollOptions,
-  pollMultiple,
-  optoutText,
+  bodyText,
+  sampleValues,
+  footerText,
+  buttons,
 }: {
-  bodyText: string;
-  mediaType: "NONE" | "IMAGE" | "DOCUMENT" | "VIDEO" | "POLL";
+  headerType: "NONE" | "TEXT" | "IMAGE" | "DOCUMENT" | "VIDEO";
+  headerContent?: string;
+  headerSample?: string;
   mediaUrl?: string;
-  pollQuestion?: string;
-  pollOptions?: string[];
-  pollMultiple?: boolean;
-  optoutText?: string;
+  bodyText: string;
+  sampleValues: Record<string, string>;
+  footerText?: string;
+  buttons: TemplateButton[];
 }) {
-  // Resolve Spintax patterns (e.g. {Hello|Hi|Hey|Dear} -> pick first)
-  let resolvedText = (bodyText || "Type your marketing message on the left...")
-    .replace(/{([^{}]+)}/g, (_, choices) => {
-      const options = choices.split("|");
-      return options[0] || choices;
+  // Substitute positional numbered variables {{1}}, {{2}} with sample values
+  let resolvedBody = (bodyText || "Your message preview will appear here...")
+    .replace(/{{([a-zA-Z0-9_-]+)}}/g, (_, key) => {
+      if (sampleValues[key]) return sampleValues[key];
+      if (key === "1" || key === "name") return "Rahul Sharma";
+      if (key === "2" || key === "shop_name" || key === "business_name") return "OpticalManager";
+      if (key === "3" || key === "city") return "Delhi";
+      return `[${key}]`;
     });
 
-  // Universal CRM Variable substitutions with realistic samples
-  resolvedText = resolvedText
-    .replace(/{{s*names*}}/g, "Rahul Sharma")
-    .replace(/{{s*customer_names*}}/g, "Rahul Sharma")
-    .replace(/{{s*whatsapp_names*}}/g, "Rahul S.")
-    .replace(/{{s*phones*}}/g, "+91 98765 43210")
-    .replace(/{{s*citys*}}/g, "Delhi")
-    .replace(/{{s*emails*}}/g, "rahul@gmail.com")
-    .replace(/{{s*business_names*}}/g, "OpticalManager")
-    .replace(/{{s*shop_names*}}/g, "OpticalManager")
-    .replace(/{{s*discounts*}}/g, "20%")
-    .replace(/{{s*discount_percents*}}/g, "20%")
-    .replace(/{{s*coupon_codes*}}/g, "FESTIVE500")
-    .replace(/{{s*voucher_codes*}}/g, "FESTIVE500")
-    .replace(/{{s*expiry_dates*}}/g, "this Sunday")
-    .replace(/{{s*order_numbers*}}/g, "#INV-8920")
-    .replace(/{{s*order_ids*}}/g, "#INV-8920")
-    .replace(/{{s*due_dates*}}/g, "14 May 2025")
-    .replace(/{{s*last_prescription_dates*}}/g, "14 May 2024")
-    .replace(/{{s*custom_1s*}}/g, "Premium Lens");
-
-  if (optoutText && optoutText.trim()) {
-    let opt = optoutText.trim();
-    if (!opt.startsWith("_") && !opt.endsWith("_")) {
-      opt = `_${opt}_`;
-    }
-    resolvedText = (resolvedText ? resolvedText.trim() + "\n\n" : "") + opt;
-  }
+  let resolvedHeader = (headerContent || "")
+    .replace(/{{1}}/g, headerSample || "Special Announcement");
 
   const currentTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="w-full max-w-[280px] sm:max-w-[300px] select-none">
+    <div className="w-full max-w-[300px] select-none sticky top-2">
       <div className="bg-slate-200 dark:bg-slate-800 border-4 border-slate-300 dark:border-slate-700 rounded-[32px] p-2 shadow-2xl relative overflow-hidden">
         
         {/* Smartphone Camera Notch */}
         <div className="w-20 h-3 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-2" />
 
-        {/* WhatsApp Mobile Chat Header (Light Green Emerald) */}
+        {/* WhatsApp Mobile Chat Header (Official Green) */}
         <div className="bg-[#008069] p-2.5 rounded-t-xl flex items-center gap-2 text-white shadow-xs">
           <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center font-bold text-[10px]">
             OM
           </div>
           <div className="truncate flex-1">
             <p className="text-[11px] font-bold leading-tight truncate text-white">Your Business Name</p>
-            <p className="text-[8px] text-emerald-100 leading-none">Official Business Account</p>
+            <p className="text-[8px] text-emerald-100 leading-none">Official Business Account • Meta Verified</p>
           </div>
         </div>
 
         {/* WhatsApp Mobile Chat Wallpaper Background (LIGHT CREAM THEME) */}
-        <div className="bg-[#efeae2] p-2.5 min-h-[300px] flex flex-col justify-end rounded-b-xl space-y-2 relative border border-slate-300/40">
+        <div className="bg-[#efeae2] p-2.5 min-h-[340px] flex flex-col justify-end rounded-b-xl space-y-2 relative border border-slate-300/40">
           
           {/* Chat Message Bubble (LIGHT GREEN OUTGOING BUBBLE) */}
-          <div className="bg-[#d9fdd3] text-[#111b21] rounded-xl rounded-tr-none p-2.5 space-y-1.5 max-w-[95%] ml-auto border border-emerald-200/60 shadow-xs">
+          <div className="bg-[#d9fdd3] text-[#111b21] rounded-xl rounded-tr-none p-2.5 space-y-1.5 max-w-[96%] ml-auto border border-emerald-200/60 shadow-xs">
             
-            {/* Media Preview */}
-            {(mediaType === "IMAGE" || isLikelyImageUrl(mediaUrl)) && (
+            {/* Header Rendering */}
+            {headerType === "TEXT" && resolvedHeader && (
+              <p className="text-[12px] font-bold text-[#111b21] leading-tight pb-0.5 border-b border-emerald-300/40">
+                {resolvedHeader}
+              </p>
+            )}
+
+            {headerType === "IMAGE" && (
               <div className="rounded-lg overflow-hidden bg-slate-100 border border-slate-300 max-h-36 shadow-2xs">
                 {mediaUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={normalizePublicMediaUrl(mediaUrl)}
-                    alt="Template Media"
-                    referrerPolicy="no-referrer"
+                    alt="Template Header Media"
                     className="w-full h-auto object-cover max-h-36"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.opacity = "0.8";
-                    }}
                   />
                 ) : (
                   <div className="p-4 text-center text-slate-500 space-y-1">
                     <ImageIcon className="w-6 h-6 mx-auto text-emerald-600" />
-                    <p className="text-[9px] font-bold">Image Attachment Preview</p>
+                    <p className="text-[9px] font-bold">Image Header Preview</p>
                   </div>
                 )}
               </div>
             )}
 
-            {mediaType === "DOCUMENT" && (
+            {headerType === "DOCUMENT" && (
               <div className="bg-white border border-slate-200 p-2 rounded-lg flex items-center gap-2 shadow-2xs">
                 <FileText className="w-5 h-5 text-red-500 shrink-0" />
                 <div className="truncate text-xs">
-                  <p className="font-bold truncate text-slate-900 text-[10px]">Brochure_Catalog.pdf</p>
+                  <p className="font-bold truncate text-slate-900 text-[10px]">Document_Catalog.pdf</p>
                   <p className="text-[8px] text-slate-500">PDF Document • 1.2 MB</p>
                 </div>
               </div>
             )}
 
-            {mediaType === "VIDEO" && (
+            {headerType === "VIDEO" && (
               <div className="bg-white border border-slate-200 p-4 rounded-lg flex flex-col items-center justify-center gap-1 text-slate-600 shadow-2xs">
                 <Video className="w-6 h-6 text-purple-600" />
-                <p className="text-[8px] font-bold">Video Attachment Preview</p>
+                <p className="text-[8px] font-bold">Video Header Preview</p>
               </div>
             )}
 
             {/* Message Body Text */}
-            {resolvedText && (
-              <p className="text-[11px] leading-relaxed whitespace-pre-wrap break-words text-[#111b21] font-sans">
-                {resolvedText}
-              </p>
-            )}
+            <p className="text-[11px] leading-relaxed whitespace-pre-wrap break-words text-[#111b21] font-sans">
+              {resolvedBody}
+            </p>
 
-            {/* Poll Preview */}
-            {mediaType === "POLL" && (
-              <div className="bg-white/90 dark:bg-black/40 rounded-xl p-2.5 space-y-1.5 text-xs border border-emerald-300/80 shadow-2xs">
-                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 font-bold text-[11px]">
-                  <BarChart2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{pollQuestion || "Poll Question"}</span>
-                </div>
-                <div className="space-y-1 pt-0.5">
-                  {(pollOptions && pollOptions.length > 0 ? pollOptions : ["Option 1", "Option 2"]).map((opt, idx) => (
-                    <div key={idx} className="p-1.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200/60 flex items-center justify-between text-[10px] text-slate-800 dark:text-slate-200 font-medium">
-                      <div className="flex items-center gap-1.5">
-                        {pollMultiple ? <CheckSquare className="w-3 h-3 text-emerald-600" /> : <div className="w-2.5 h-2.5 rounded-full border border-slate-400" />}
-                        <span>{opt}</span>
-                      </div>
-                      <span className="text-[8px] text-slate-400">0%</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="text-[8px] text-slate-500 pt-0.5 text-right">
-                  {pollMultiple ? "Select one or more" : "Select one"}
-                </div>
-              </div>
+            {/* Footer Text */}
+            {footerText && footerText.trim() && (
+              <p className="text-[9px] text-[#667781] leading-tight pt-0.5">
+                {footerText}
+              </p>
             )}
 
             {/* Timestamp & Double Blue Tick */}
@@ -1536,10 +1577,28 @@ function WhatsAppTemplateLivePreview({
               <span>{currentTime}</span>
               <CheckCheck className="w-3 h-3 text-[#53bdeb]" />
             </div>
+
+            {/* WhatsApp Call to Action / Interactive Buttons (Rendered within bubble as official WhatsApp actions) */}
+            {Array.isArray(buttons) && buttons.length > 0 && (
+              <div className="pt-1 border-t border-emerald-300/60 -mx-2.5 -mb-2.5 divide-y divide-emerald-300/40">
+                {buttons.map((b, idx) => (
+                  <div
+                    key={idx}
+                    className="p-1.5 text-center text-[11px] font-bold text-[#00a884] hover:bg-emerald-100/50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer bg-white/40"
+                  >
+                    {b.type === "URL" && <ExternalLink className="w-3 h-3 text-[#00a884]" />}
+                    {b.type === "PHONE_NUMBER" && <PhoneCall className="w-3 h-3 text-[#00a884]" />}
+                    {b.type === "QUICK_REPLY" && <MessageSquare className="w-3 h-3 text-[#00a884]" />}
+                    <span>{b.text || `Button ${idx + 1}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
           </div>
 
           <div className="text-center text-[8px] text-slate-500 py-0.5">
-            🔒 End-to-end encrypted • WhatsApp Broadcast Engine
+            🔒 End-to-end encrypted • Official Meta WhatsApp Cloud API
           </div>
         </div>
 
