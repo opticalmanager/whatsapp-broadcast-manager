@@ -71,6 +71,7 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
   const navItems = [
     { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { label: "Campaigns", href: "/campaigns", icon: Send },
+    { label: "Inbox", href: "/inbox", icon: MessageSquare },
     { label: "Welcome Message", href: "/welcome-message", icon: Smile },
     { label: "Auto Reply", href: "/auto-reply", icon: Bot },
     { label: "Templates", href: "/templates", icon: FileText },
@@ -78,7 +79,6 @@ export function AppShell({ children, user: ssoUser }: AppShellProps) {
     { label: "Unsubscribers", href: "/unsubscribers", icon: UserX },
     { label: "Contact Segments", href: "/contact-segments", icon: Filter },
     { label: "Tools", href: "/tools", icon: Wrench },
-    { label: "Received Messages", href: "/received-messages", icon: MessageSquare },
     { label: "Setting", href: "/settings", icon: Settings },
   ];
 

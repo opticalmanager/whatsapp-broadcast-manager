@@ -154,6 +154,7 @@ export function CampaignChatWizard({
 
   // State
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
+  const [wabaConfig, setWabaConfig] = useState<{ status: string; displayPhoneNumber?: string; verifiedName?: string } | null>(null);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string>("ALL");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -191,16 +192,23 @@ export function CampaignChatWizard({
     return {};
   };
 
-  // 1. Fetch Connected WhatsApp Instances
+  // 1. Fetch Connected WhatsApp Instances & WABA Config
   const fetchInstances = async () => {
     try {
-      const res = await fetch(`${backendUrl}/api/v1/whatsapp-numbers/instances`, {
-        headers: getAuthHeaders(),
-      });
-      if (res.ok) {
-        const json = await res.json();
+      const [instRes, wabaRes] = await Promise.all([
+        fetch(`${backendUrl}/api/v1/whatsapp-numbers/instances`, { headers: getAuthHeaders() }),
+        fetch(`${backendUrl}/api/v1/waba/config`, { headers: getAuthHeaders() })
+      ]);
+      if (instRes.ok) {
+        const json = await instRes.json();
         if (json.success && Array.isArray(json.data)) {
           setInstances(json.data);
+        }
+      }
+      if (wabaRes.ok) {
+        const wabaJson = await wabaRes.json();
+        if (wabaJson.success && wabaJson.data) {
+          setWabaConfig(wabaJson.data);
         }
       }
     } catch {}
@@ -560,7 +568,11 @@ export function CampaignChatWizard({
               onChange={(e) => setSelectedInstanceId(e.target.value)}
               className="appearance-none bg-white dark:bg-slate-800 hover:bg-slate-100/80 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs py-1.5 pl-3 pr-8 rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 cursor-pointer transition-all truncate max-w-[240px]"
             >
-              <option value="ALL">All Campaign Accounts</option>
+              <option value="ALL">
+                {wabaConfig?.status === "CONNECTED"
+                  ? `⚡ Official WABA (${wabaConfig.displayPhoneNumber || wabaConfig.verifiedName || "Connected"})`
+                  : "All Campaign Accounts"}
+              </option>
               {instances.map((inst) => (
                 <option key={inst.id} value={inst.id}>
                   {inst.displayName || inst.instanceName || "Work"} ({formatPhoneDisplay(inst.phoneNumber || "") || "No number"})

@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, BadRequestException, OnModuleInit, OnModuleDestroy } from "@nestjs/common";
 import { WhatsAppSessionManagerService, IncomingResponseEvent } from "../whatsapp-session/whatsapp-session.service";
 import { DatabaseService } from "../../database/database.service";
 import { SettingsService } from "../settings/settings.service";
@@ -1081,6 +1081,149 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /**
+   * Helper to build strictly compliant Meta Cloud API template components.
+   * Rules:
+   * 1. Header: Only adds text parameter if header contains variable {{1}}. If media, requires valid http(s) URL.
+   * 2. Body: Scans body_text for {{1}}..{{N}}. If 0 variables, returns no body component! If > 0, supplies exact matching parameters.
+   * 3. Buttons: Adds URL dynamic parameter if button has {{1}}.
+   */
+  public buildWabaTemplateComponents(
+    templateDetails: any,
+    campaign: {
+      metaTemplateName?: string;
+      headerMediaUrl?: string;
+      variableMappings?: Record<string, string>;
+    },
+    rec: {
+      phone: string;
+      name?: string;
+      city?: string;
+      variables?: Record<string, any> | string;
+      [key: string]: any;
+    }
+  ): { components: any[]; error?: string } {
+    const components: any[] = [];
+    const headerType = (templateDetails?.header_type || "NONE").toUpperCase();
+    const defaultHeaderContent = campaign.headerMediaUrl || templateDetails?.header_content || templateDetails?.media_url;
+    const variableMappings = campaign.variableMappings || {};
+
+    let recVars: Record<string, any> = {};
+    if (typeof rec.variables === "string") {
+      try { recVars = JSON.parse(rec.variables); } catch { recVars = {}; }
+    } else if (rec.variables && typeof rec.variables === "object") {
+      recVars = rec.variables;
+    }
+
+    // 1. Header Component
+    if (headerType === "TEXT") {
+      const headerRaw = templateDetails?.header_content || templateDetails?.header_text || "";
+      const hasHeaderVar = /\{\{(\d+)\}\}/.test(headerRaw) || Boolean(templateDetails?.sample_values?.header_1);
+      if (hasHeaderVar) {
+        const mappedField = String(variableMappings["header_1"] || variableMappings["1"] || "name");
+        let val = "";
+        if (mappedField.startsWith("static:")) {
+          val = mappedField.replace("static:", "");
+        } else if (rec[mappedField] !== undefined) {
+          val = String(rec[mappedField]);
+        } else if (recVars[mappedField] !== undefined) {
+          val = String(recVars[mappedField]);
+        } else if (mappedField === "name") {
+          val = rec.name && !rec.name.startsWith("Recipient") ? rec.name : "Valued Customer";
+        } else {
+          val = templateDetails?.sample_values?.header_1 || "Valued Customer";
+        }
+        components.push({
+          type: "header",
+          parameters: [{ type: "text", text: val || "Valued Customer" }]
+        });
+      }
+      // If header is static text without variables (like hello_world), DO NOT push header component!
+    } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
+      const mediaUrl = recVars?.header_media_url || defaultHeaderContent;
+      if (mediaUrl && (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://"))) {
+        components.push({
+          type: "header",
+          parameters: [{
+            type: headerType.toLowerCase(),
+            [headerType.toLowerCase()]: { link: mediaUrl }
+          }]
+        });
+      } else {
+        return {
+          components: [],
+          error: `Template "${campaign.metaTemplateName || templateDetails?.title}" requires a header ${headerType.toLowerCase()} URL (e.g. image link), but none was provided.`
+        };
+      }
+    }
+
+    // 2. Body Component
+    const bodyText = templateDetails?.body_text || "";
+    const bodyMatches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
+    const uniqueBodyTokens = Array.from(
+      new Set<string>(bodyMatches.map((m: string) => m.replace(/\D/g, "")))
+    ).sort((a: string, b: string) => parseInt(a, 10) - parseInt(b, 10));
+
+    // If template body has 0 variables (e.g. hello_world or jaspers_market_image_cta_v1), DO NOT add body component!
+    if (uniqueBodyTokens.length > 0) {
+      const bodyParams: Array<{ type: "text"; text: string }> = [];
+
+      for (const tok of uniqueBodyTokens) {
+        const mappedField = String(variableMappings[tok] || (tok === "1" ? "name" : tok === "2" ? "city" : `var${tok}`));
+        let val = "";
+
+        if (mappedField.startsWith("static:")) {
+          val = mappedField.replace("static:", "");
+        } else if (mappedField === "name") {
+          val = rec.name && !rec.name.startsWith("Recipient") && rec.name !== "Customer" ? rec.name : (recVars.name || "Customer");
+        } else if (mappedField === "phone") {
+          val = rec.phone || "";
+        } else if (mappedField === "city") {
+          val = rec.city || recVars.city || "City";
+        } else if (rec[mappedField] !== undefined) {
+          val = String(rec[mappedField]);
+        } else if (recVars[mappedField] !== undefined) {
+          val = String(recVars[mappedField]);
+        } else if (recVars[tok] !== undefined) {
+          val = String(recVars[tok]);
+        } else if (templateDetails?.sample_values && templateDetails.sample_values[tok]) {
+          val = String(templateDetails.sample_values[tok]);
+        } else {
+          val = tok === "1" ? "Customer" : `Value ${tok}`;
+        }
+
+        // Meta requires parameter text to be non-empty
+        if (!val || val.trim() === "") {
+          val = (templateDetails?.sample_values && templateDetails.sample_values[tok]) || (tok === "1" ? "Customer" : `Value ${tok}`);
+        }
+
+        bodyParams.push({ type: "text", text: String(val) });
+      }
+
+      components.push({
+        type: "body",
+        parameters: bodyParams
+      });
+    }
+
+    // 3. Buttons Component (Dynamic URL parameters)
+    const rawButtons = templateDetails?.buttons;
+    const buttonsList = Array.isArray(rawButtons) ? rawButtons : (typeof rawButtons === "string" ? JSON.parse(rawButtons || "[]") : []);
+    buttonsList.forEach((btn: any, idx: number) => {
+      if (btn.type === "URL" && (btn.url?.includes("{{1}}") || btn.url?.includes("{{url_1}}"))) {
+        const btnVal = variableMappings[`button_${idx}`] || recVars[`button_${idx}`] || "1";
+        components.push({
+          type: "button",
+          sub_type: "url",
+          index: idx,
+          parameters: [{ type: "text", text: String(btnVal) }]
+        });
+      }
+    });
+
+    return { components };
+  }
+
   async retryRecipient(orgId: string, campaignId: string, recipientId: string) {
     const cmp = this.findOne(orgId, campaignId);
     const rec = (cmp.recipients || []).find((r) => r.id === recipientId || r.phone === recipientId);
@@ -1093,37 +1236,103 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
     this.saveToDisk();
 
     try {
-      const activeNumberId = cmp.whatsappNumberId || this.baileysService.getActiveSessionNumberId(cmp.organizationId);
-      const sendRes = await this.baileysService.sendBroadcastMessage({
-        numberId: activeNumberId,
-        orgId: cmp.organizationId,
-        recipientPhoneNumber: rec.phone,
-        text: cmp.messageText || "Campaign Broadcast",
-        mediaUrl: cmp.mediaUrl,
-        pollData: (cmp as any).pollData || ((cmp as any).pollQuestion ? { question: (cmp as any).pollQuestion, options: (cmp as any).pollOptions } : undefined),
-        actionButtons: (cmp as any).actionButtons || (cmp as any).buttons,
-        menuData: (cmp as any).menuData,
-      });
+      const isWaba = cmp.channelType === "WABA" || Boolean(cmp.metaTemplateName);
 
-      if (sendRes.success) {
-        rec.status = "DELIVERED";
-        rec.messageId = sendRes.messageId;
-        rec.deliveredAt = new Date();
-        rec.sentAt = rec.sentAt || new Date();
-        rec.errorMessage = undefined;
+      if (isWaba) {
+        const wabaConfig = await this.wabaService.getConfig(cmp.organizationId);
+        if (!wabaConfig || !wabaConfig.phoneNumberId || !wabaConfig.accessToken) {
+          throw new BadRequestException("WABA credentials not configured. Please check Settings.");
+        }
 
-        this.db.sql`
-          UPDATE campaign_recipients 
-          SET status = 'DELIVERED', message_id = ${sendRes.messageId || null}, delivered_at = NOW(), error_message = NULL
-          WHERE id = ${rec.id} OR (campaign_id = ${cmp.id} AND phone = ${rec.phone})
-        `.catch(() => {});
+        let templateDetails: any = null;
+        if (cmp.templateId && cmp.templateId !== "tpl-custom") {
+          try {
+            const tplRows = await this.db.sql`
+              SELECT * FROM broadcast_templates 
+              WHERE id = ${cmp.templateId} AND (organization_id = ${cmp.organizationId} OR organization_id = 'system')
+              LIMIT 1
+            `;
+            if (tplRows && tplRows.length > 0) templateDetails = tplRows[0];
+          } catch {}
+        }
+
+        const metaTemplateName = cmp.metaTemplateName || templateDetails?.meta_template_name;
+        if (!metaTemplateName) {
+          throw new BadRequestException("No Meta template specified for WABA retry.");
+        }
+        const metaLang = cmp.metaTemplateLanguage || templateDetails?.language || "en_US";
+
+        const { components, error: compErr } = this.buildWabaTemplateComponents(templateDetails, cmp, rec);
+        if (compErr) {
+          throw new BadRequestException(compErr);
+        }
+
+        const sendRes = await this.wabaService.sendTemplateMessage(
+          cmp.organizationId,
+          rec.phone,
+          metaTemplateName,
+          metaLang,
+          components
+        );
+
+        if (sendRes.success && sendRes.messageId) {
+          rec.status = "SENT";
+          rec.messageId = sendRes.messageId;
+          rec.sentAt = new Date();
+          rec.errorMessage = undefined;
+
+          await this.db.sql`
+            UPDATE campaign_recipients 
+            SET status = 'SENT', message_id = ${sendRes.messageId}, sent_at = NOW(), error_message = NULL
+            WHERE id = ${rec.id} OR (campaign_id = ${cmp.id} AND phone = ${rec.phone})
+          `.catch(() => {});
+        } else {
+          rec.status = "FAILED";
+          rec.errorMessage = sendRes.error || "Meta Cloud API retry failed";
+          await this.db.sql`
+            UPDATE campaign_recipients 
+            SET status = 'FAILED', error_message = ${rec.errorMessage}
+            WHERE id = ${rec.id} OR (campaign_id = ${cmp.id} AND phone = ${rec.phone})
+          `.catch(() => {});
+        }
       } else {
-        rec.status = "FAILED";
-        rec.errorMessage = "Dispatch failed";
+        const activeNumberId = cmp.whatsappNumberId || this.baileysService.getActiveSessionNumberId(cmp.organizationId);
+        const sendRes = await this.baileysService.sendBroadcastMessage({
+          numberId: activeNumberId,
+          orgId: cmp.organizationId,
+          recipientPhoneNumber: rec.phone,
+          text: cmp.messageText || "Campaign Broadcast",
+          mediaUrl: cmp.mediaUrl,
+          pollData: (cmp as any).pollData || ((cmp as any).pollQuestion ? { question: (cmp as any).pollQuestion, options: (cmp as any).pollOptions } : undefined),
+          actionButtons: (cmp as any).actionButtons || (cmp as any).buttons,
+          menuData: (cmp as any).menuData,
+        });
+
+        if (sendRes.success) {
+          rec.status = "DELIVERED";
+          rec.messageId = sendRes.messageId;
+          rec.deliveredAt = new Date();
+          rec.sentAt = rec.sentAt || new Date();
+          rec.errorMessage = undefined;
+
+          await this.db.sql`
+            UPDATE campaign_recipients 
+            SET status = 'DELIVERED', message_id = ${sendRes.messageId || null}, delivered_at = NOW(), error_message = NULL
+            WHERE id = ${rec.id} OR (campaign_id = ${cmp.id} AND phone = ${rec.phone})
+          `.catch(() => {});
+        } else {
+          rec.status = "FAILED";
+          rec.errorMessage = "Dispatch failed";
+        }
       }
     } catch (err: any) {
       rec.status = "FAILED";
       rec.errorMessage = err.message || "Retry send failed";
+      await this.db.sql`
+        UPDATE campaign_recipients 
+        SET status = 'FAILED', error_message = ${rec.errorMessage}
+        WHERE id = ${rec.id} OR (campaign_id = ${cmp.id} AND phone = ${rec.phone})
+      `.catch(() => {});
     }
 
     cmp.sentCount = (cmp.recipients || []).filter(r => ["SENT", "DELIVERED", "READ"].includes(r.status)).length;
@@ -1404,69 +1613,21 @@ export class CampaignsService implements OnModuleInit, OnModuleDestroy {
           return;
         }
 
-        // Parse recipient variables if string
-        let recVars = rec.variables;
-        if (typeof recVars === "string") {
-          try { recVars = JSON.parse(recVars); } catch { recVars = {}; }
-        }
-
-        // Build Meta components array
-        const components: any[] = [];
-
-        // 1. Header Component
-        if (headerType === "TEXT" && defaultHeaderContent) {
-          components.push({
-            type: "header",
-            parameters: [{ type: "text", text: defaultHeaderContent }]
-          });
-        } else if (["IMAGE", "VIDEO", "DOCUMENT"].includes(headerType)) {
-          const mediaUrl = recVars?.header_media_url || defaultHeaderContent;
-          if (mediaUrl && mediaUrl.startsWith("http")) {
-            components.push({
-              type: "header",
-              parameters: [{
-                type: headerType.toLowerCase(),
-                [headerType.toLowerCase()]: { link: mediaUrl }
-              }]
-            });
+        // Build Meta components array with strict parameter matching
+        const { components, error: compErr } = this.buildWabaTemplateComponents(templateDetails, campaign, rec);
+        if (compErr) {
+          await this.db.sql`
+            UPDATE campaign_recipients
+            SET status = 'FAILED', error_message = ${compErr}
+            WHERE id = ${rec.id}
+          `;
+          campaign.failedCount = (campaign.failedCount || 0) + 1;
+          const target = (campaign.recipients || []).find((r: any) => r.id === rec.id);
+          if (target) {
+            target.status = "FAILED";
+            target.errorMessage = compErr;
           }
-        }
-
-        // 2. Body Component with positional parameters {{1}}, {{2}}, ...
-        const bodyParams: Array<{ type: "text"; text: string }> = [];
-        const paramKeys = Object.keys(variableMappings)
-          .filter(k => /^\d+$/.test(k))
-          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-
-        if (paramKeys.length > 0) {
-          for (const k of paramKeys) {
-            const mappedField = variableMappings[k];
-            let val = "";
-            if (rec[mappedField] !== undefined) {
-              val = String(rec[mappedField]);
-            } else if (recVars && recVars[mappedField] !== undefined) {
-              val = String(recVars[mappedField]);
-            } else if (recVars && recVars[k] !== undefined) {
-              val = String(recVars[k]);
-            } else {
-              val = mappedField; // Static text constant
-            }
-            bodyParams.push({ type: "text", text: val || `Val ${k}` });
-          }
-        } else if (recVars && typeof recVars === "object") {
-          const recKeys = Object.keys(recVars)
-            .filter(k => /^\d+$/.test(k))
-            .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-          for (const k of recKeys) {
-            bodyParams.push({ type: "text", text: String(recVars[k] || "") });
-          }
-        }
-
-        if (bodyParams.length > 0) {
-          components.push({
-            type: "body",
-            parameters: bodyParams
-          });
+          return;
         }
 
         // Send via Meta Cloud API

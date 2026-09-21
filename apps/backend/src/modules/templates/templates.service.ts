@@ -647,7 +647,11 @@ export class TemplatesService implements OnModuleInit {
 
     const res = await this.wabaService.getMetaTemplates(orgId);
     if (!res.success || !Array.isArray(res.data)) {
-      throw new BadRequestException(res.error || "Failed to fetch templates from Meta Cloud API.");
+      const isExpired = (res as any).isTokenExpired;
+      const errMsg = isExpired
+        ? "Meta Access Token has expired (Error 190). Please generate a Permanent System User Token in Meta Business Settings (never-expiring) and update it in Settings → Official API (WABA)."
+        : res.error || "Failed to fetch templates from Meta Cloud API. Please check your WABA credentials in Settings.";
+      throw new BadRequestException(errMsg);
     }
 
     let syncedCount = 0;

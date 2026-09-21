@@ -64,10 +64,41 @@ export class ChatController {
       quotedMessageId?: string;
       quotedContent?: string;
       quotedSender?: string;
+      contactName?: string;
     }
   ) {
     const result = await this.chatService.sendMessage(orgId, body);
     return result;
+  }
+
+  @Post("send-template")
+  async sendTemplate(
+    @CurrentOrg() orgId: string,
+    @Body()
+    body: {
+      phone: string;
+      templateName: string;
+      languageCode?: string;
+      components?: any[];
+      contactName?: string;
+      instanceId?: string;
+    }
+  ) {
+    const result = await this.chatService.sendTemplateMessage(orgId, body);
+    return result;
+  }
+
+  @Post("conversations/initiate")
+  async initiateConversation(
+    @CurrentOrg() orgId: string,
+    @Body()
+    body: {
+      phone: string;
+      contactName?: string;
+    }
+  ) {
+    const result = await this.chatService.initiateConversation(orgId, body.phone, body.contactName);
+    return { success: true, data: result };
   }
 
   @Post("conversations/:id/mark-read")

@@ -883,6 +883,15 @@ function CampaignsStudioInner() {
       }
     }
 
+    // Validate that media header URL is provided if template requires media
+    if (selectedMetaTemplate) {
+      const hType = (selectedMetaTemplate.headerType || "").toUpperCase();
+      if (["IMAGE", "VIDEO", "DOCUMENT"].includes(hType) && !metaHeaderMediaUrl.trim()) {
+        toast.error(`Please provide or upload a header ${hType.toLowerCase()} URL for template "${selectedMetaTemplate.title}". Meta Cloud API requires a media asset for this template.`);
+        return;
+      }
+    }
+
     try {
       setSending(true);
       const headers = { ...getAuthHeaders(), "Content-Type": "application/json" };

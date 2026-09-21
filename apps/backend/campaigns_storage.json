@@ -1,5 +1,72 @@
 [
   {
+    "id": "cmp-1789988124443",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "num-org-f7c9",
+    "name": "Campaign 09/21, 04:25 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-21T10:55:24.443Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 1,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1789988124434",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "messageId": "wamid.HBgMOTE4MTc4OTYyMzY2FQIAERgSRDk3ODQxRkVCREMwNDQ0ODc4AA==",
+        "status": "SENT",
+        "sentAt": "2026-09-21T11:34:58.327Z"
+      }
+    ],
+    "messageText": "",
+    "mediaUrl": null,
+    "createdAt": "2026-09-21T10:55:27.435Z",
+    "contentType": "text",
+    "channelType": "WABA",
+    "metaTemplateName": "hello_world",
+    "metaTemplateLanguage": "en_US",
+    "variableMappings": {},
+    "messageType": "Text"
+  },
+  {
+    "id": "cmp-1789987852956",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "num-org-f7c9",
+    "name": "Campaign 09/21, 04:19 PM",
+    "targetAudienceType": "Paste",
+    "scheduledAt": "2026-09-21T10:50:52.956Z",
+    "status": "COMPLETED",
+    "totalRecipients": 1,
+    "sentCount": 0,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 1,
+    "recipients": [
+      {
+        "id": "pst_0_1789987851222",
+        "phone": "918130638354",
+        "name": "Recipient 1",
+        "status": "FAILED",
+        "errorMessage": "(#132012) Parameter format does not match format in the created template"
+      }
+    ],
+    "messageText": "",
+    "mediaUrl": null,
+    "createdAt": "2026-09-21T10:50:57.889Z",
+    "contentType": "text",
+    "channelType": "WABA",
+    "metaTemplateName": "jaspers_market_image_cta_v1",
+    "metaTemplateLanguage": "en_US",
+    "variableMappings": {},
+    "messageType": "Text"
+  },
+  {
     "id": "cmp-1789807753930",
     "organizationId": "org-68ff663e674769f3",
     "shopId": "shop-main",
@@ -60,8 +127,8 @@
         "sentAt": "2026-09-19T08:57:30.999Z",
         "deliveredAt": "2026-09-19T08:57:30.999Z",
         "readAt": "2026-09-19T09:05:23.378Z",
-        "replyText": "1595983261979645",
-        "repliedAt": "2026-09-19T18:53:21.864Z"
+        "replyText": "MINM 15 MIN TO MAN KE CHAL",
+        "repliedAt": "2026-09-19T19:03:04.653Z"
       }
     ],
     "messageText": "{Hello|Hi|Hey|Dear} whatsapp",
@@ -4222,5 +4289,63 @@
     ],
     "messageText": "Hello {{customer_name}},\n\nExclusive Festival Offer from {{shop_name}}! Upgrade your eyewear this season with 20% OFF on premium prescription lenses & frames.\n\nUse code {{voucher_code}} at checkout!",
     "createdAt": "2026-08-29T14:36:36.661Z"
+  },
+  {
+    "id": "cmp-1789990667817",
+    "organizationId": "org-f7c924751158c061",
+    "shopId": "shop-main",
+    "whatsappNumberId": "num-org-f7c9",
+    "templateId": "tpl_mub4foef_2e37e7",
+    "name": "Campaign 09/21, 05:05 PM",
+    "targetAudienceType": "Paste",
+    "audienceNames": [
+      "Selected Audiences"
+    ],
+    "scheduledAt": "2026-09-21T11:37:47.815Z",
+    "status": "COMPLETED",
+    "totalRecipients": 2,
+    "sentCount": 2,
+    "deliveredCount": 0,
+    "readCount": 0,
+    "failedCount": 0,
+    "recipients": [
+      {
+        "id": "pst_0_1789990667796",
+        "phone": "918178962366",
+        "name": "Recipient 1",
+        "status": "SENT",
+        "variables": {
+          "name": "Recipient 1",
+          "customer_name": "Recipient 1"
+        },
+        "messageId": "wamid.HBgMOTE4MTc4OTYyMzY2FQIAERgSQzY0N0M1N0UwMzI0NzFBRTJGAA==",
+        "sentAt": "2026-09-21T11:37:53.347Z"
+      },
+      {
+        "id": "pst_1_1789990667796",
+        "phone": "918130638354",
+        "name": "Recipient 2",
+        "status": "SENT",
+        "variables": {
+          "name": "Recipient 2",
+          "customer_name": "Recipient 2"
+        },
+        "messageId": "wamid.HBgMOTE4MTMwNjM4MzU0FQIAERgSMkM5NjE2MzBGRDIwQTM2RUM5AA==",
+        "sentAt": "2026-09-21T11:37:55.169Z"
+      }
+    ],
+    "createdAt": "2026-09-21T11:37:47.817Z",
+    "warmupRamp": false,
+    "batchSize": 0,
+    "batchPause": 60,
+    "sendFromInstances": [],
+    "textWithMediaMode": "caption",
+    "contentType": "text",
+    "messageType": "Text",
+    "channelType": "WABA",
+    "metaTemplateName": "jaspers_market_image_cta_v1",
+    "metaTemplateLanguage": "en_US",
+    "variableMappings": {},
+    "headerMediaUrl": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-sfM2ByRp_LCl4uV28AFtYlFZnqGv-2GhHdc9ReqZ8w&s=10"
   }
 ]

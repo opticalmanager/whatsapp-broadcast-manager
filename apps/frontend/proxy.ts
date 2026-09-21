@@ -18,6 +18,7 @@ const PROTECTED_ROUTES = [
   "/report",
   "/analytics",
   "/received-messages",
+  "/inbox",
   "/settings",
   "/audiences",
   "/media",
@@ -26,12 +27,15 @@ const PROTECTED_ROUTES = [
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 1. Route Aliases & Deprecated Baileys Redirects
+  // 1. Route Aliases & Deprecated Redirects
   if (pathname === "/app") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
   if (pathname === "/devices" || pathname === "/numbers") {
     return NextResponse.redirect(new URL("/settings", request.url));
+  }
+  if (pathname === "/received-messages") {
+    return NextResponse.redirect(new URL("/inbox", request.url));
   }
 
   // 2. Check if route is protected

@@ -215,9 +215,14 @@ export default function WhatsAppTemplatesPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedStatus, setSelectedStatus] = useState<MetaStatusFilter>("ALL");
 
+  // WABA connection state
+  const [wabaConnected, setWabaConnected] = useState<boolean>(false);
+  const [wabaChecked, setWabaChecked] = useState<boolean>(false);
+
   // Syncing and Submitting States
   const [syncingMeta, setSyncingMeta] = useState(false);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [lastSyncCount, setLastSyncCount] = useState<number | null>(null);
 
   // Modal State
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -243,8 +248,49 @@ export default function WhatsAppTemplatesPage() {
     }
   }, []);
 
+  // Check WABA connection on mount
   useEffect(() => {
-    fetchTemplates();
+    async function checkWabaAndLoad() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/v1/waba/config`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          const isConnected = json.success && json.data?.status === "CONNECTED";
+          setWabaConnected(isConnected);
+          setWabaChecked(true);
+
+          // Auto-sync from Meta on first load if WABA is connected
+          if (isConnected) {
+            await fetchTemplates();
+            // Silently attempt background sync to get latest approved templates
+            try {
+              const syncRes = await fetch(`${BACKEND_URL}/api/v1/templates/sync-from-meta`, {
+                method: "POST",
+                headers: getAuthHeaders(),
+              });
+              const syncJson = await syncRes.json();
+              if (syncRes.ok && syncJson.success && syncJson.count > 0) {
+                setLastSyncCount(syncJson.count);
+                await fetchTemplates(); // Re-fetch after sync
+              }
+            } catch {
+              // Silent background sync failure — don't show error to user
+            }
+          } else {
+            await fetchTemplates();
+          }
+        } else {
+          setWabaChecked(true);
+          await fetchTemplates();
+        }
+      } catch {
+        setWabaChecked(true);
+        await fetchTemplates();
+      }
+    }
+    checkWabaAndLoad();
   }, [fetchTemplates]);
 
   // 1-Click Sync Templates from Meta Cloud API
@@ -257,12 +303,26 @@ export default function WhatsAppTemplatesPage() {
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        toast.success(json.message || `Synchronized ${json.count || 0} templates from Meta!`);
+        const count = json.count || 0;
+        setLastSyncCount(count);
+        toast.success(json.message || `Synchronized ${count} templates from Meta!`);
         fetchTemplates();
       } else {
-        toast.error(json.message || "Failed to sync templates from Meta. Please check WABA credentials in Settings.");
+        const msg = json.message || "Failed to sync templates from Meta.";
+        // Check if it's a token expiry issue and prompt user
+        if (msg.includes("190") || msg.toLowerCase().includes("expired") || msg.toLowerCase().includes("token")) {
+          toast.error(msg, {
+            duration: 8000,
+            action: {
+              label: "Go to Settings",
+              onClick: () => router.push("/settings#waba"),
+            },
+          });
+        } else {
+          toast.error(msg);
+        }
       }
-    } catch (err: any) {
+    } catch {
       toast.error("Network error while syncing templates from Meta.");
     } finally {
       setSyncingMeta(false);
@@ -365,6 +425,12 @@ export default function WhatsAppTemplatesPage() {
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/50">
               {templates.length} Templates
             </span>
+            {lastSyncCount !== null && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/50 flex items-center gap-1">
+                <RefreshCw className="w-2.5 h-2.5" />
+                {lastSyncCount} synced from Meta
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Create, test, and submit official WhatsApp Cloud API templates to Meta for instant verification. Sync existing templates in 1-click.
@@ -376,11 +442,15 @@ export default function WhatsAppTemplatesPage() {
           <button
             onClick={handleSyncFromMeta}
             disabled={syncingMeta}
-            className="px-3.5 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-emerald-500 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer flex items-center gap-2 shadow-2xs transition-all disabled:opacity-50"
+            className={`px-3.5 py-2.5 rounded-xl border text-xs font-bold cursor-pointer flex items-center gap-2 shadow-2xs transition-all disabled:opacity-50 ${
+              wabaConnected
+                ? "bg-emerald-600 hover:bg-emerald-500 border-emerald-600 text-white"
+                : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-emerald-500 text-slate-700 dark:text-slate-300"
+            }`}
             title="Fetch all verified templates directly from your Meta Business account"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${syncingMeta ? "animate-spin" : ""}`} />
-            <span>{syncingMeta ? "Syncing..." : "Sync from Meta"}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingMeta ? "animate-spin" : ""} ${wabaConnected ? "text-white" : "text-emerald-600"}`} />
+            <span>{syncingMeta ? "Syncing from Meta..." : "Sync from Meta"}</span>
           </button>
 
           <button
@@ -388,13 +458,44 @@ export default function WhatsAppTemplatesPage() {
               setEditingTemplate(null);
               setIsEditorOpen(true);
             }}
-            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold border-none cursor-pointer flex items-center gap-2 shadow-sm transition-all shrink-0"
+            className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white hover:bg-slate-700 dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs font-bold border-none cursor-pointer flex items-center gap-2 shadow-sm transition-all shrink-0"
           >
             <Plus className="w-4 h-4" />
-            <span>New Meta Template</span>
+            <span>New Template</span>
           </button>
         </div>
       </div>
+
+      {/* WABA Auto-Sync Info Banner */}
+      {wabaChecked && wabaConnected && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/50 rounded-xl text-xs shrink-0">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+          <span className="text-emerald-800 dark:text-emerald-300 font-medium">
+            <strong>WABA Connected</strong> — Your approved Meta templates are automatically synced from your connected account. Click <strong>Sync from Meta</strong> anytime to pull the latest templates.
+          </span>
+          <button
+            onClick={handleSyncFromMeta}
+            disabled={syncingMeta}
+            className="ml-auto px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] shrink-0 cursor-pointer flex items-center gap-1 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3 h-3 ${syncingMeta ? "animate-spin" : ""}`} />
+            <span>{syncingMeta ? "Syncing..." : "Sync Now"}</span>
+          </button>
+        </div>
+      )}
+      {wabaChecked && !wabaConnected && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs shrink-0">
+          <span className="text-amber-800 dark:text-amber-300 font-medium flex-1">
+            ⚠️ <strong>WABA Not Connected</strong> — Connect your Meta WhatsApp Business Account in Settings to auto-import your approved templates.
+          </span>
+          <button
+            onClick={() => router.push("/settings")}
+            className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shrink-0 cursor-pointer"
+          >
+            Connect in Settings →
+          </button>
+        </div>
+      )}
 
       {/* 2. CONTROLS BAR: SEARCH, STATUS TABS & CATEGORY PILLS */}
       <div className="space-y-3 shrink-0">

@@ -329,7 +329,12 @@ export class WabaService {
   /**
    * Send standard text message via Meta Cloud API (24h customer care window)
    */
-  async sendTextMessage(orgId: string, to: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendTextMessage(
+    orgId: string,
+    to: string,
+    text: string,
+    contextMessageId?: string
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const cfg = await this.getConfig(orgId);
     if (!cfg || !cfg.phoneNumberId || !cfg.accessToken) {
       throw new BadRequestException("WABA credentials not configured for this organization.");
@@ -338,6 +343,21 @@ export class WabaService {
     const cleanPhone = to.replace(/\D/g, "");
     const endpoint = `${this.GRAPH_API_BASE}/${cfg.phoneNumberId}/messages`;
 
+    const payload: any = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: cleanPhone,
+      type: "text",
+      text: {
+        preview_url: false,
+        body: text,
+      },
+    };
+
+    if (contextMessageId && contextMessageId.startsWith("wamid.")) {
+      payload.context = { message_id: contextMessageId };
+    }
+
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -345,16 +365,7 @@ export class WabaService {
           Authorization: `Bearer ${cfg.accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: cleanPhone,
-          type: "text",
-          text: {
-            preview_url: false,
-            body: text,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -432,7 +443,8 @@ export class WabaService {
     mediaType: "image" | "video" | "document" | "audio",
     mediaUrl: string,
     caption?: string,
-    fileName?: string
+    fileName?: string,
+    contextMessageId?: string
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     const cfg = await this.getConfig(orgId);
     if (!cfg || !cfg.phoneNumberId || !cfg.accessToken) {
@@ -450,6 +462,18 @@ export class WabaService {
       mediaPayload.filename = fileName;
     }
 
+    const payload: any = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: cleanPhone,
+      type: mediaType,
+      [mediaType]: mediaPayload,
+    };
+
+    if (contextMessageId && contextMessageId.startsWith("wamid.")) {
+      payload.context = { message_id: contextMessageId };
+    }
+
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -457,13 +481,7 @@ export class WabaService {
           Authorization: `Bearer ${cfg.accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: cleanPhone,
-          type: mediaType,
-          [mediaType]: mediaPayload,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -677,13 +695,15 @@ export class WabaService {
   /**
    * Get all templates from Meta Cloud API
    */
-  async getMetaTemplates(orgId: string): Promise<{ success: boolean; data?: any[]; error?: string }> {
+  async getMetaTemplates(orgId: string): Promise<{ success: boolean; data?: any[]; error?: string; isTokenExpired?: boolean }> {
     const cfg = await this.getConfig(orgId);
     if (!cfg || !cfg.wabaId || !cfg.accessToken) {
       throw new BadRequestException("WABA credentials (WABA ID & Access Token) not configured.");
     }
 
-    const endpoint = `${this.GRAPH_API_BASE}/${cfg.wabaId}/message_templates?limit=100`;
+    // Fetch all templates with full component fields — required to get body/header/footer/buttons
+    const fields = "id,name,status,category,language,components";
+    const endpoint = `${this.GRAPH_API_BASE}/${cfg.wabaId}/message_templates?limit=250&fields=${fields}`;
 
     try {
       const res = await fetch(endpoint, {
@@ -696,13 +716,34 @@ export class WabaService {
 
       const json = await res.json();
       if (!res.ok || json.error) {
+        const errCode = json.error?.code;
         const errMsg = json.error?.message || `Meta API Error (${res.status})`;
-        return { success: false, error: errMsg };
+        const isTokenExpired = errCode === 190 || errMsg.toLowerCase().includes("session has expired") || errMsg.toLowerCase().includes("error validating access token");
+        this.logger.warn(`getMetaTemplates failed for org ${orgId}: [${errCode}] ${errMsg}`);
+        return { success: false, error: errMsg, isTokenExpired };
       }
 
+      // Collect all pages (Meta paginates at 250 per page)
+      let allTemplates: any[] = Array.isArray(json.data) ? json.data : [];
+      let nextCursor = json.paging?.cursors?.after;
+      let hasNextPage = Boolean(json.paging?.next);
+
+      while (hasNextPage && nextCursor && allTemplates.length < 2000) {
+        const pageEndpoint = `${this.GRAPH_API_BASE}/${cfg.wabaId}/message_templates?limit=250&fields=${fields}&after=${nextCursor}`;
+        const pageRes = await fetch(pageEndpoint, {
+          headers: { Authorization: `Bearer ${cfg.accessToken}` },
+        });
+        const pageJson = await pageRes.json();
+        if (!pageRes.ok || pageJson.error) break;
+        if (Array.isArray(pageJson.data)) allTemplates = allTemplates.concat(pageJson.data);
+        nextCursor = pageJson.paging?.cursors?.after;
+        hasNextPage = Boolean(pageJson.paging?.next);
+      }
+
+      this.logger.log(`Fetched ${allTemplates.length} total templates from Meta for org ${orgId}`);
       return {
         success: true,
-        data: Array.isArray(json.data) ? json.data : [],
+        data: allTemplates,
       };
     } catch (err: any) {
       this.logger.error(`Error fetching Meta templates: ${err.message}`);
@@ -762,6 +803,19 @@ export class WabaService {
     this.logger.log(`[Meta Webhook Status] Msg ${wamid} -> ${metaStatus.toUpperCase()} (Phone: ${recipientPhone})`);
 
     try {
+      // Also synchronize delivery/read status to 1-on-1 chat_messages table
+      const mappedChatStatus = metaStatus === "delivered" ? "DELIVERED" : metaStatus === "read" ? "READ" : metaStatus === "failed" ? "FAILED" : metaStatus === "sent" ? "SENT" : null;
+      if (mappedChatStatus && wamid) {
+        await this.db.sql`
+          UPDATE public.chat_messages
+          SET 
+            status = ${mappedChatStatus},
+            delivered_at = CASE WHEN ${mappedChatStatus} IN ('DELIVERED', 'READ') THEN COALESCE(delivered_at, ${eventTime.toISOString()}::timestamptz) ELSE delivered_at END,
+            read_at = CASE WHEN ${mappedChatStatus} = 'READ' THEN COALESCE(read_at, ${eventTime.toISOString()}::timestamptz) ELSE read_at END
+          WHERE message_id = ${wamid}
+        `.catch(() => {});
+      }
+
       if (metaStatus === "delivered") {
         await this.db.sql`
           UPDATE public.campaign_recipients
@@ -877,27 +931,41 @@ export class WabaService {
 
       // 1. Save to chat_messages table with organization isolation
       const msgId = `waba_msg_${msg.id || Date.now()}`;
-      if (targetOrgId) {
-        await this.db.sql`
-          INSERT INTO public.chat_messages (
-            id, organization_id, phone, sender_name, content, message_type, direction, created_at
-          ) VALUES (
-            ${msgId}, ${targetOrgId}, ${rawFrom}, ${senderName}, ${content}, ${msgType.toUpperCase()}, 'INCOMING', ${eventTime.toISOString()}::timestamptz
-          )
-          ON CONFLICT (id) DO NOTHING
-        `;
-      } else {
-        await this.db.sql`
-          INSERT INTO public.chat_messages (
-            id, phone, sender_name, content, message_type, direction, created_at
-          ) VALUES (
-            ${msgId}, ${rawFrom}, ${senderName}, ${content}, ${msgType.toUpperCase()}, 'INCOMING', ${eventTime.toISOString()}::timestamptz
-          )
-          ON CONFLICT (id) DO NOTHING
-        `;
-      }
+      const effectiveOrgId = targetOrgId || "org-demo";
+      const conversationId = `conv_${effectiveOrgId}_${cleanPhone10}`;
 
-      // 2. Mark corresponding campaign recipient as READ and record reply within this organization
+      await this.db.sql`
+        INSERT INTO public.chat_messages (
+          id, conversation_id, organization_id, instance_id, phone, message_id, sender_name, content, message_type, direction, status, created_at
+        ) VALUES (
+          ${msgId}, ${conversationId}, ${effectiveOrgId}, ${phoneId || 'waba-cloud'}, ${rawFrom}, ${msg.id || null}, ${senderName}, ${content}, ${msgType.toUpperCase()}, 'INCOMING', 'DELIVERED', ${eventTime.toISOString()}::timestamptz
+        )
+        ON CONFLICT (id) DO NOTHING
+      `;
+
+      // 2. Upsert Conversation in chat_conversations
+      await this.db.sql`
+        INSERT INTO public.chat_conversations (
+          id, organization_id, instance_id, phone, contact_name,
+          last_message, last_message_at, last_message_type, last_message_direction,
+          unread_count, status, created_at, updated_at
+        ) VALUES (
+          ${conversationId}, ${effectiveOrgId}, ${phoneId || 'waba-cloud'}, ${rawFrom}, ${senderName},
+          ${content}, ${eventTime.toISOString()}::timestamptz, ${msgType.toUpperCase()}, 'INCOMING',
+          1, 'AWAITING_REPLY', ${eventTime.toISOString()}::timestamptz, ${eventTime.toISOString()}::timestamptz
+        )
+        ON CONFLICT (id) DO UPDATE SET
+          last_message = EXCLUDED.last_message,
+          last_message_at = EXCLUDED.last_message_at,
+          last_message_type = EXCLUDED.last_message_type,
+          last_message_direction = 'INCOMING',
+          unread_count = public.chat_conversations.unread_count + 1,
+          status = 'AWAITING_REPLY',
+          contact_name = COALESCE(EXCLUDED.contact_name, public.chat_conversations.contact_name),
+          updated_at = NOW()
+      `;
+
+      // 3. Mark corresponding campaign recipient as READ and record reply within this organization
       if (targetOrgId) {
         await this.db.sql`
           UPDATE public.campaign_recipients cr
